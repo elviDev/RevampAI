@@ -6,6 +6,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { useDispatch } from 'react-redux';
 import Animated, {
@@ -34,6 +35,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   });
   const [errors, setErrors] = useState<Partial<LoginCredentials>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(50);
@@ -92,14 +94,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
   const handleGoogleSignIn = async () => {
     try {
-      setIsLoading(true);
+      setIsGoogleLoading(true);
       // Simulate Google sign in
       await new Promise(resolve => setTimeout(resolve, 1500));
-      navigation.replace('Dashboard');
+      
+      // Dispatch login success action instead of navigating manually
+      dispatch(loginSuccess({ 
+        id: '1', 
+        email: 'user@gmail.com', 
+        fullName: 'Google User',
+        role: 'member' as const
+      }));
     } catch (error) {
       console.error('Google sign in error:', error);
+      dispatch(loginFailure('Google sign in failed. Please try again.'));
     } finally {
-      setIsLoading(false);
+      setIsGoogleLoading(false);
     }
   };
 
@@ -158,6 +168,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 title="Sign In"
                 onPress={handleLogin}
                 loading={isLoading}
+                disabled={isLoading || isGoogleLoading}
                 style={{ marginBottom: 16 }}
               />
 
@@ -171,7 +182,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   borderColor: Colors.gray[300],
                 }}
                 textStyle={{ color: Colors.text.primary }}
-                loading={isLoading}
+                loading={isGoogleLoading}
+                disabled={isLoading || isGoogleLoading}
+                icon={
+                  <Image
+                    source={require('../../assets/icons/google.png')}
+                    style={{ width: 20, height: 20, marginRight: 8 }}
+                    resizeMode="contain"
+                  />
+                }
               />
 
               {/* Create Account Link */}

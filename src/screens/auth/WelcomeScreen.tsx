@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { useDispatch } from 'react-redux';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -12,12 +13,17 @@ import { CurvedBackground } from '../../components/common/CurvedBackground/Curve
 import { Button } from '../../components/common/Botton';
 import { VoiceButton } from '../../components/voice/VoiceButton';
 import { Colors } from '../../utils/colors';
+import { loginSuccess, loginFailure } from '../../store/slices/authSlice';
+import type { AppDispatch } from '../../store/store';
 
 interface WelcomeScreenProps {
   navigation: any;
 }
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
+  const dispatch = useDispatch<AppDispatch>();
+  const [isLoading, setIsLoading] = useState(false);
+  
   const logoScale = useSharedValue(0);
   const textOpacity = useSharedValue(0);
   const buttonOpacity = useSharedValue(0);
@@ -61,6 +67,27 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
 
   const handleGetStarted = () => {
     navigation.navigate('Login');
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsLoading(true);
+      // Simulate Google sign in
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Dispatch login success action
+      dispatch(loginSuccess({ 
+        id: '1', 
+        email: 'user@gmail.com', 
+        fullName: 'Google User',
+        role: 'member' as const
+      }));
+    } catch (error) {
+      console.error('Google sign in error:', error);
+      dispatch(loginFailure('Google sign in failed. Please try again.'));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleVoiceCommand = () => {
@@ -183,8 +210,16 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
           
           <Button
             title="Sign In with Google"
-            onPress={handleGetStarted}
+            onPress={handleGoogleSignIn}
+            loading={isLoading}
             style={{ marginBottom: 16 }}
+            icon={
+              <Image
+                source={require('../../assets/icons/google.png')}
+                style={{ width: 20, height: 20, marginRight: 8 }}
+                resizeMode="contain"
+              />
+            }
           />
 
           <TouchableOpacity
