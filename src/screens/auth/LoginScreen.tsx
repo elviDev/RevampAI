@@ -172,26 +172,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 style={{ marginBottom: 16 }}
               />
 
-              {/* Sign In with Google */}
-              <Button
-                title="Sign In with Google"
-                onPress={handleGoogleSignIn}
-                variant="outline"
-                style={{
-                  backgroundColor: Colors.surface,
-                  borderColor: Colors.gray[300],
-                }}
-                textStyle={{ color: Colors.text.primary }}
-                loading={isGoogleLoading}
-                disabled={isLoading || isGoogleLoading}
-                icon={
-                  <Image
-                    source={require('../../assets/icons/google.png')}
-                    style={{ width: 20, height: 20, marginRight: 8 }}
-                    resizeMode="contain"
-                  />
-                }
-              />
+             
 
               {/* Create Account Link */}
               <TouchableOpacity

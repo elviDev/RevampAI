@@ -1,7 +1,6 @@
 // screens/ChannelsScreen.tsx
 import React from 'react'
-import { View, Text, TextInput, ScrollView, TouchableOpacity } from 'react-native'
-import FontAwesome from 'react-native-vector-icons/FontAwesome'
+import { View, Text, TextInput, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native'
 import Feather from 'react-native-vector-icons/Feather'
 
 const channels = [
@@ -31,7 +30,8 @@ const channels = [
 const ChannelsScreen = () => {
 
   return (
-    <View className="flex-1 bg-white px-4 pt-6">
+   <SafeAreaView>
+     <View className="flex-1 bg-white px-4 pt-6">
       {/* Prompt Input */}
       <View className="mb-4 rounded-full bg-gray-100 px-4 py-2 flex-row items-center">
         <TextInput placeholder="Enter a prompt here" className="flex-1 text-gray-700" />
@@ -83,23 +83,8 @@ const ChannelsScreen = () => {
           </View>
         ))}
       </ScrollView>
-
-      {/* Bottom Navigation */}
-      <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex-row justify-around py-3">
-        <TouchableOpacity>
-          <Feather name="home" size={24} color="#666" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Feather name="bell" size={24} color="#666" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Feather name="list" size={24} color="#666" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Feather name="grid" size={24} color="#6b46c1" />
-        </TouchableOpacity>
-      </View>
     </View>
+   </SafeAreaView>
   )
 }
 

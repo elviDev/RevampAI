@@ -65,9 +65,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
     transform: [{ scale: voiceButtonScale.value }],
   }));
 
-  const handleGetStarted = () => {
-    navigation.navigate('Login');
-  };
 
   const handleGoogleSignIn = async () => {
     try {
@@ -108,30 +105,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
         {/* Logo */}
         <Animated.View
           style={[
-            {
-              width: 120,
-              height: 120,
-              borderRadius: 60,
-              backgroundColor: Colors.primary,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 40,
-              shadowColor: Colors.primary,
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.3,
-              shadowRadius: 16,
-              elevation: 12,
-            },
             logoAnimatedStyle,
           ]}
         >
-          <View
-            style={{
-              width: 60,
-              height: 60,
-              borderRadius: 30,
-              backgroundColor: Colors.text.inverse,
-            }}
+          <Image
+            source={require('../../assets/icons/logo.png')}
           />
         </Animated.View>
 
@@ -174,22 +152,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
           </Text>
         </Animated.View>
 
-        {/* Voice Button */}
-        <Animated.View
-          style={[
-            { marginVertical: 40 },
-            voiceButtonAnimatedStyle,
-          ]}
-        >
-          <VoiceButton
-            isListening={false}
-            onPress={handleVoiceCommand}
-            size={100}
-          />
-        </Animated.View>
 
         {/* Buttons */}
         <Animated.View
+        className="mt-10"
           style={[
             { width: '100%', paddingHorizontal: 20 },
             buttonAnimatedStyle,

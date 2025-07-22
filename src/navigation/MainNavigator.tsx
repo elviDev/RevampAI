@@ -1,16 +1,16 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import  DashboardScreen  from '../screens/main/DashboardScreen';
+import { TabNavigator } from './TabNavigator';
 
 const Stack = createNativeStackNavigator();
 
 export const MainNavigator: React.FC = () => {
   return (
     <Stack.Navigator
-      initialRouteName="Dashboard"
+      initialRouteName="Tabs"
       screenOptions={{ headerShown: false }}
     >
-      <Stack.Screen name="Dashboard" component={DashboardScreen} />
+      <Stack.Screen name="Tabs" component={TabNavigator} />
     </Stack.Navigator>
   );
 };
