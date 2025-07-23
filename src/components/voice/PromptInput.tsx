@@ -85,7 +85,6 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const recordingScale = useSharedValue(1);
   const recordingOpacity = useSharedValue(0);
   const pulseAnimation = useSharedValue(0);
-  const inputFocus = useSharedValue(0);
   const sendButtonScale = useSharedValue(1);
 
   // Voice recognition setup
@@ -343,7 +342,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
     if (text.trim()) {
       sendButtonScale.value = withSequence(
         withTiming(0.95, { duration: 100 }),
-        withTiming(1, { duration: 100 })
+        withTiming(1, { duration: 100 }),
       );
 
       onSendMessage?.(text.trim());
@@ -353,11 +352,11 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   };
 
   const handleFocus = () => {
-    inputFocus.value = withTiming(1, { duration: 150 });
+    // Remove animations to prevent flickering
   };
 
   const handleBlur = () => {
-    inputFocus.value = withTiming(0, { duration: 150 });
+    // Remove animations to prevent flickering
   };
 
   const formatDuration = (seconds: number): string => {
@@ -369,17 +368,6 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const removeAttachment = (index: number) => {
     setAttachedFiles(prev => prev.filter((_, i) => i !== index));
   };
-
-  // Animated styles
-  const containerAnimatedStyle = useAnimatedStyle(() => {
-    const borderOpacity = interpolate(inputFocus.value, [0, 1], [0.8, 1]);
-
-    return {
-      borderColor: `rgba(160, 95, 255, ${borderOpacity})`,
-      shadowOpacity: interpolate(inputFocus.value, [0, 1], [0.1, 0.15]),
-      // Remove scale transform to prevent flickering
-    };
-  });
 
   const recordingAnimatedStyle = useAnimatedStyle(() => {
     const pulseScale = interpolate(pulseAnimation.value, [0, 1], [1, 1.1]);
@@ -446,20 +434,21 @@ export const PromptInput: React.FC<PromptInputProps> = ({
       )}
 
       {/* Main Input Container */}
-      <Animated.View
-        style={[
-          {
-            shadowColor: '#A05FFF',
-            shadowOffset: { width: 0, height: 4 },
-            shadowRadius: 12,
-            elevation: 8,
-          },
-          containerAnimatedStyle,
-        ]}
-        className="bg-[#F0F4F9] rounded-full items-center border-2 border-[#A05FFF] px-4 py-3"
-        // Prevent unnecessary re-renders
-        needsOffscreenAlphaCompositing={false}
-        renderToHardwareTextureAndroid={true}
+      <View
+        style={{
+          shadowColor: '#A05FFF',
+          shadowOffset: { width: 0, height: 4 },
+          shadowRadius: 12,
+          shadowOpacity: 0.12,
+          elevation: 8,
+          backgroundColor: '#F0F4F9',
+          borderRadius: 24,
+          alignItems: 'center',
+          borderWidth: 2,
+          borderColor: '#A05FFF',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+        }}
       >
         <View className="flex-row items-end ">
           {/* Action Buttons */}
@@ -504,14 +493,19 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                 onChangeText={setText}
                 onFocus={handleFocus}
                 onBlur={handleBlur}
-                className="text-gray-900 text-base max-h-24"
+                className="text-gray-900 text-base max-h-24 flex-1"
                 placeholderTextColor="#9CA3AF"
                 multiline
-                scrollEnabled
-                style={{ textAlignVertical: 'center' }}
-                // Optimize rendering to prevent flickering
+                scrollEnabled={false}
+                style={{
+                  textAlignVertical: 'center',
+                  minHeight: 20,
+                }}
+                // Performance optimizations to prevent flickering
                 removeClippedSubviews={false}
                 keyboardType="default"
+                blurOnSubmit={false}
+                enablesReturnKeyAutomatically={false}
               />
             )}
           </View>
@@ -565,7 +559,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
             )}
           </View>
         </View>
-      </Animated.View>
+      </View>
 
       {/* Voice Recording Controls - Bottom */}
       {recording.isRecording && (

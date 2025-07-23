@@ -1,8 +1,18 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { TabNavigator } from './TabNavigator';
+import { ChannelDetailScreen } from '../screens/chats/ChannelDetailScreen';
 
-const Stack = createNativeStackNavigator();
+export type MainStackParamList = {
+  Tabs: undefined;
+  ChannelDetailScreen: {
+    channelId: string;
+    channelName: string;
+    members: any[];
+  };
+};
+
+const Stack = createNativeStackNavigator<MainStackParamList>();
 
 export const MainNavigator: React.FC = () => {
   return (
@@ -11,6 +21,10 @@ export const MainNavigator: React.FC = () => {
       screenOptions={{ headerShown: false }}
     >
       <Stack.Screen name="Tabs" component={TabNavigator} />
+      <Stack.Screen
+        name="ChannelDetailScreen"
+        component={ChannelDetailScreen}
+      />
     </Stack.Navigator>
   );
 };

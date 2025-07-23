@@ -10,11 +10,29 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PromptInput } from '../../components/voice/PromptInput';
 
+interface Member {
+  id: string;
+  name: string;
+  avatar: string;
+  role: string;
+}
+
+interface Channel {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  members: Member[];
+  memberAvatars: string[];
+  comments: number;
+  files: number;
+}
+
 interface ChannelCardProps {
   title: string;
   description: string;
   category: string;
-  members: string[];
+  memberAvatars: string[];
   comments: number;
   files: number;
   onPress: () => void;
@@ -24,7 +42,7 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
   title,
   description,
   category,
-  members,
+  memberAvatars,
   comments,
   files,
   onPress,
@@ -61,11 +79,11 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
       <View className="flex-row items-center justify-between">
         {/* Member Avatars */}
         <View className="flex-row -space-x-2">
-          {members.map((member, index) => (
+          {memberAvatars.map((member, index) => (
             <View
               key={index}
               className="w-8 h-8 bg-purple-500 rounded-full border-2 border-white flex items-center justify-center"
-              style={{ zIndex: members.length - index }}
+              style={{ zIndex: memberAvatars.length - index }}
             >
               <Text className="text-white text-xs font-semibold">
                 {member.charAt(0)}
@@ -90,17 +108,30 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
   );
 };
 
-export const ChannelsScreen: React.FC = () => {
+export const ChannelsScreen: React.FC<{ navigation: any }> = ({
+  navigation,
+}) => {
   const insets = useSafeAreaInsets();
 
-  const channels = [
+  // Debug navigation object
+  React.useEffect(() => {
+    console.log('Navigation object available methods:', Object.keys(navigation));
+    console.log('Navigation state:', navigation.getState?.());
+  }, [navigation]);
+
+  const channels: Channel[] = [
     {
       id: '1',
       title: 'Brainstorming',
       description:
         "Brainstorming brings team members' diverse experience into play.",
       category: 'Work',
-      members: ['J', 'S', 'M'],
+      members: [
+        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead' },
+        { id: '2', name: 'Sarah', avatar: 'S', role: 'Designer' },
+        { id: '3', name: 'Mike', avatar: 'M', role: 'Developer' },
+      ],
+      memberAvatars: ['J', 'S', 'M'],
       comments: 12,
       files: 3,
     },
@@ -110,7 +141,12 @@ export const ChannelsScreen: React.FC = () => {
       description:
         "Researching brings team members' diverse experience into play.",
       category: 'Work',
-      members: ['J', 'S', 'M'],
+      members: [
+        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead' },
+        { id: '2', name: 'Sarah', avatar: 'S', role: 'Designer' },
+        { id: '4', name: 'Mark', avatar: 'M', role: 'Researcher' },
+      ],
+      memberAvatars: ['J', 'S', 'M'],
       comments: 9,
       files: 1,
     },
@@ -118,17 +154,52 @@ export const ChannelsScreen: React.FC = () => {
       id: '3',
       title: 'Mobile App',
       description:
-        "Brainstorming brings team members' diverse experience into play.",
+        "Mobile app development brings team members' diverse experience into play.",
       category: 'Work',
-      members: ['J', 'S', 'M'],
+      members: [
+        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead' },
+        { id: '3', name: 'Mike', avatar: 'M', role: 'Developer' },
+        { id: '5', name: 'Lisa', avatar: 'L', role: 'UI Designer' },
+      ],
+      memberAvatars: ['J', 'M', 'L'],
       comments: 12,
       files: 0,
     },
   ];
 
-  const handleChannelPress = () => {
-    // Navigation to channel detail would go here
-    console.log('Channel pressed - Coming soon');
+  const handleChannelPress = (channel: Channel) => {
+    console.log(
+      'Navigating to channel:',
+      channel.title,
+      'with members:',
+      channel.members,
+    );
+    
+    try {
+      // Alternative navigation methods to try if one doesn't work
+      if (navigation.navigate) {
+        navigation.navigate('ChannelDetailScreen', {
+          channelId: channel.id,
+          channelName: channel.title,
+          members: channel.members,
+        });
+      } else if (navigation.push) {
+        navigation.push('ChannelDetailScreen', {
+          channelId: channel.id,
+          channelName: channel.title,
+          members: channel.members,
+        });
+      } else {
+        throw new Error('Navigation method not available');
+      }
+    } catch (error) {
+      console.error('Navigation error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown navigation error';
+      Alert.alert(
+        'Navigation Error',
+        `Unable to navigate to channel: ${errorMessage}. Please check navigation setup.`,
+      );
+    }
   };
 
   const handleSendMessage = (text: string) => {
@@ -189,10 +260,10 @@ export const ChannelsScreen: React.FC = () => {
             title={channel.title}
             description={channel.description}
             category={channel.category}
-            members={channel.members}
+            memberAvatars={channel.memberAvatars}
             comments={channel.comments}
             files={channel.files}
-            onPress={handleChannelPress}
+            onPress={() => handleChannelPress(channel)}
           />
         ))}
       </ScrollView>
