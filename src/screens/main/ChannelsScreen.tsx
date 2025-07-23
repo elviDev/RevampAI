@@ -5,9 +5,10 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Image,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PromptInput } from '../../components/voice/PromptInput';
 
 interface ChannelCardProps {
   title: string;
@@ -52,7 +53,9 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
 
       {/* Title and Description */}
       <Text className="text-gray-900 text-xl font-bold mb-2">{title}</Text>
-      <Text className="text-gray-500 text-sm mb-4 leading-5">{description}</Text>
+      <Text className="text-gray-500 text-sm mb-4 leading-5">
+        {description}
+      </Text>
 
       {/* Bottom Section */}
       <View className="flex-row items-center justify-between">
@@ -94,7 +97,8 @@ export const ChannelsScreen: React.FC = () => {
     {
       id: '1',
       title: 'Brainstorming',
-      description: "Brainstorming brings team members' diverse experience into play.",
+      description:
+        "Brainstorming brings team members' diverse experience into play.",
       category: 'Work',
       members: ['J', 'S', 'M'],
       comments: 12,
@@ -103,7 +107,8 @@ export const ChannelsScreen: React.FC = () => {
     {
       id: '2',
       title: 'Research',
-      description: "Researching brings team members' diverse experience into play.",
+      description:
+        "Researching brings team members' diverse experience into play.",
       category: 'Work',
       members: ['J', 'S', 'M'],
       comments: 9,
@@ -112,7 +117,8 @@ export const ChannelsScreen: React.FC = () => {
     {
       id: '3',
       title: 'Mobile App',
-      description: "Brainstorming brings team members' diverse experience into play.",
+      description:
+        "Brainstorming brings team members' diverse experience into play.",
       category: 'Work',
       members: ['J', 'S', 'M'],
       comments: 12,
@@ -125,30 +131,41 @@ export const ChannelsScreen: React.FC = () => {
     console.log('Channel pressed - Coming soon');
   };
 
+  const handleSendMessage = (text: string) => {
+    console.log('Sending text message:', text);
+    // Handle text message
+  };
+
+  const handleSendRecording = (audioUri: string, transcript?: string) => {
+    console.log('Sending audio recording:', audioUri);
+    console.log('Voice transcript:', transcript);
+    // Handle audio message with transcript
+  };
+
+  const handleAttachFile = (file: any) => {
+    console.log('File attached:', file);
+    Alert.alert('File Attached', `${file.name} has been attached`);
+  };
+
+  const handleAttachImage = (image: any) => {
+    console.log('Image attached:', image);
+    Alert.alert('Image Attached', `Image has been attached`);
+  };
+
   return (
     <View className="flex-1 bg-gray-50" style={{ paddingTop: insets.top }}>
       {/* Search Bar */}
       <View className="px-4 mb-4">
-        <View className="flex-row items-center bg-white rounded-full px-4 py-3 shadow-sm">
-          <TextInput
-            placeholder="Enter a prompt here"
-            placeholderTextColor="#9CA3AF"
-            className="flex-1 text-base text-gray-900"
-          />
-          <TouchableOpacity className="ml-2">
-            <View className="flex-row space-x-1">
-              <View className="w-1 h-4 bg-gray-300 rounded-full" />
-              <View className="w-1 h-4 bg-gray-300 rounded-full" />
-              <View className="w-1 h-4 bg-gray-300 rounded-full" />
-              <View className="w-1 h-4 bg-gray-300 rounded-full" />
-            </View>
-          </TouchableOpacity>
-        </View>
-        
-        {/* Online Status */}
-        <View className="absolute right-6 top-3">
-          <View className="w-3 h-3 bg-green-500 rounded-full" />
-        </View>
+        {/* Prompt */}
+        <PromptInput
+          onSendMessage={handleSendMessage}
+          onSendRecording={handleSendRecording}
+          onAttachFile={handleAttachFile}
+          onAttachImage={handleAttachImage}
+          placeholder="Enter a prompt here..."
+          maxLines={6}
+          disabled={false}
+        />
       </View>
 
       {/* Header */}
@@ -166,7 +183,7 @@ export const ChannelsScreen: React.FC = () => {
 
       {/* Channels List */}
       <ScrollView showsVerticalScrollIndicator={false}>
-        {channels.map((channel) => (
+        {channels.map(channel => (
           <ChannelCard
             key={channel.id}
             title={channel.title}

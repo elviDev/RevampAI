@@ -40,7 +40,7 @@ export const Input: React.FC<InputProps> = ({
     const borderColor = interpolateColor(
       focusAnimation.value,
       [0, 1],
-      [Colors.gray[300], Colors.primary]
+      [Colors.primary, Colors.primary],
     );
 
     return {

@@ -114,7 +114,7 @@ const DashboardScreen = () => {
         </View>
       </Animated.View>
 
-      <View className="mb-[3rem] self-end ">
+      <View className="mb-[3rem] self-end gap-[2rem]">
         {/* Greeting */}
         <Animated.View
           className="space-y-8 mb-4 "
