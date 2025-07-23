@@ -1,91 +1,184 @@
-// screens/ChannelsScreen.tsx
-import React from 'react'
-import { View, Text, TextInput, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native'
-import Feather from 'react-native-vector-icons/Feather'
+import React from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const channels = [
-  {
-    title: 'Brainstorming',
-    description: "Brainstorming brings team members' diverse experience into play.",
-    comments: 12,
-    files: 3,
-    users: 3, // Number of users instead of image paths
-  },
-  {
-    title: 'Research',
-    description: "Researching brings team members' diverse experience into play.",
-    comments: 9,
-    files: 1,
-    users: 3,
-  },
-  {
-    title: 'Mobile App',
-    description: "Brainstorming brings team members' diverse experience into play.",
-    comments: 12,
-    files: 0,
-    users: 3,
-  },
-]
+interface ChannelCardProps {
+  title: string;
+  description: string;
+  category: string;
+  members: string[];
+  comments: number;
+  files: number;
+  onPress: () => void;
+}
 
-const ChannelsScreen = () => {
+const ChannelCard: React.FC<ChannelCardProps> = ({
+  title,
+  description,
+  category,
+  members,
+  comments,
+  files,
+  onPress,
+}) => {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      className="bg-white rounded-2xl p-4 mb-4 mx-4"
+      style={{
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+      }}
+    >
+      {/* Category Tag */}
+      <View className="flex-row justify-between items-start mb-3">
+        <View className="bg-green-100 px-3 py-1 rounded-full">
+          <Text className="text-green-600 text-xs font-medium">{category}</Text>
+        </View>
+        <TouchableOpacity className="p-1">
+          <Text className="text-gray-400 text-lg">•••</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Title and Description */}
+      <Text className="text-gray-900 text-xl font-bold mb-2">{title}</Text>
+      <Text className="text-gray-500 text-sm mb-4 leading-5">{description}</Text>
+
+      {/* Bottom Section */}
+      <View className="flex-row items-center justify-between">
+        {/* Member Avatars */}
+        <View className="flex-row -space-x-2">
+          {members.map((member, index) => (
+            <View
+              key={index}
+              className="w-8 h-8 bg-purple-500 rounded-full border-2 border-white flex items-center justify-center"
+              style={{ zIndex: members.length - index }}
+            >
+              <Text className="text-white text-xs font-semibold">
+                {member.charAt(0)}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Stats */}
+        <View className="flex-row items-center space-x-4">
+          <View className="flex-row items-center">
+            <Text className="text-gray-400 mr-1">💬</Text>
+            <Text className="text-gray-400 text-sm">{comments} comments</Text>
+          </View>
+          <View className="flex-row items-center">
+            <Text className="text-gray-400 mr-1">📁</Text>
+            <Text className="text-gray-400 text-sm">{files} files</Text>
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+export const ChannelsScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
+
+  const channels = [
+    {
+      id: '1',
+      title: 'Brainstorming',
+      description: "Brainstorming brings team members' diverse experience into play.",
+      category: 'Work',
+      members: ['J', 'S', 'M'],
+      comments: 12,
+      files: 3,
+    },
+    {
+      id: '2',
+      title: 'Research',
+      description: "Researching brings team members' diverse experience into play.",
+      category: 'Work',
+      members: ['J', 'S', 'M'],
+      comments: 9,
+      files: 1,
+    },
+    {
+      id: '3',
+      title: 'Mobile App',
+      description: "Brainstorming brings team members' diverse experience into play.",
+      category: 'Work',
+      members: ['J', 'S', 'M'],
+      comments: 12,
+      files: 0,
+    },
+  ];
+
+  const handleChannelPress = () => {
+    // Navigation to channel detail would go here
+    console.log('Channel pressed - Coming soon');
+  };
 
   return (
-   <SafeAreaView>
-     <View className="flex-1 bg-white px-4 pt-6">
-      {/* Prompt Input */}
-      <View className="mb-4 rounded-full bg-gray-100 px-4 py-2 flex-row items-center">
-        <TextInput placeholder="Enter a prompt here" className="flex-1 text-gray-700" />
-        <Feather name="mic" size={20} color="#aaa" />
+    <View className="flex-1 bg-gray-50" style={{ paddingTop: insets.top }}>
+      {/* Search Bar */}
+      <View className="px-4 mb-4">
+        <View className="flex-row items-center bg-white rounded-full px-4 py-3 shadow-sm">
+          <TextInput
+            placeholder="Enter a prompt here"
+            placeholderTextColor="#9CA3AF"
+            className="flex-1 text-base text-gray-900"
+          />
+          <TouchableOpacity className="ml-2">
+            <View className="flex-row space-x-1">
+              <View className="w-1 h-4 bg-gray-300 rounded-full" />
+              <View className="w-1 h-4 bg-gray-300 rounded-full" />
+              <View className="w-1 h-4 bg-gray-300 rounded-full" />
+              <View className="w-1 h-4 bg-gray-300 rounded-full" />
+            </View>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Online Status */}
+        <View className="absolute right-6 top-3">
+          <View className="w-3 h-3 bg-green-500 rounded-full" />
+        </View>
       </View>
 
       {/* Header */}
-      <View className="flex-row justify-between items-center mb-2">
-        <Text className="text-lg font-semibold text-purple-600">Channels</Text>
+      <View className="flex-row items-center justify-between px-4 mb-6">
+        <Text className="text-purple-600 text-2xl font-bold">Channels</Text>
         <View className="flex-row space-x-3">
-          <TouchableOpacity className="p-1">
-            <Feather name="sliders" size={20} color="#aaa" />
+          <TouchableOpacity className="p-2">
+            <Text className="text-gray-400 text-lg">⚙️</Text>
           </TouchableOpacity>
-          <TouchableOpacity className="bg-purple-100 rounded-full p-1">
-            <Feather name="plus" size={20} color="#6b46c1" />
+          <TouchableOpacity className="w-8 h-8 bg-blue-600 rounded-full items-center justify-center">
+            <Text className="text-white text-lg font-bold">+</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Channel List */}
+      {/* Channels List */}
       <ScrollView showsVerticalScrollIndicator={false}>
-        {channels.map((channel, idx) => (
-          <View key={idx} className="bg-gray-100 rounded-xl p-4 mb-3">
-            <Text className="text-xs text-green-600 font-medium bg-green-100 px-2 py-1 rounded w-12 text-center mb-2">
-              Work
-            </Text>
-            <Text className="font-bold text-lg text-black">{channel.title}</Text>
-            <Text className="text-gray-600 mt-1">{channel.description}</Text>
-
-            <View className="flex-row justify-between items-center mt-3">
-              <View className="flex-row items-center">
-                <View className="w-8 h-8 bg-purple-200 rounded-full items-center justify-center">
-                  <Text className="text-purple-600 font-medium text-sm">{channel.users}</Text>
-                </View>
-                <Text className="text-gray-600 text-sm ml-2">members</Text>
-              </View>
-
-              <View className="flex-row items-center space-x-4">
-                <View className="flex-row items-center space-x-1">
-                  <Feather name="message-circle" size={16} color="gray" />
-                  <Text className="text-gray-600 text-sm">{channel.comments} comments</Text>
-                </View>
-                <View className="flex-row items-center space-x-1">
-                  <Feather name="file" size={16} color="gray" />
-                  <Text className="text-gray-600 text-sm">{channel.files} files</Text>
-                </View>
-              </View>
-            </View>
-          </View>
+        {channels.map((channel) => (
+          <ChannelCard
+            key={channel.id}
+            title={channel.title}
+            description={channel.description}
+            category={channel.category}
+            members={channel.members}
+            comments={channel.comments}
+            files={channel.files}
+            onPress={handleChannelPress}
+          />
         ))}
       </ScrollView>
     </View>
-   </SafeAreaView>
-  )
-}
-
-export default ChannelsScreen
+  );
+};

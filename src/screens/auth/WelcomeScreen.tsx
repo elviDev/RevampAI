@@ -11,7 +11,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { CurvedBackground } from '../../components/common/CurvedBackground/CurvedBackground';
 import { Button } from '../../components/common/Botton';
-import { VoiceButton } from '../../components/voice/VoiceButton';
 import { Colors } from '../../utils/colors';
 import { loginSuccess, loginFailure } from '../../store/slices/authSlice';
 import type { AppDispatch } from '../../store/store';

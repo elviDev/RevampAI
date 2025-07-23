@@ -118,6 +118,24 @@ dependencies {
     }
 }
 
+// Force all dependencies to use AndroidX instead of Support Libraries
+configurations.all {
+    resolutionStrategy {
+        force 'androidx.core:core:1.16.0'
+        force 'androidx.versionedparcelable:versionedparcelable:1.1.1'
+    }
+    
+    exclude group: 'com.android.support'
+    exclude module: 'support-compat'
+    exclude module: 'support-core-utils'
+    exclude module: 'support-core-ui'
+    exclude module: 'support-fragment'
+    exclude module: 'support-annotations'
+    exclude module: 'animated-vector-drawable'
+    exclude module: 'support-vector-drawable'
+    exclude module: 'versionedparcelable'
+}
+
 // React Native Vector Icons configuration
 project.ext.vectoricons = [
     iconFontNames: [ 'AntDesign.ttf', 'Entypo.ttf', 'EvilIcons.ttf', 'Feather.ttf', 'FontAwesome.ttf', 'Foundation.ttf', 'Ionicons.ttf', 'MaterialIcons.ttf', 'MaterialCommunityIcons.ttf', 'SimpleLineIcons.ttf', 'Octicons.ttf', 'Zocial.ttf' ]
