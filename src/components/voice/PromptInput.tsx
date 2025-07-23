@@ -23,8 +23,16 @@ import Animated, {
   withSequence,
 } from 'react-native-reanimated';
 import Voice from '@react-native-voice/voice';
-import { pick, types, DocumentPickerResponse } from '@react-native-documents/picker';
-import { launchImageLibrary, ImagePickerResponse, MediaType } from 'react-native-image-picker';
+import {
+  pick,
+  types,
+  DocumentPickerResponse,
+} from '@react-native-documents/picker';
+import {
+  launchImageLibrary,
+  ImagePickerResponse,
+  MediaType,
+} from 'react-native-image-picker';
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import RNFS from 'react-native-fs';
 import Icon from 'react-native-vector-icons/Feather';
@@ -54,7 +62,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   onSendRecording,
   onAttachFile,
   onAttachImage,
-  placeholder = "Enter a prompt here...",
+  placeholder = 'Enter a prompt here...',
   maxLines = 4,
   disabled = false,
 }) => {
@@ -117,7 +125,8 @@ export const PromptInput: React.FC<PromptInputProps> = ({
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
           {
             title: 'Audio Recording Permission',
-            message: 'This app needs access to your microphone to record audio messages.',
+            message:
+              'This app needs access to your microphone to record audio messages.',
             buttonNeutral: 'Ask Me Later',
             buttonNegative: 'Cancel',
             buttonPositive: 'OK',
@@ -136,15 +145,18 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const startRecording = async () => {
     const hasPermission = await requestAudioPermission();
     if (!hasPermission) {
-      Alert.alert('Permission required', 'Please grant microphone permission to record audio.');
+      Alert.alert(
+        'Permission required',
+        'Please grant microphone permission to record audio.',
+      );
       return;
     }
 
     try {
       const audioPath = `${RNFS.DocumentDirectoryPath}/audio_${Date.now()}.m4a`;
-      
+
       await audioRecorderPlayer.startRecorder(audioPath);
-      
+
       setRecording({
         isRecording: true,
         isPaused: false,
@@ -163,12 +175,11 @@ export const PromptInput: React.FC<PromptInputProps> = ({
       pulseAnimation.value = withRepeat(
         withTiming(1, { duration: 1000 }),
         -1,
-        true
+        true,
       );
 
       // Start voice recognition
       await Voice.start('en-US');
-
     } catch (error) {
       console.error('Start recording error:', error);
       Alert.alert('Error', 'Failed to start recording');
@@ -178,7 +189,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const stopRecording = async () => {
     try {
       const result = await audioRecorderPlayer.stopRecorder();
-      
+
       if (recordingTimer.current) {
         clearInterval(recordingTimer.current);
       }
@@ -193,7 +204,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
 
       // Get transcript
       const transcript = voiceResults.length > 0 ? voiceResults[0] : '';
-      
+
       console.log('Voice transcript:', transcript);
 
       // Send recording with transcript
@@ -207,7 +218,6 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         audioPath: '',
       });
       setVoiceResults([]);
-
     } catch (error) {
       console.error('Stop recording error:', error);
       Alert.alert('Error', 'Failed to stop recording');
@@ -218,13 +228,13 @@ export const PromptInput: React.FC<PromptInputProps> = ({
     try {
       await audioRecorderPlayer.stopRecorder();
       await Voice.stop();
-      
+
       if (recordingTimer.current) {
         clearInterval(recordingTimer.current);
       }
 
       // Delete audio file
-      if (recording.audioPath && await RNFS.exists(recording.audioPath)) {
+      if (recording.audioPath && (await RNFS.exists(recording.audioPath))) {
         await RNFS.unlink(recording.audioPath);
       }
 
@@ -242,7 +252,6 @@ export const PromptInput: React.FC<PromptInputProps> = ({
       });
       setVoiceResults([]);
       setIsListening(false);
-
     } catch (error) {
       console.error('Cancel recording error:', error);
     }
@@ -252,7 +261,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
     try {
       await audioRecorderPlayer.pauseRecorder();
       setRecording(prev => ({ ...prev, isPaused: true }));
-      
+
       if (recordingTimer.current) {
         clearInterval(recordingTimer.current);
       }
@@ -268,7 +277,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
     try {
       await audioRecorderPlayer.resumeRecorder();
       setRecording(prev => ({ ...prev, isPaused: false }));
-      
+
       // Restart timer
       recordingTimer.current = setInterval(() => {
         setRecording(prev => ({ ...prev, duration: prev.duration + 1 }));
@@ -278,7 +287,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
       pulseAnimation.value = withRepeat(
         withTiming(1, { duration: 1000 }),
         -1,
-        true
+        true,
       );
     } catch (error) {
       console.error('Resume recording error:', error);
@@ -292,7 +301,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         allowMultiSelection: false,
         type: [types.allFiles],
       });
-      
+
       if (results && results.length > 0) {
         const file = results[0];
         setAttachedFiles(prev => [...prev, file]);
@@ -333,10 +342,10 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const handleSend = () => {
     if (text.trim()) {
       sendButtonScale.value = withSequence(
-        withSpring(0.9, { damping: 10 }),
-        withSpring(1, { damping: 10 })
+        withTiming(0.95, { duration: 100 }),
+        withTiming(1, { duration: 100 })
       );
-      
+
       onSendMessage?.(text.trim());
       setText('');
       setAttachedFiles([]);
@@ -344,11 +353,11 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   };
 
   const handleFocus = () => {
-    inputFocus.value = withSpring(1);
+    inputFocus.value = withTiming(1, { duration: 150 });
   };
 
   const handleBlur = () => {
-    inputFocus.value = withSpring(0);
+    inputFocus.value = withTiming(0, { duration: 150 });
   };
 
   const formatDuration = (seconds: number): string => {
@@ -363,22 +372,18 @@ export const PromptInput: React.FC<PromptInputProps> = ({
 
   // Animated styles
   const containerAnimatedStyle = useAnimatedStyle(() => {
-    const borderColor = interpolate(
-      inputFocus.value,
-      [0, 1],
-      [0.3, 1]
-    );
-    
+    const borderOpacity = interpolate(inputFocus.value, [0, 1], [0.8, 1]);
+
     return {
-      borderColor: `rgba(99, 102, 241, ${borderColor})`,
-      shadowOpacity: inputFocus.value * 0.1,
-      transform: [{ scale: interpolate(inputFocus.value, [0, 1], [1, 1.02]) }],
+      borderColor: `rgba(160, 95, 255, ${borderOpacity})`,
+      shadowOpacity: interpolate(inputFocus.value, [0, 1], [0.1, 0.15]),
+      // Remove scale transform to prevent flickering
     };
   });
 
   const recordingAnimatedStyle = useAnimatedStyle(() => {
     const pulseScale = interpolate(pulseAnimation.value, [0, 1], [1, 1.1]);
-    
+
     return {
       transform: [{ scale: recordingScale.value * pulseScale }],
       opacity: recordingOpacity.value,
@@ -413,14 +418,22 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                 key={index}
                 className="bg-blue-50 border border-blue-200 rounded-lg p-2 flex-row items-center"
               >
-                {file.uri && (file.type?.startsWith('image') || file.fileName?.match(/\.(jpg|jpeg|png|gif)$/i)) ? (
-                  <Image source={{ uri: file.uri }} className="w-8 h-8 rounded mr-2" />
+                {file.uri &&
+                (file.type?.startsWith('image') ||
+                  file.fileName?.match(/\.(jpg|jpeg|png|gif)$/i)) ? (
+                  <Image
+                    source={{ uri: file.uri }}
+                    className="w-8 h-8 rounded mr-2"
+                  />
                 ) : (
                   <View className="w-8 h-8 bg-blue-500 rounded mr-2 items-center justify-center">
                     <Icon name="file-text" size={12} color="white" />
                   </View>
                 )}
-                <Text className="text-blue-700 text-sm flex-1" numberOfLines={1}>
+                <Text
+                  className="text-blue-700 text-sm flex-1"
+                  numberOfLines={1}
+                >
                   {file.fileName || file.name || 'Unknown file'}
                 </Text>
                 <TouchableOpacity onPress={() => removeAttachment(index)}>
@@ -436,14 +449,17 @@ export const PromptInput: React.FC<PromptInputProps> = ({
       <Animated.View
         style={[
           {
-            shadowColor: '#cb9ffe',
+            shadowColor: '#A05FFF',
             shadowOffset: { width: 0, height: 4 },
             shadowRadius: 12,
             elevation: 8,
           },
           containerAnimatedStyle,
         ]}
-        className="bg-white rounded-full items-center border-2 border-[#A05FFF] px-4 py-3"
+        className="bg-[#F0F4F9] rounded-full items-center border-2 border-[#A05FFF] px-4 py-3"
+        // Prevent unnecessary re-renders
+        needsOffscreenAlphaCompositing={false}
+        renderToHardwareTextureAndroid={true}
       >
         <View className="flex-row items-end ">
           {/* Action Buttons */}
@@ -453,7 +469,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                 onPress={() => setShowAttachmentModal(true)}
                 className="w-10 h-10 bg-blue-50 rounded-full items-center justify-center mr-2"
               >
-                <Icon name="paperclip" size={20} color="#3B82F6" />
+                <Icon name="paperclip" size={20} color="#A05FFF" />
               </TouchableOpacity>
             )}
           </View>
@@ -473,7 +489,10 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                   </Text>
                 </View>
                 {voiceResults.length > 0 && (
-                  <Text className="text-blue-600 text-sm mt-1" numberOfLines={2}>
+                  <Text
+                    className="text-blue-600 text-sm mt-1"
+                    numberOfLines={2}
+                  >
                     "{voiceResults[0]}"
                   </Text>
                 )}
@@ -490,6 +509,9 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                 multiline
                 scrollEnabled
                 style={{ textAlignVertical: 'center' }}
+                // Optimize rendering to prevent flickering
+                removeClippedSubviews={false}
+                keyboardType="default"
               />
             )}
           </View>
@@ -499,7 +521,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
             {recording.isRecording ? (
               <TouchableOpacity
                 onPress={stopRecording}
-                className="w-12 h-12 bg-blue-600 rounded-full items-center justify-center"
+                className="w-12 h-12 bg-purple-600 rounded-full items-center justify-center"
                 style={{
                   shadowColor: '#4F46E5',
                   shadowOffset: { width: 0, height: 4 },
@@ -514,9 +536,9 @@ export const PromptInput: React.FC<PromptInputProps> = ({
               <Animated.View style={sendButtonAnimatedStyle}>
                 <TouchableOpacity
                   onPress={handleSend}
-                  className="w-12 h-12 bg-blue-600 rounded-full items-center justify-center"
+                  className="w-12 h-12 bg-purple-600 rounded-full items-center justify-center"
                   style={{
-                    shadowColor: '#4F46E5',
+                    shadowColor: '#A05FFF',
                     shadowOffset: { width: 0, height: 4 },
                     shadowOpacity: 0.3,
                     shadowRadius: 8,
@@ -529,9 +551,9 @@ export const PromptInput: React.FC<PromptInputProps> = ({
             ) : (
               <TouchableOpacity
                 onPress={startRecording}
-                className="w-12 h-12 bg-blue-600 rounded-full items-center justify-center"
+                className="w-12 h-12 bg-purple-600 rounded-full items-center justify-center"
                 style={{
-                  shadowColor: '#4F46E5',
+                  shadowColor: '#A05FFF',
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.3,
                   shadowRadius: 8,
@@ -577,7 +599,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
               <MaterialIcon name="pause" size={24} color="white" />
             </TouchableOpacity>
           )}
-          
+
           <TouchableOpacity
             onPress={cancelRecording}
             className="w-12 h-12 bg-red-500 rounded-full items-center justify-center"
@@ -601,7 +623,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         animationType="fade"
         onRequestClose={() => setShowAttachmentModal(false)}
       >
-        <Pressable 
+        <Pressable
           className="flex-1 bg-black/50 justify-center items-center"
           onPress={() => setShowAttachmentModal(false)}
         >
@@ -609,7 +631,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
             <Text className="text-xl font-bold text-gray-800 mb-6 text-center">
               Choose Attachment
             </Text>
-            
+
             <View className="space-y-4">
               <TouchableOpacity
                 onPress={() => {
@@ -622,8 +644,12 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                   <Icon name="file-text" size={24} color="white" />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-lg font-semibold text-gray-800">Document</Text>
-                  <Text className="text-sm text-gray-600">Select a file or document</Text>
+                  <Text className="text-lg font-semibold text-gray-800">
+                    Document
+                  </Text>
+                  <Text className="text-sm text-gray-600">
+                    Select a file or document
+                  </Text>
                 </View>
               </TouchableOpacity>
 
@@ -638,8 +664,12 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                   <Icon name="image" size={24} color="white" />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-lg font-semibold text-gray-800">Image</Text>
-                  <Text className="text-sm text-gray-600">Select a photo or image</Text>
+                  <Text className="text-lg font-semibold text-gray-800">
+                    Image
+                  </Text>
+                  <Text className="text-sm text-gray-600">
+                    Select a photo or image
+                  </Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -648,7 +678,9 @@ export const PromptInput: React.FC<PromptInputProps> = ({
               onPress={() => setShowAttachmentModal(false)}
               className="mt-6 py-3 px-6 bg-gray-100 rounded-xl"
             >
-              <Text className="text-center text-gray-700 font-medium">Cancel</Text>
+              <Text className="text-center text-gray-700 font-medium">
+                Cancel
+              </Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -658,9 +690,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
       {isListening && !recording.isRecording && (
         <View className="mt-2 px-4 flex-row items-center justify-center">
           <MaterialIcon name="mic" size={16} color="#3B82F6" />
-          <Text className="text-blue-600 text-sm ml-2">
-            Listening...
-          </Text>
+          <Text className="text-blue-600 text-sm ml-2">Listening...</Text>
         </View>
       )}
     </KeyboardAvoidingView>

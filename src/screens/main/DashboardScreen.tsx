@@ -132,7 +132,7 @@ const DashboardScreen = () => {
         <View className="flex-row flex-wrap gap-8  mb-[3rem] ">
           <Animated.View style={[{ width: '45%' }, button1AnimatedStyle]}>
             <TouchableOpacity
-              className="border border-purple-400 rounded-xl p-6 h-[7rem] items-center justify-center"
+              className="border border-purple-400 bg-[#F0F4F9] rounded-xl p-6 h-[7rem] items-center justify-center"
               onPress={() => {
                 // Add haptic feedback here if needed
                 console.log('Create Channel pressed');
@@ -146,7 +146,7 @@ const DashboardScreen = () => {
 
           <Animated.View style={[{ width: '45%' }, button2AnimatedStyle]}>
             <TouchableOpacity
-              className="border border-purple-400 rounded-xl p-6 h-[7rem] items-center justify-center"
+              className="border border-purple-400 bg-[#F0F4F9] rounded-xl p-6 h-[7rem] items-center justify-center"
               onPress={() => {
                 console.log('Schedule Meeting pressed');
               }}
@@ -159,7 +159,7 @@ const DashboardScreen = () => {
 
           <Animated.View style={[{ width: '45%' }, button3AnimatedStyle]}>
             <TouchableOpacity
-              className="border border-purple-400 rounded-xl p-6 h-[7rem] items-center justify-center"
+              className="border border-purple-400 bg-[#F0F4F9] rounded-xl p-6 h-[7rem] items-center justify-center"
               onPress={() => {
                 console.log('Assign Task pressed');
               }}
