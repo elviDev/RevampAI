@@ -247,12 +247,7 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
 
       {/* Header */}
       <View className="flex-row items-center justify-between px-4 mb-6">
-        <View className="flex-row items-center">
-          <TouchableOpacity className="mr-3 p-2">
-            <Feather name="menu" size={24} color="#9CA3AF" />
-          </TouchableOpacity>
-          <Text className="text-purple-600 text-2xl font-bold">Channels</Text>
-        </View>
+        <Text className="text-purple-600 text-2xl font-bold">Channels</Text>
         <View className="flex-row space-x-3">
           <TouchableOpacity className="p-2">
             <MaterialIcons name="more-vert" size={24} color="#9CA3AF" />
