@@ -1,0 +1,34 @@
+{
+  "tailwindCSS.includeLanguages": {
+    "typescript": "html",
+    "typescriptreact": "html",
+    "javascript": "html",
+    "javascriptreact": "html"
+  },
+  "tailwindCSS.experimental.classRegex": [
+    ["className\\s*=\\s*[\"'`]([^\"'`]*)[\"'`]", "([^\"'`]*)"],
+    ["className\\s*=\\s*\\{([^}]*)\\}", "([^\"'`]*)"],
+    ["\\bclass\\s*=\\s*[\"'`]([^\"'`]*)[\"'`]", "([^\"'`]*)"],
+    ["\\bclass\\s*=\\s*\\{([^}]*)\\}", "([^\"'`]*)"],
+    ["clsx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"],
+    ["classnames\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"],
+    ["cn\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"]
+  ],
+  "tailwindCSS.classAttributes": [
+    "class",
+    "className",
+    "class:list",
+    "classList",
+    "ngClass"
+  ],
+  "tailwindCSS.files.exclude": [
+    "**/.git/**",
+    "**/node_modules/**",
+    "**/.hg/**",
+    "**/.svn/**"
+  ],
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+  "editor.autoClosingQuotes": "always"
+}
