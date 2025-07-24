@@ -9,6 +9,7 @@ import {
   Dimensions,
   StatusBar,
   Alert,
+  PanResponder,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -19,10 +20,11 @@ import Animated, {
   interpolate,
   useAnimatedScrollHandler,
   runOnJS,
+  useAnimatedGestureHandler,
 } from 'react-native-reanimated';
+import { PanGestureHandler, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MessageBubble } from '../../components/chat/MessageBubble';
-import { MessageConnector } from '../../components/chat/MessageConnector';
 import { VoiceMessageInput } from '../../components/chat/VoiceMessageInput';
 import { ChannelHeader } from '../../components/chat/ChannelHeader';
 import { MeetingSummaryModal } from '../../components/chat/MeetingSummaryModal';
@@ -59,7 +61,24 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
   const [showKeyPointsModal, setShowKeyPointsModal] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [editingReply, setEditingReply] = useState<{
+    messageId: string;
+    replyId: string;
+    content: string;
+  } | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
+  const [replyingToReply, setReplyingToReply] = useState<{
+    messageId: string;
+    replyId: string;
+    replyAuthor: string;
+  } | null>(null);
+  const [showEmojiReactionPicker, setShowEmojiReactionPicker] = useState<
+    string | null
+  >(null);
+  const [showReplyEmojiPicker, setShowReplyEmojiPicker] = useState<{
+    messageId: string;
+    replyId: string;
+  } | null>(null);
   const [channelSummary, setChannelSummary] = useState<ChannelSummary | null>(
     null,
   );
@@ -128,7 +147,6 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
         ],
         mentions: [],
         isEdited: false,
-        connectedTo: '2',
       },
       {
         id: '4',
@@ -147,7 +165,6 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
         replies: [],
         mentions: ['@Mike'],
         isEdited: false,
-        connectedTo: '3',
       },
     ];
     setMessages(mockMessages);
@@ -187,7 +204,6 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
       replies: replyingTo ? [] : [], // Initialize empty replies array
       mentions: extractMentions(text),
       isEdited: false,
-      connectedTo: findConnectedMessage(text),
     };
 
     if (editingMessage) {
@@ -200,6 +216,44 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
         ),
       );
       setEditingMessage(null);
+    } else if (editingReply) {
+      // Update existing reply
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === editingReply.messageId
+            ? {
+                ...msg,
+                replies: msg.replies.map(reply =>
+                  reply.id === editingReply.replyId
+                    ? { ...reply, content: text }
+                    : reply,
+                ),
+              }
+            : msg,
+        ),
+      );
+      setEditingReply(null);
+    } else if (replyingToReply) {
+      // Add as reply to a reply (nested)
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === replyingToReply.messageId
+            ? {
+                ...msg,
+                replies: [
+                  ...msg.replies,
+                  {
+                    id: newMessage.id,
+                    content: `@${replyingToReply.replyAuthor} ${text}`,
+                    sender: { id: 'current_user', name: 'You' },
+                    timestamp: new Date(),
+                  },
+                ],
+              }
+            : msg,
+        ),
+      );
+      setReplyingToReply(null);
     } else if (replyingTo) {
       // Add as reply to existing message
       setMessages(prev =>
@@ -250,24 +304,6 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
     return mentions;
   };
 
-  const findConnectedMessage = (text: string): string | undefined => {
-    // Simple logic to connect related messages
-    const keywords = text.toLowerCase().split(' ');
-    const recentMessages = messages.slice(-5);
-
-    for (const msg of recentMessages.reverse()) {
-      const msgWords = msg.content.toLowerCase().split(' ');
-      const commonWords = keywords.filter(
-        word => msgWords.includes(word) && word.length > 3,
-      );
-
-      if (commonWords.length >= 2) {
-        return msg.id;
-      }
-    }
-    return undefined;
-  };
-
   const handleReaction = (messageId: string, emoji: string) => {
     setMessages(prev =>
       prev.map(msg => {
@@ -299,6 +335,127 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
         }
         return msg;
       }),
+    );
+    setShowEmojiReactionPicker(null);
+  };
+
+  const handleReplyEdit = (
+    messageId: string,
+    replyId: string,
+    content: string,
+  ) => {
+    setEditingReply({ messageId, replyId, content });
+    setInputText(content);
+    inputRef.current?.focus();
+  };
+
+  const handleMessageSelect = (messageId: string) => {
+    setSelectedMessage(messageId === selectedMessage ? null : messageId);
+  };
+
+  const handleReplyReaction = (messageId: string, replyId: string, emoji: string) => {
+    setMessages(prev =>
+      prev.map(msg => {
+        if (msg.id === messageId) {
+          msg.replies = msg.replies.map(reply => {
+            if (reply.id === replyId) {
+              const reactions = (reply as any).reactions || [];
+              const existingReaction = reactions.find((r: any) => r.emoji === emoji);
+              if (existingReaction) {
+                if (existingReaction.users.includes('current_user')) {
+                  existingReaction.users = existingReaction.users.filter((u: string) => u !== 'current_user');
+                  existingReaction.count -= 1;
+                  if (existingReaction.count === 0) {
+                    (reply as any).reactions = reactions.filter((r: any) => r.emoji !== emoji);
+                  }
+                } else {
+                  existingReaction.users.push('current_user');
+                  existingReaction.count += 1;
+                }
+              } else {
+                reactions.push({
+                  emoji,
+                  users: ['current_user'],
+                  count: 1,
+                });
+                (reply as any).reactions = reactions;
+              }
+            }
+            return reply;
+          });
+        }
+        return msg;
+      }),
+    );
+    setShowReplyEmojiPicker(null);
+  };
+
+  const handleSwipeReply = (messageId: string) => {
+    const message = messages.find(m => m.id === messageId);
+    if (message) {
+      setReplyingTo(message);
+      setSelectedMessage(messageId);
+      inputRef.current?.focus();
+    }
+  };
+
+  // Swipeable Message Component
+  const SwipeableMessage = ({ message, children }: { message: any; children: React.ReactNode }) => {
+    const translateX = useSharedValue(0);
+    const opacity = useSharedValue(0);
+
+    const gestureHandler = useAnimatedGestureHandler({
+      onStart: () => {
+        opacity.value = withTiming(1);
+      },
+      onActive: (event) => {
+        translateX.value = Math.min(event.translationX, 100);
+      },
+      onEnd: (event) => {
+        if (event.translationX > 50) {
+          runOnJS(handleSwipeReply)(message.id);
+        }
+        translateX.value = withSpring(0);
+        opacity.value = withTiming(0);
+      },
+    });
+
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [{ translateX: translateX.value }],
+    }));
+
+    const replyIconStyle = useAnimatedStyle(() => ({
+      opacity: opacity.value,
+      transform: [{ scale: interpolate(translateX.value, [0, 50], [0.8, 1.2]) }],
+    }));
+
+    return (
+      <View style={{ position: 'relative' }}>
+        <Animated.View
+          style={[
+            replyIconStyle,
+            {
+              position: 'absolute',
+              left: 10,
+              top: '50%',
+              zIndex: 1,
+              backgroundColor: '#3B82F6',
+              borderRadius: 20,
+              width: 40,
+              height: 40,
+              justifyContent: 'center',
+              alignItems: 'center',
+            },
+          ]}
+        >
+          <Text style={{ color: 'white', fontSize: 18 }}>↩️</Text>
+        </Animated.View>
+        <PanGestureHandler onGestureEvent={gestureHandler}>
+          <Animated.View style={animatedStyle}>
+            {children}
+          </Animated.View>
+        </PanGestureHandler>
+      </View>
     );
   };
 
@@ -397,12 +554,13 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
   }));
 
   return (
-    <View className="flex-1 bg-gray-50" style={{ paddingTop: insets.top }}>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor="transparent"
-        translucent
-      />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View className="flex-1 bg-gray-50" style={{ paddingTop: insets.top }}>
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor="transparent"
+          translucent
+        />
 
       {/* Header */}
       <Animated.View style={[headerAnimatedStyle]}>
@@ -473,29 +631,162 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
       >
         {messages.map((message, index) => (
           <View key={message.id}>
-            {/* Message Connector */}
-            {message.connectedTo && (
-              <MessageConnector
-                fromMessageId={message.connectedTo}
-                toMessageId={message.id}
-                messages={messages}
-              />
+            {/* Swipeable Message Bubble */}
+            <SwipeableMessage message={message}>
+              <TouchableOpacity
+                onPress={() => handleMessageSelect(message.id)}
+                onLongPress={() => setShowEmojiReactionPicker(message.id)}
+                style={{
+                  backgroundColor:
+                    selectedMessage === message.id ? '#E0F2FE' : 'transparent',
+                  borderRadius: 8,
+                  padding: 4,
+                  marginVertical: 2,
+                  borderWidth: selectedMessage === message.id ? 2 : 0,
+                  borderColor: selectedMessage === message.id ? '#3B82F6' : 'transparent',
+                }}
+              >
+                <MessageBubble
+                  message={message}
+                  isOwn={message.sender.id === 'current_user'}
+                  onReaction={emoji => handleReaction(message.id, emoji)}
+                  onReply={() => setReplyingTo(message)}
+                  onEdit={() => {
+                    setEditingMessage(message);
+                    setInputText(message.content);
+                    inputRef.current?.focus();
+                  }}
+                  onLongPress={() => setShowEmojiReactionPicker(message.id)}
+                  showConnector={false}
+                />
+                
+                {/* Reply Button */}
+                <TouchableOpacity
+                  onPress={() => {
+                    setReplyingTo(message);
+                    setSelectedMessage(message.id);
+                    inputRef.current?.focus();
+                  }}
+                  style={{
+                    position: 'absolute',
+                    bottom: 5,
+                    right: 5,
+                    backgroundColor: '#F3F4F6',
+                    borderRadius: 12,
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                  }}
+                >
+                  <Text style={{ fontSize: 12, color: '#6B7280' }}>Reply</Text>
+                </TouchableOpacity>
+              </TouchableOpacity>
+            </SwipeableMessage>
+
+            {/* Message Action Buttons (when selected) */}
+            {selectedMessage === message.id && (
+              <View className="flex-row justify-center space-x-4 mt-2 mb-4">
+                <TouchableOpacity
+                  onPress={() => {
+                    setReplyingTo(message);
+                    setSelectedMessage(null);
+                  }}
+                  className="bg-blue-500 px-4 py-2 rounded-full"
+                >
+                  <Text className="text-white text-sm font-medium">Reply</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setShowEmojiReactionPicker(message.id)}
+                  className="bg-yellow-500 px-4 py-2 rounded-full"
+                >
+                  <Text className="text-white text-sm font-medium">React</Text>
+                </TouchableOpacity>
+                {message.sender.id === 'current_user' && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setEditingMessage(message);
+                      setInputText(message.content);
+                      inputRef.current?.focus();
+                      setSelectedMessage(null);
+                    }}
+                    className="bg-orange-500 px-4 py-2 rounded-full"
+                  >
+                    <Text className="text-white text-sm font-medium">Edit</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
 
-            {/* Message Bubble */}
-            <MessageBubble
-              message={message}
-              isOwn={message.sender.id === 'current_user'}
-              onReaction={emoji => handleReaction(message.id, emoji)}
-              onReply={() => setReplyingTo(message)}
-              onEdit={() => {
-                setEditingMessage(message);
-                setInputText(message.content);
-                inputRef.current?.focus();
-              }}
-              onLongPress={() => setSelectedMessage(message.id)}
-              showConnector={!!message.connectedTo}
-            />
+            {/* Enhanced Replies Section */}
+            {message.replies && message.replies.length > 0 && (
+              <View className="ml-8 mt-2">
+                {message.replies.map((reply, replyIndex) => (
+                  <View key={reply.id} className="mb-3">
+                    <View className="bg-gray-50 p-3 rounded-lg border-l-4 border-gray-300">
+                      <View className="flex-row justify-between items-start">
+                        <View className="flex-1">
+                          <Text className="font-medium text-sm text-blue-600">
+                            {reply.sender.name}
+                          </Text>
+                          <Text className="text-gray-700 mt-1">
+                            {reply.content}
+                          </Text>
+                          <Text className="text-xs text-gray-500 mt-1">
+                            {reply.timestamp.toLocaleTimeString()}
+                          </Text>
+                          
+                          {/* Reply Reactions */}
+                          {(reply as any).reactions && (reply as any).reactions.length > 0 && (
+                            <View className="flex-row mt-2">
+                              {(reply as any).reactions.map((reaction: any, idx: number) => (
+                                <TouchableOpacity
+                                  key={idx}
+                                  onPress={() => handleReplyReaction(message.id, reply.id, reaction.emoji)}
+                                  className="bg-white rounded-full px-2 py-1 mr-1 border border-gray-200"
+                                >
+                                  <Text className="text-xs">
+                                    {reaction.emoji} {reaction.count}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          )}
+                        </View>
+                        
+                        {/* Reply Actions */}
+                        <View className="flex-row space-x-1">
+                          <TouchableOpacity
+                            onPress={() => setShowReplyEmojiPicker({ messageId: message.id, replyId: reply.id })}
+                            className="bg-gray-200 rounded-full p-1"
+                          >
+                            <Text style={{ fontSize: 12 }}>😊</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => setReplyingToReply({ 
+                              messageId: message.id, 
+                              replyId: reply.id, 
+                              replyAuthor: reply.sender.name 
+                            })}
+                            className="bg-blue-100 rounded-full px-2 py-1"
+                          >
+                            <Text className="text-blue-600 text-xs">Reply</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    {/* Edit Reply Button for own replies */}
+                    {reply.sender?.id === 'current_user' && (
+                      <TouchableOpacity
+                        onPress={() => handleReplyEdit(message.id, reply.id, reply.content)}
+                        className="bg-gray-200 px-3 py-1 rounded-full mt-1 self-start"
+                      >
+                        <Text className="text-gray-600 text-xs">Edit Reply</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         ))}
       </Animated.ScrollView>
@@ -531,6 +822,39 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
               }}
             >
               <Text className="text-orange-600 text-lg">×</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Reply to Reply Preview */}
+      {replyingToReply && (
+        <View className="bg-purple-50 border-l-4 border-purple-500 px-4 py-2 mx-4">
+          <View className="flex-row justify-between items-center">
+            <Text className="text-purple-600 text-sm font-medium">
+              Replying to {replyingToReply.replyAuthor}'s reply
+            </Text>
+            <TouchableOpacity onPress={() => setReplyingToReply(null)}>
+              <Text className="text-purple-600 text-lg">×</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Edit Reply Preview */}
+      {editingReply && (
+        <View className="bg-green-50 border-l-4 border-green-500 px-4 py-2 mx-4">
+          <View className="flex-row justify-between items-center">
+            <Text className="text-green-600 text-sm font-medium">
+              Editing reply
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                setEditingReply(null);
+                setInputText('');
+              }}
+            >
+              <Text className="text-green-600 text-lg">×</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -603,9 +927,13 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
                     placeholder={
                       editingMessage
                         ? 'Edit your message...'
-                        : replyingTo
-                          ? 'Reply to message...'
-                          : 'Type a message or hold mic to record...'
+                        : editingReply
+                          ? 'Edit your reply...'
+                          : replyingToReply
+                            ? `Reply to ${replyingToReply.replyAuthor}...`
+                            : replyingTo
+                              ? 'Reply to message...'
+                              : 'Type a message or hold mic to record...'
                     }
                     members={members}
                     onFocus={() => (inputScale.value = withSpring(1.02))}
@@ -704,6 +1032,142 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
         />
       </Modal>
 
+      {/* Emoji Reaction Picker Modal */}
+      <Modal
+        visible={!!showEmojiReactionPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEmojiReactionPicker(null)}
+      >
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+          onPress={() => setShowEmojiReactionPicker(null)}
+        >
+          <View
+            style={{
+              backgroundColor: 'white',
+              borderRadius: 12,
+              padding: 20,
+              margin: 20,
+              minWidth: 300,
+            }}
+          >
+            <Text className="text-lg font-semibold mb-4 text-center">
+              React to this message
+            </Text>
+            <View className="flex-row flex-wrap justify-center">
+              {[
+                '😀',
+                '😂',
+                '😍',
+                '😢',
+                '😮',
+                '😡',
+                '👍',
+                '👎',
+                '❤️',
+                '🔥',
+                '👏',
+                '🎉',
+              ].map(emoji => (
+                <TouchableOpacity
+                  key={emoji}
+                  onPress={() => {
+                    if (showEmojiReactionPicker) {
+                      handleReaction(showEmojiReactionPicker, emoji);
+                    }
+                  }}
+                  className="p-3 m-1 bg-gray-100 rounded-full"
+                >
+                  <Text style={{ fontSize: 24 }}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowEmojiReactionPicker(null)}
+              className="mt-4 bg-gray-200 py-2 px-4 rounded-full self-center"
+            >
+              <Text className="text-gray-600 font-medium">Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Reply Emoji Reaction Picker Modal */}
+      <Modal
+        visible={!!showReplyEmojiPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReplyEmojiPicker(null)}
+      >
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+          onPress={() => setShowReplyEmojiPicker(null)}
+        >
+          <View
+            style={{
+              backgroundColor: 'white',
+              borderRadius: 12,
+              padding: 20,
+              margin: 20,
+              minWidth: 300,
+            }}
+          >
+            <Text className="text-lg font-semibold mb-4 text-center">
+              React to this reply
+            </Text>
+            <View className="flex-row flex-wrap justify-center">
+              {[
+                '😀',
+                '😂',
+                '😍',
+                '😢',
+                '😮',
+                '😡',
+                '👍',
+                '👎',
+                '❤️',
+                '🔥',
+                '👏',
+                '🎉',
+              ].map(emoji => (
+                <TouchableOpacity
+                  key={emoji}
+                  onPress={() => {
+                    if (showReplyEmojiPicker) {
+                      handleReplyReaction(
+                        showReplyEmojiPicker.messageId,
+                        showReplyEmojiPicker.replyId,
+                        emoji
+                      );
+                    }
+                  }}
+                  className="p-3 m-1 bg-gray-100 rounded-full"
+                >
+                  <Text style={{ fontSize: 24 }}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowReplyEmojiPicker(null)}
+              className="mt-4 bg-gray-200 py-2 px-4 rounded-full self-center"
+            >
+              <Text className="text-gray-600 font-medium">Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Meeting Summary Modal */}
       <MeetingSummaryModal
         visible={showSummaryModal}
@@ -740,5 +1204,6 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
         }}
       />
     </View>
+    </GestureHandlerRootView>
   );
 };
