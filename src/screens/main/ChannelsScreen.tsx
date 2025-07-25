@@ -257,7 +257,7 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
         <Text className="text-purple-600 text-2xl font-bold">Channels</Text>
         <View className="flex-row space-x-3">
           <TouchableOpacity className="p-2">
-            <MaterialIcons name="more-vert" size={24} color="#9CA3AF" />
+            <Feather name="filter" size={24} color="#9CA3AF" />
           </TouchableOpacity>
           <TouchableOpacity className="w-8 h-8 bg-blue-600 rounded-full items-center justify-center">
             <Text className="text-white text-lg font-bold">+</Text>
