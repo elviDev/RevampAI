@@ -36,7 +36,8 @@ import { KeyPointsModal } from '../../components/chat/KeyPointsModal';
 import { MentionInput } from '../../components/chat/MentionInput';
 import { EmojiPicker } from '../../components/chat/EmojiPicker';
 import type { Message, ChannelSummary } from '../../types/chat';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import Feather from 'react-native-vector-icons/Feather';
+import IonIcon from 'react-native-vector-icons/Ionicons';
 
 const { width, height } = Dimensions.get('window');
 
@@ -1563,7 +1564,7 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
                       className="w-9 h-9 bg-purple-50 rounded-full items-center justify-center"
                       disabled={isVoiceMode}
                     >
-                      <Text className="text-purple-600 text-base">📎</Text>
+                      <Feather name="paperclip" size={24} color="#A05FFF" />
                     </TouchableOpacity>
 
                     {/* Emoji Icon */}
@@ -1572,7 +1573,7 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
                       className="w-9 h-9 bg-yellow-50 rounded-full items-center justify-center"
                       disabled={isVoiceMode}
                     >
-                      <Text className="text-base">😊</Text>
+                      <Feather name="smile" size={24} color="#F59E0B" />
                     </TouchableOpacity>
 
                     {/* AI Brain Icon */}
@@ -1583,7 +1584,15 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
                         className="w-9 h-9 bg-blue-50 rounded-full items-center justify-center"
                       >
                         <Text className="text-blue-600 text-base">
-                          {isAiEnhancing ? '⏳' : '🧠'}
+                          {isAiEnhancing ? (
+                            <Feather name="zap" size={24} color="#A05FFF" />
+                          ) : (
+                            <IonIcon
+                              name="rocket-outline"
+                              size={24}
+                              color="#A05FFF"
+                            />
+                          )}
                         </Text>
                       </TouchableOpacity>
                     )}
@@ -1594,16 +1603,16 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
                     {inputText.trim() && !isVoiceMode ? (
                       <TouchableOpacity
                         onPress={() => handleSendMessage(inputText)}
-                        className="w-11 h-11 bg-purple-600 rounded-full items-center justify-center"
+                        className="w-11 h-11 bg-[#9f5fff68] rounded-full items-center justify-center p-1"
                         style={{
-                          shadowColor: '#8B5CF6',
+                          shadowColor: '#A05FFF',
                           shadowOffset: { width: 0, height: 3 },
                           shadowOpacity: 0.3,
                           shadowRadius: 5,
-                          elevation: 5,
+                          elevation: 0,
                         }}
                       >
-                        <Text className="text-white text-lg">�</Text>
+                        <Feather name="send" size={24} color="#A05FFF" />
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity
@@ -1635,7 +1644,11 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
                         }}
                       >
                         <Text className="text-white text-lg">
-                          {isVoiceMode ? '⏹️' : '🎤'}
+                          {isVoiceMode ? (
+                            <Feather name="pause" size={24} color="white" />
+                          ) : (
+                            <Feather name="mic" size={24} color="white" />
+                          )}
                         </Text>
                       </TouchableOpacity>
                     )}
