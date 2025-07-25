@@ -8,6 +8,8 @@ import {
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Feather from 'react-native-vector-icons/Feather';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { PromptInput } from '../../components/voice/PromptInput';
 
 interface Member {
@@ -15,6 +17,7 @@ interface Member {
   name: string;
   avatar: string;
   role: string;
+  color: string;
 }
 
 interface Channel {
@@ -32,7 +35,7 @@ interface ChannelCardProps {
   title: string;
   description: string;
   category: string;
-  memberAvatars: string[];
+  members: Member[];
   comments: number;
   files: number;
   onPress: () => void;
@@ -42,7 +45,7 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
   title,
   description,
   category,
-  memberAvatars,
+  members,
   comments,
   files,
   onPress,
@@ -50,22 +53,23 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
   return (
     <TouchableOpacity
       onPress={onPress}
-      className="bg-white rounded-2xl p-4 mb-4 mx-4"
+      className="rounded-2xl p-4 mx-4"
       style={{
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        backgroundColor: '#ffffff',
+        borderRadius: 16,
+        marginBottom: 10,
       }}
     >
       {/* Category Tag */}
       <View className="flex-row justify-between items-start mb-3">
-        <View className="bg-green-100 px-3 py-1 rounded-full">
-          <Text className="text-green-600 text-xs font-medium">{category}</Text>
+        <View 
+          className="px-3 py-1 rounded-full"
+          style={{ backgroundColor: 'rgba(153, 223, 116, 0.2)' }}
+        >
+          <Text style={{ color: '#99DF74' }} className="text-xs font-medium">{category}</Text>
         </View>
         <TouchableOpacity className="p-1">
-          <Text className="text-gray-400 text-lg">•••</Text>
+          <MaterialIcons name="more-vert" size={20} color="#9CA3AF" />
         </TouchableOpacity>
       </View>
 
@@ -78,15 +82,18 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
       {/* Bottom Section */}
       <View className="flex-row items-center justify-between">
         {/* Member Avatars */}
-        <View className="flex-row -space-x-2">
-          {memberAvatars.map((member, index) => (
+        <View className="flex-row -space-x-3">
+          {members.slice(0, 3).map((member, index) => (
             <View
-              key={index}
-              className="w-8 h-8 bg-purple-500 rounded-full border-2 border-white flex items-center justify-center"
-              style={{ zIndex: memberAvatars.length - index }}
+              key={member.id}
+              className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center`}
+              style={{ 
+                backgroundColor: member.color,
+                zIndex: members.length - index 
+              }}
             >
               <Text className="text-white text-xs font-semibold">
-                {member.charAt(0)}
+                {member.avatar}
               </Text>
             </View>
           ))}
@@ -95,11 +102,11 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
         {/* Stats */}
         <View className="flex-row items-center space-x-4">
           <View className="flex-row items-center">
-            <Text className="text-gray-400 mr-1">💬</Text>
+            <Feather name="message-square" size={14} color="#9CA3AF" style={{ marginRight: 4 }} />
             <Text className="text-gray-400 text-sm">{comments} comments</Text>
           </View>
           <View className="flex-row items-center">
-            <Text className="text-gray-400 mr-1">📁</Text>
+            <Feather name="file-text" size={14} color="#9CA3AF" style={{ marginRight: 4 }} />
             <Text className="text-gray-400 text-sm">{files} files</Text>
           </View>
         </View>
@@ -127,9 +134,9 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
         "Brainstorming brings team members' diverse experience into play.",
       category: 'Work',
       members: [
-        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead' },
-        { id: '2', name: 'Sarah', avatar: 'S', role: 'Designer' },
-        { id: '3', name: 'Mike', avatar: 'M', role: 'Developer' },
+        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead', color: '#FF9500' },
+        { id: '2', name: 'Sarah', avatar: 'S', role: 'Designer', color: '#007AFF' },
+        { id: '3', name: 'Mike', avatar: 'M', role: 'Developer', color: '#34C759' },
       ],
       memberAvatars: ['J', 'S', 'M'],
       comments: 12,
@@ -142,9 +149,9 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
         "Researching brings team members' diverse experience into play.",
       category: 'Work',
       members: [
-        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead' },
-        { id: '2', name: 'Sarah', avatar: 'S', role: 'Designer' },
-        { id: '4', name: 'Mark', avatar: 'M', role: 'Researcher' },
+        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead', color: '#FF9500' },
+        { id: '2', name: 'Sarah', avatar: 'S', role: 'Designer', color: '#007AFF' },
+        { id: '4', name: 'Mark', avatar: 'M', role: 'Researcher', color: '#AF52DE' },
       ],
       memberAvatars: ['J', 'S', 'M'],
       comments: 9,
@@ -157,9 +164,9 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
         "Mobile app development brings team members' diverse experience into play.",
       category: 'Work',
       members: [
-        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead' },
-        { id: '3', name: 'Mike', avatar: 'M', role: 'Developer' },
-        { id: '5', name: 'Lisa', avatar: 'L', role: 'UI Designer' },
+        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead', color: '#FF9500' },
+        { id: '3', name: 'Mike', avatar: 'M', role: 'Developer', color: '#34C759' },
+        { id: '5', name: 'Lisa', avatar: 'L', role: 'UI Designer', color: '#FF2D92' },
       ],
       memberAvatars: ['J', 'M', 'L'],
       comments: 12,
@@ -224,7 +231,13 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
   };
 
   return (
-    <View className="flex-1 bg-gray-50" style={{ paddingTop: insets.top }}>
+    <View 
+      className="flex-1" 
+      style={{ 
+        backgroundColor: '#F5F5F5',
+        paddingTop: insets.top 
+      }}
+    >
       {/* Search Bar */}
       <View className="px-4 mb-4">
         {/* Prompt */}
@@ -244,7 +257,7 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
         <Text className="text-purple-600 text-2xl font-bold">Channels</Text>
         <View className="flex-row space-x-3">
           <TouchableOpacity className="p-2">
-            <Text className="text-gray-400 text-lg">⚙️</Text>
+            <MaterialIcons name="more-vert" size={24} color="#9CA3AF" />
           </TouchableOpacity>
           <TouchableOpacity className="w-8 h-8 bg-blue-600 rounded-full items-center justify-center">
             <Text className="text-white text-lg font-bold">+</Text>
@@ -260,7 +273,7 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
             title={channel.title}
             description={channel.description}
             category={channel.category}
-            memberAvatars={channel.memberAvatars}
+            members={channel.members}
             comments={channel.comments}
             files={channel.files}
             onPress={() => handleChannelPress(channel)}
