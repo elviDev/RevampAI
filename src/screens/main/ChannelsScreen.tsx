@@ -8,8 +8,6 @@ import {
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Feather from 'react-native-vector-icons/Feather';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { PromptInput } from '../../components/voice/PromptInput';
 
 interface Member {
@@ -17,7 +15,6 @@ interface Member {
   name: string;
   avatar: string;
   role: string;
-  color: string;
 }
 
 interface Channel {
@@ -35,7 +32,7 @@ interface ChannelCardProps {
   title: string;
   description: string;
   category: string;
-  members: Member[];
+  memberAvatars: string[];
   comments: number;
   files: number;
   onPress: () => void;
@@ -45,7 +42,7 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
   title,
   description,
   category,
-  members,
+  memberAvatars,
   comments,
   files,
   onPress,
@@ -68,7 +65,7 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
           <Text className="text-green-600 text-xs font-medium">{category}</Text>
         </View>
         <TouchableOpacity className="p-1">
-          <MaterialIcons name="more-vert" size={20} color="#9CA3AF" />
+          <Text className="text-gray-400 text-lg">•••</Text>
         </TouchableOpacity>
       </View>
 
@@ -81,18 +78,15 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
       {/* Bottom Section */}
       <View className="flex-row items-center justify-between">
         {/* Member Avatars */}
-        <View className="flex-row -space-x-3">
-          {members.slice(0, 3).map((member, index) => (
+        <View className="flex-row -space-x-2">
+          {memberAvatars.map((member, index) => (
             <View
-              key={member.id}
-              className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center`}
-              style={{ 
-                backgroundColor: member.color,
-                zIndex: members.length - index 
-              }}
+              key={index}
+              className="w-8 h-8 bg-purple-500 rounded-full border-2 border-white flex items-center justify-center"
+              style={{ zIndex: memberAvatars.length - index }}
             >
               <Text className="text-white text-xs font-semibold">
-                {member.avatar}
+                {member.charAt(0)}
               </Text>
             </View>
           ))}
@@ -101,11 +95,11 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
         {/* Stats */}
         <View className="flex-row items-center space-x-4">
           <View className="flex-row items-center">
-            <Feather name="message-square" size={14} color="#9CA3AF" style={{ marginRight: 4 }} />
+            <Text className="text-gray-400 mr-1">💬</Text>
             <Text className="text-gray-400 text-sm">{comments} comments</Text>
           </View>
           <View className="flex-row items-center">
-            <Feather name="file-text" size={14} color="#9CA3AF" style={{ marginRight: 4 }} />
+            <Text className="text-gray-400 mr-1">📁</Text>
             <Text className="text-gray-400 text-sm">{files} files</Text>
           </View>
         </View>
@@ -133,9 +127,9 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
         "Brainstorming brings team members' diverse experience into play.",
       category: 'Work',
       members: [
-        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead', color: '#FF9500' },
-        { id: '2', name: 'Sarah', avatar: 'S', role: 'Designer', color: '#007AFF' },
-        { id: '3', name: 'Mike', avatar: 'M', role: 'Developer', color: '#34C759' },
+        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead' },
+        { id: '2', name: 'Sarah', avatar: 'S', role: 'Designer' },
+        { id: '3', name: 'Mike', avatar: 'M', role: 'Developer' },
       ],
       memberAvatars: ['J', 'S', 'M'],
       comments: 12,
@@ -148,9 +142,9 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
         "Researching brings team members' diverse experience into play.",
       category: 'Work',
       members: [
-        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead', color: '#FF9500' },
-        { id: '2', name: 'Sarah', avatar: 'S', role: 'Designer', color: '#007AFF' },
-        { id: '4', name: 'Mark', avatar: 'M', role: 'Researcher', color: '#AF52DE' },
+        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead' },
+        { id: '2', name: 'Sarah', avatar: 'S', role: 'Designer' },
+        { id: '4', name: 'Mark', avatar: 'M', role: 'Researcher' },
       ],
       memberAvatars: ['J', 'S', 'M'],
       comments: 9,
@@ -163,9 +157,9 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
         "Mobile app development brings team members' diverse experience into play.",
       category: 'Work',
       members: [
-        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead', color: '#FF9500' },
-        { id: '3', name: 'Mike', avatar: 'M', role: 'Developer', color: '#34C759' },
-        { id: '5', name: 'Lisa', avatar: 'L', role: 'UI Designer', color: '#FF2D92' },
+        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead' },
+        { id: '3', name: 'Mike', avatar: 'M', role: 'Developer' },
+        { id: '5', name: 'Lisa', avatar: 'L', role: 'UI Designer' },
       ],
       memberAvatars: ['J', 'M', 'L'],
       comments: 12,
@@ -250,7 +244,7 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
         <Text className="text-purple-600 text-2xl font-bold">Channels</Text>
         <View className="flex-row space-x-3">
           <TouchableOpacity className="p-2">
-            <MaterialIcons name="more-vert" size={24} color="#9CA3AF" />
+            <Text className="text-gray-400 text-lg">⚙️</Text>
           </TouchableOpacity>
           <TouchableOpacity className="w-8 h-8 bg-blue-600 rounded-full items-center justify-center">
             <Text className="text-white text-lg font-bold">+</Text>
@@ -266,7 +260,7 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
             title={channel.title}
             description={channel.description}
             category={channel.category}
-            members={channel.members}
+            memberAvatars={channel.memberAvatars}
             comments={channel.comments}
             files={channel.files}
             onPress={() => handleChannelPress(channel)}
