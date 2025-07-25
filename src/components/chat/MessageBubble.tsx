@@ -198,7 +198,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <View
               className={`rounded-2xl px-4 py-3 ${
                 isOwn
-                  ? 'bg-blue-500 rounded-br-md'
+                  ? 'bg-purple-500 rounded-br-md'
                   : 'bg-white rounded-bl-md border border-gray-100'
               } ${showConnector ? 'border-l-4 border-l-blue-300' : ''}`}
               style={
@@ -209,7 +209,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       shadowOffset: { width: 0, height: 1 },
                       shadowOpacity: 0.05,
                       shadowRadius: 4,
-                      elevation: 2,
+                      elevation: 0,
                     }
               }
             >
