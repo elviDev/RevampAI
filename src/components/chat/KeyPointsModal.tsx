@@ -252,7 +252,7 @@ export const KeyPointsModal: React.FC<KeyPointsModalProps> = ({
                     shadowOffset: { width: 0, height: 1 },
                     shadowOpacity: keyPoint.canBeTask ? 0.05 : 0.02,
                     shadowRadius: 4,
-                    elevation: keyPoint.canBeTask ? 2 : 1,
+                    elevation: 0,
                   }}
                 >
                   <View className="flex-row items-start justify-between">
