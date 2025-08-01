@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
+import Feather from 'react-native-vector-icons/Feather';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -41,7 +42,7 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               onPress={handleBackPress}
               className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center mr-3"
             >
-              <Text className="text-gray-600 text-lg">←</Text>
+              <Feather name="arrow-left" size={20} color="#6B7280" />
             </TouchableOpacity>
           </Animated.View>
 

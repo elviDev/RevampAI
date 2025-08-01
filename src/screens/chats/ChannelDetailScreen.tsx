@@ -29,6 +29,7 @@ import {
   GestureHandlerRootView,
 } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 import { MessageBubble } from '../../components/chat/MessageBubble';
 import { ChannelHeader } from '../../components/chat/ChannelHeader';
 import { MeetingSummaryModal } from '../../components/chat/MeetingSummaryModal';
@@ -1191,7 +1192,6 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
               <TouchableOpacity
                 onPress={generateMeetingSummary}
                 disabled={isGeneratingSummary}
-                className="bg-purple-500 rounded-full py-2 px-4 flex-row items-center justify-center"
                 style={{
                   shadowColor: '#8B5CF6',
                   shadowOffset: { width: 0, height: 2 },
@@ -1200,12 +1200,26 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
                   elevation: 4,
                 }}
               >
-                <Text className="text-white text-sm font-semibold mr-2">
-                  {isGeneratingSummary ? '⏳' : '📝'}
-                </Text>
-                <Text className="text-white text-sm font-semibold">
-                  {isGeneratingSummary ? 'Generating...' : 'Meeting Summary'}
-                </Text>
+                <LinearGradient
+                  colors={['#3933C6', '#A05FFF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    borderRadius: 9999,
+                    paddingVertical: 8,
+                    paddingHorizontal: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text className="text-white text-sm font-semibold mr-2">
+                    {isGeneratingSummary ? '⏳' : '📝'}
+                  </Text>
+                  <Text className="text-white text-sm font-semibold">
+                    {isGeneratingSummary ? 'Generating...' : 'Meeting Summary'}
+                  </Text>
+                </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
 
@@ -1216,7 +1230,6 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
               <TouchableOpacity
                 onPress={generateKeyPoints}
                 disabled={isGeneratingKeyPoints}
-                className="bg-purple-500 rounded-full py-2 px-4 flex-row items-center justify-center"
                 style={{
                   shadowColor: '#8B5CF6',
                   shadowOffset: { width: 0, height: 2 },
@@ -1225,12 +1238,26 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
                   elevation: 4,
                 }}
               >
-                <Text className="text-white text-sm font-semibold mr-2">
-                  {isGeneratingKeyPoints ? '⏳' : '💡'}
-                </Text>
-                <Text className="text-white text-sm font-semibold">
-                  {isGeneratingKeyPoints ? 'Processing...' : 'Key Points'}
-                </Text>
+                <LinearGradient
+                  colors={['#3933C6', '#A05FFF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    borderRadius: 9999,
+                    paddingVertical: 8,
+                    paddingHorizontal: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text className="text-white text-sm font-semibold mr-2">
+                    {isGeneratingKeyPoints ? '⏳' : '💡'}
+                  </Text>
+                  <Text className="text-white text-sm font-semibold">
+                    {isGeneratingKeyPoints ? 'Processing...' : 'Key Points'}
+                  </Text>
+                </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
           </View>
@@ -1477,7 +1504,7 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
 
           {/* Voice Input */}
           <Animated.View style={inputAnimatedStyle}>
-            <View className="px-4 py-2 bg-white">
+            <View className=" py-2 bg-white">
               {/* AI Enhancement Status */}
               {isAiEnhancing && (
                 <View className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-2">
@@ -1492,15 +1519,15 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
 
               {/* Voice Input Container */}
               <PromptInput
-                onSendMessage={(text) => handleSendMessage(text)}
+                onSendMessage={text => handleSendMessage(text)}
                 onSendRecording={(audioUri, transcript) => {
                   handleSendMessage(transcript || '', audioUri, transcript);
                 }}
-                onAttachFile={(file) => {
+                onAttachFile={file => {
                   setSelectedFile(file);
                   setShowAttachmentPicker(false);
                 }}
-                onAttachImage={(image) => {
+                onAttachImage={image => {
                   setSelectedFile(image);
                   setShowAttachmentPicker(false);
                 }}

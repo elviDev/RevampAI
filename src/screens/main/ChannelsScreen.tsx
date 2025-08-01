@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   FadeInDown,
@@ -11,7 +11,7 @@ import Animated, {
   withSequence,
   runOnJS,
 } from 'react-native-reanimated';
-import { PromptInput } from '../../components/voice/PromptInput';
+import LinearGradient from 'react-native-linear-gradient';
 import Feather from 'react-native-vector-icons/Feather';
 import IonIcon from 'react-native-vector-icons/Ionicons';
 // Create animated components
@@ -152,21 +152,54 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
           className="flex-row items-center justify-between"
         >
           {/* Member Avatars */}
-          <View className="flex-row -space-x-2">
-            {memberAvatars.map((member, avatarIndex) => (
+          <View className="flex-row -space-x-3">
+            {memberAvatars.slice(0, 4).map((member, avatarIndex) => (
               <Animated.View
                 key={avatarIndex}
                 entering={FadeInUp.delay(index * 150 + 500 + avatarIndex * 100)
                   .duration(400)
                   .springify()}
-                className="w-8 h-8 bg-purple-500 rounded-full border-2 border-white flex items-center justify-center"
                 style={{ zIndex: memberAvatars.length - avatarIndex }}
               >
-                <Text className="text-white text-xs font-semibold">
-                  {member.charAt(0)}
-                </Text>
+                <LinearGradient
+                  colors={avatarIndex % 2 === 0 ? ['#3933C6', '#A05FFF'] : ['#A05FFF', '#3933C6']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    borderWidth: 2,
+                    borderColor: 'white',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 3,
+                    elevation: 3,
+                  }}
+                >
+                  <Text className="text-white text-xs font-bold">
+                    {member.charAt(0)}
+                  </Text>
+                </LinearGradient>
               </Animated.View>
             ))}
+            {memberAvatars.length > 4 && (
+              <Animated.View
+                entering={FadeInUp.delay(index * 150 + 500 + 4 * 100)
+                  .duration(400)
+                  .springify()}
+                style={{ zIndex: 0 }}
+              >
+                <View className="w-9 h-9 bg-gray-400 rounded-full border-2 border-white flex items-center justify-center">
+                  <Text className="text-white text-xs font-bold">
+                    +{memberAvatars.length - 4}
+                  </Text>
+                </View>
+              </Animated.View>
+            )}
           </View>
 
           {/* Stats */}
@@ -200,6 +233,8 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
   navigation,
 }) => {
   const insets = useSafeAreaInsets();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   // Debug navigation object
   React.useEffect(() => {
@@ -258,6 +293,21 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
     },
   ];
 
+  // Filter channels based on search query
+  const filteredChannels = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return channels;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    return channels.filter(
+      channel =>
+        channel.title.toLowerCase().includes(query) ||
+        channel.category.toLowerCase().includes(query) ||
+        channel.description.toLowerCase().includes(query)
+    );
+  }, [channels, searchQuery]);
+
   const handleChannelPress = (channel: Channel) => {
     console.log(
       'Navigating to channel:',
@@ -294,44 +344,95 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
     }
   };
 
-  const handleSendMessage = (text: string) => {
-    console.log('Sending text message:', text);
-    // Handle text message
-  };
-
-  const handleSendRecording = (audioUri: string, transcript?: string) => {
-    console.log('Sending audio recording:', audioUri);
-    console.log('Voice transcript:', transcript);
-    // Handle audio message with transcript
-  };
-
-  const handleAttachFile = (file: any) => {
-    console.log('File attached:', file);
-    Alert.alert('File Attached', `${file.name} has been attached`);
-  };
-
-  const handleAttachImage = (image: any) => {
-    console.log('Image attached:', image);
-    Alert.alert('Image Attached', `Image has been attached`);
-  };
-
   return (
     <View className="flex-1 bg-gray-50" style={{ paddingTop: insets.top }}>
-      {/* Search Bar */}
+      {/* Search Input */}
       <Animated.View
         entering={FadeInDown.duration(800).springify().damping(15)}
         className="px-4 mb-4"
       >
-        {/* Prompt */}
-        <PromptInput
-          onSendMessage={handleSendMessage}
-          onSendRecording={handleSendRecording}
-          onAttachFile={handleAttachFile}
-          onAttachImage={handleAttachImage}
-          placeholder="Enter a prompt here..."
-          maxLines={6}
-          disabled={false}
-        />
+        <LinearGradient
+          colors={['#3933C6', '#A05FFF']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            borderRadius: 24,
+            padding: 2,
+            shadowColor: '#A05FFF',
+            shadowOffset: { width: 0, height: 4 },
+            shadowRadius: 16,
+            shadowOpacity: 0.15,
+            elevation: 8,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 22,
+              paddingHorizontal: 20,
+              paddingVertical: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              shadowColor: '#3933C6',
+              shadowOffset: { width: 0, height: 2 },
+              shadowRadius: 8,
+              shadowOpacity: 0.08,
+              elevation: 4,
+            }}
+          >
+            <Feather
+              name="search"
+              size={20}
+              color={isSearchFocused ? '#3933C6' : '#9CA3AF'}
+              style={{ marginRight: 12 }}
+            />
+            <TextInput
+              placeholder="Search channels by title or category..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
+              style={{
+                flex: 1,
+                fontSize: 16,
+                fontWeight: '400',
+                color: '#1F2937',
+                letterSpacing: 0.3,
+              }}
+              placeholderTextColor="#9CA3AF"
+              returnKeyType="search"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                style={{
+                  marginLeft: 8,
+                  padding: 4,
+                }}
+              >
+                <Feather name="x" size={18} color="#9CA3AF" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </LinearGradient>
+
+        {/* Search Results Info */}
+        {searchQuery.trim() && (
+          <Animated.View
+            entering={FadeInDown.delay(200).duration(400)}
+            className="mt-3 px-2"
+          >
+            <Text className="text-gray-600 text-sm">
+              {filteredChannels.length > 0
+                ? `Found ${filteredChannels.length} channel${
+                    filteredChannels.length === 1 ? '' : 's'
+                  } for "${searchQuery}"`
+                : `No channels found for "${searchQuery}"`}
+            </Text>
+          </Animated.View>
+        )}
       </Animated.View>
 
       {/* Header */}
@@ -369,19 +470,46 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
         entering={FadeInUp.delay(800).duration(600)}
         showsVerticalScrollIndicator={false}
       >
-        {channels.map((channel, index) => (
-          <ChannelCard
-            key={channel.id}
-            title={channel.title}
-            description={channel.description}
-            category={channel.category}
-            memberAvatars={channel.memberAvatars}
-            comments={channel.comments}
-            files={channel.files}
-            index={index}
-            onPress={() => handleChannelPress(channel)}
-          />
-        ))}
+        {filteredChannels.length > 0 ? (
+          filteredChannels.map((channel, index) => (
+            <ChannelCard
+              key={channel.id}
+              title={channel.title}
+              description={channel.description}
+              category={channel.category}
+              memberAvatars={channel.memberAvatars}
+              comments={channel.comments}
+              files={channel.files}
+              index={index}
+              onPress={() => handleChannelPress(channel)}
+            />
+          ))
+        ) : searchQuery.trim() ? (
+          <Animated.View
+            entering={FadeInUp.delay(400).duration(600)}
+            className="flex-1 items-center justify-center py-12"
+          >
+            <View
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: 40,
+                backgroundColor: '#F3F4F6',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <Feather name="search" size={32} color="#9CA3AF" />
+            </View>
+            <Text className="text-gray-500 text-lg font-medium mb-2">
+              No channels found
+            </Text>
+            <Text className="text-gray-400 text-sm text-center px-8">
+              Try searching with different keywords or check your spelling
+            </Text>
+          </Animated.View>
+        ) : null}
       </Animated.ScrollView>
     </View>
   );

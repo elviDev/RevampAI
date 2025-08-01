@@ -94,7 +94,7 @@ const DashboardScreen = () => {
   };
 
   return (
-    <View className="flex-1 flex-col  bg-white justify-end  px-6 pt-4  ">
+    <View className="flex-1 flex-col  bg-white justify-end  px-4 pt-4  ">
       {/* Top Icons */}
       <Animated.View
         className="absolute top-12 right-6 flex-row gap-2 items-center space-x-4 "
