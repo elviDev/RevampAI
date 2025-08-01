@@ -22,7 +22,9 @@ import Animated, {
   interpolate,
   withSequence,
 } from 'react-native-reanimated';
-import Voice from '@react-native-voice/voice';
+import Voice from '../../services/voice/CustomVoice';
+import { debugVoiceSystem, logVoiceModuleStatus } from '../../utils/debugVoice';
+import { showVoiceErrorDialog, runVoiceDiagnostics } from '../../utils/voiceErrorHandler';
 import {
   pick,
   types,
@@ -33,7 +35,7 @@ import {
   ImagePickerResponse,
   MediaType,
 } from 'react-native-image-picker';
-import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+import CustomAudioRecorderPlayer from '../../services/audio/CustomAudioRecorderPlayer';
 import RNFS from 'react-native-fs';
 import Icon from 'react-native-vector-icons/Feather';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -77,8 +79,9 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<any[]>([]);
   const [showAttachmentModal, setShowAttachmentModal] = useState(false);
+  const [voiceAvailable, setVoiceAvailable] = useState(false);
 
-  const audioRecorderPlayer = useRef(AudioRecorderPlayer).current;
+  const audioRecorderPlayer = useRef(new CustomAudioRecorderPlayer()).current;
   const recordingTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Animations
@@ -89,28 +92,62 @@ export const PromptInput: React.FC<PromptInputProps> = ({
 
   // Voice recognition setup
   useEffect(() => {
-    Voice.onSpeechStart = onSpeechStart;
-    Voice.onSpeechRecognized = onSpeechRecognized;
-    Voice.onSpeechEnd = onSpeechEnd;
-    Voice.onSpeechError = onSpeechError;
-    Voice.onSpeechResults = onSpeechResults;
-    Voice.onSpeechPartialResults = onSpeechPartialResults;
+    // Debug voice system on component mount
+    debugVoiceSystem();
+    logVoiceModuleStatus();
+    
+    // Run comprehensive diagnostics
+    runVoiceDiagnostics();
+    
+    try {
+      if (Voice.isModuleAvailable()) {
+        setVoiceAvailable(true);
+        Voice.onSpeechStart = onSpeechStart;
+        Voice.onSpeechRecognized = onSpeechRecognized;
+        Voice.onSpeechEnd = onSpeechEnd;
+        Voice.onSpeechError = onSpeechError;
+        Voice.onSpeechResults = onSpeechResults;
+        Voice.onSpeechPartialResults = onSpeechPartialResults;
+        console.log('✅ Voice recognition setup completed');
+      } else {
+        setVoiceAvailable(false);
+        console.warn('⚠️ Voice module not available - voice recognition disabled');
+      }
+    } catch (error) {
+      setVoiceAvailable(false);
+      console.warn('❌ Voice recognition setup failed:', error);
+    }
 
     return () => {
-      Voice.destroy().then(Voice.removeAllListeners);
+      try {
+        if (Voice.isModuleAvailable()) {
+          Voice.destroy().then(() => Voice.removeAllListeners()).catch(console.warn);
+        }
+      } catch (error) {
+        console.warn('Voice cleanup failed:', error);
+      }
     };
   }, []);
 
   // Voice event handlers
   const onSpeechStart = () => setIsListening(true);
   const onSpeechRecognized = () => {};
-  const onSpeechEnd = () => setIsListening(false);
-  const onSpeechError = (error: any) => {
-    console.log('Speech error:', error);
+  const onSpeechEnd = () => {
+    console.log('🛑 Speech end detected');
     setIsListening(false);
+    // Don't automatically stop recording - let user control it
+  };
+  const onSpeechError = (error: any) => {
+    console.log('❌ Voice error received:', error);
+    setIsListening(false);
+    
+    // Show detailed error information
+    showVoiceErrorDialog(error);
   };
   const onSpeechResults = (event: any) => {
+    console.log('📝 Speech results received:', event.value);
     setVoiceResults(event.value);
+    // Don't automatically stop - accumulate results for continuous speech
   };
   const onSpeechPartialResults = (event: any) => {
     setVoiceResults(event.value);
@@ -178,7 +215,24 @@ export const PromptInput: React.FC<PromptInputProps> = ({
       );
 
       // Start voice recognition
-      await Voice.start('en-US');
+      try {
+        if (Voice.isModuleAvailable()) {
+          console.log('🎤 Starting voice recognition...');
+          await Voice.start('en-US');
+          console.log('✅ Voice recognition started successfully');
+        } else {
+          console.warn('⚠️ Voice module not available - continuing with audio recording only');
+        }
+      } catch (voiceError: any) {
+        console.warn('❌ Voice recognition failed to start:', voiceError);
+        console.warn('Error details:', voiceError.message);
+        // Continue with recording even if voice recognition fails
+        Alert.alert(
+          'Voice Recognition', 
+          'Voice recognition is not available, but audio recording will continue.',
+          [{ text: 'OK' }]
+        );
+      }
     } catch (error) {
       console.error('Start recording error:', error);
       Alert.alert('Error', 'Failed to start recording');
@@ -194,7 +248,16 @@ export const PromptInput: React.FC<PromptInputProps> = ({
       }
 
       // Stop voice recognition
-      await Voice.stop();
+      try {
+        if (Voice.isModuleAvailable()) {
+          console.log('🛑 Stopping voice recognition...');
+          await Voice.stop();
+          console.log('✅ Voice recognition stopped successfully');
+        }
+      } catch (voiceError: any) {
+        console.warn('❌ Voice recognition failed to stop:', voiceError);
+        console.warn('Error details:', voiceError.message);
+      }
 
       // Reset animations
       recordingScale.value = withSpring(1);
@@ -226,7 +289,11 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const cancelRecording = async () => {
     try {
       await audioRecorderPlayer.stopRecorder();
-      await Voice.stop();
+      try {
+        await Voice.stop();
+      } catch (voiceError) {
+        console.warn('Voice stop failed during cancel:', voiceError);
+      }
 
       if (recordingTimer.current) {
         clearInterval(recordingTimer.current);
@@ -545,7 +612,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
             ) : (
               <TouchableOpacity
                 onPress={startRecording}
-                className="w-12 h-12 bg-purple-600 rounded-full items-center justify-center"
+                className="w-12 h-12 bg-purple-600 rounded-full items-center justify-center relative"
                 style={{
                   shadowColor: '#A05FFF',
                   shadowOffset: { width: 0, height: 4 },
@@ -555,6 +622,12 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                 }}
               >
                 <MaterialIcon name="mic" size={24} color="white" />
+                {/* Voice status indicator */}
+                <View
+                  className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${
+                    voiceAvailable ? 'bg-green-500' : 'bg-red-500'
+                  }`}
+                />
               </TouchableOpacity>
             )}
           </View>
@@ -685,6 +758,20 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         <View className="mt-2 px-4 flex-row items-center justify-center">
           <MaterialIcon name="mic" size={16} color="#3B82F6" />
           <Text className="text-blue-600 text-sm ml-2">Listening...</Text>
+        </View>
+      )}
+
+      {/* Voice Debug Info */}
+      {__DEV__ && (
+        <View className="mt-2 px-4">
+          <Text className="text-xs text-gray-500 text-center">
+            Voice Module: {voiceAvailable ? '✅ Available' : '❌ Not Available'}
+          </Text>
+          {voiceResults.length > 0 && (
+            <Text className="text-xs text-blue-600 text-center mt-1">
+              Last: {voiceResults[0]}
+            </Text>
+          )}
         </View>
       )}
     </KeyboardAvoidingView>

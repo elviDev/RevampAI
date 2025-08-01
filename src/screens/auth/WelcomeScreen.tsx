@@ -22,7 +22,7 @@ interface WelcomeScreenProps {
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
   const dispatch = useDispatch<AppDispatch>();
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const logoScale = useSharedValue(0);
   const textOpacity = useSharedValue(0);
   const buttonOpacity = useSharedValue(0);
@@ -31,20 +31,20 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
   React.useEffect(() => {
     // Animate logo
     logoScale.value = withSpring(1, { damping: 15 });
-    
+
     // Animate text with delay
     textOpacity.value = withDelay(300, withTiming(1, { duration: 800 }));
-    
+
     // Animate buttons with delay
     buttonOpacity.value = withDelay(600, withTiming(1, { duration: 800 }));
-    
+
     // Animate voice button with bounce
     voiceButtonScale.value = withDelay(
       900,
       withSequence(
         withSpring(1.2, { damping: 8 }),
-        withSpring(1, { damping: 12 })
-      )
+        withSpring(1, { damping: 12 }),
+      ),
     );
   }, []);
 
@@ -64,20 +64,21 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
     transform: [{ scale: voiceButtonScale.value }],
   }));
 
-
   const handleGoogleSignIn = async () => {
     try {
       setIsLoading(true);
       // Simulate Google sign in
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       // Dispatch login success action
-      dispatch(loginSuccess({ 
-        id: '1', 
-        email: 'user@gmail.com', 
-        fullName: 'Google User',
-        role: 'member' as const
-      }));
+      dispatch(
+        loginSuccess({
+          id: '1',
+          email: 'user@gmail.com',
+          fullName: 'Google User',
+          role: 'member' as const,
+        }),
+      );
     } catch (error) {
       console.error('Google sign in error:', error);
       dispatch(loginFailure('Google sign in failed. Please try again.'));
@@ -102,14 +103,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
         }}
       >
         {/* Logo */}
-        <Animated.View
-          style={[
-            logoAnimatedStyle,
-          ]}
-        >
-          <Image
-            source={require('../../assets/icons/logo.png')}
-          />
+        <Animated.View style={[logoAnimatedStyle]}>
+          <Image source={require('../../assets/icons/logo.png')} />
         </Animated.View>
 
         {/* Welcome Text */}
@@ -151,17 +146,15 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
           </Text>
         </Animated.View>
 
-
         {/* Buttons */}
         <Animated.View
-        className="mt-10"
+          className="mt-10"
           style={[
             { width: '100%', paddingHorizontal: 20 },
             buttonAnimatedStyle,
           ]}
         >
           <Button
-          
             title="Sign In"
             onPress={() => navigation.navigate('Login')}
             variant="outline"
@@ -172,7 +165,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
             }}
             textStyle={{ color: Colors.text.primary }}
           />
-          
+
           <Button
             title="Sign In with Google"
             onPress={handleGoogleSignIn}
@@ -207,4 +200,4 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
       </View>
     </CurvedBackground>
   );
-}; 
+};

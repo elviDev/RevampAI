@@ -35,6 +35,7 @@ import { MeetingSummaryModal } from '../../components/chat/MeetingSummaryModal';
 import { KeyPointsModal } from '../../components/chat/KeyPointsModal';
 import { MentionInput } from '../../components/chat/MentionInput';
 import { EmojiPicker } from '../../components/chat/EmojiPicker';
+import { PromptInput } from '../../components/voice/PromptInput';
 import type { Message, ChannelSummary } from '../../types/chat';
 import Feather from 'react-native-vector-icons/Feather';
 import IonIcon from 'react-native-vector-icons/Ionicons';
@@ -1489,172 +1490,33 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
                 </View>
               )}
 
-              {/* Recording Status */}
-              {isVoiceMode && (
-                <View className="bg-red-50 border border-red-200 rounded-lg p-3 mb-2">
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-row items-center">
-                      <View className="w-3 h-3 bg-red-500 rounded-full mr-2" />
-                      <Text className="text-red-600 font-medium">
-                        Recording voice message...
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => setIsVoiceMode(false)}
-                      className="bg-red-100 rounded-full px-3 py-1"
-                    >
-                      <Text className="text-red-600 text-xs font-medium">
-                        Stop
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              {/* Modern Input Container */}
-              <View
-                className="bg-white border-2 border-purple-500 rounded-2xl px-4 py-3"
-                style={{
-                  shadowColor: '#8B5CF6',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 8,
-                  elevation: 4,
+              {/* Voice Input Container */}
+              <PromptInput
+                onSendMessage={(text) => handleSendMessage(text)}
+                onSendRecording={(audioUri, transcript) => {
+                  handleSendMessage(transcript || '', audioUri, transcript);
                 }}
-              >
-                {/* Text Input Row */}
-                <View className="mb-3">
-                  {!isVoiceMode ? (
-                    <MentionInput
-                      value={inputText}
-                      onChangeText={handleTextChange}
-                      placeholder={
-                        editingMessage
-                          ? 'Edit your message...'
-                          : editingReply
-                            ? 'Edit your reply...'
-                            : replyingToReply
-                              ? `Reply to ${replyingToReply.replyAuthor}...`
-                              : replyingTo
-                                ? 'Reply to message...'
-                                : 'Type your message here...'
-                      }
-                      members={members}
-                      onFocus={() => (inputScale.value = withSpring(1.02))}
-                      onBlur={() => (inputScale.value = withSpring(1))}
-                      multiline
-                      maxHeight={120}
-                    />
-                  ) : (
-                    <View className="py-3">
-                      <Text className="text-gray-500 text-base">
-                        🎤 Recording voice message...
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Action Icons Row */}
-                <View className="flex-row items-center justify-between">
-                  {/* Left Side Icons */}
-                  <View className="flex-row items-center space-x-3">
-                    {/* Attachment Icon */}
-                    <TouchableOpacity
-                      onPress={() => setShowAttachmentPicker(true)}
-                      className="w-9 h-9 bg-purple-50 rounded-full items-center justify-center"
-                      disabled={isVoiceMode}
-                    >
-                      <Feather name="paperclip" size={24} color="#A05FFF" />
-                    </TouchableOpacity>
-
-                    {/* Emoji Icon */}
-                    <TouchableOpacity
-                      onPress={() => setShowEmojiPicker(true)}
-                      className="w-9 h-9 bg-yellow-50 rounded-full items-center justify-center"
-                      disabled={isVoiceMode}
-                    >
-                      <Feather name="smile" size={24} color="#F59E0B" />
-                    </TouchableOpacity>
-
-                    {/* AI Brain Icon */}
-                    {inputText.trim() && !isVoiceMode && (
-                      <TouchableOpacity
-                        onPress={handleAiEnhancement}
-                        disabled={isAiEnhancing}
-                        className="w-9 h-9 bg-blue-50 rounded-full items-center justify-center"
-                      >
-                        <Text className="text-blue-600 text-base">
-                          {isAiEnhancing ? (
-                            <Feather name="zap" size={24} color="#A05FFF" />
-                          ) : (
-                            <IonIcon
-                              name="rocket-outline"
-                              size={24}
-                              color="#A05FFF"
-                            />
-                          )}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  {/* Right Side - Send/Voice Button */}
-                  <View>
-                    {inputText.trim() && !isVoiceMode ? (
-                      <TouchableOpacity
-                        onPress={() => handleSendMessage(inputText)}
-                        className="w-11 h-11 bg-[#9f5fff68] rounded-full items-center justify-center p-1"
-                        style={{
-                          shadowColor: '#A05FFF',
-                          shadowOffset: { width: 0, height: 3 },
-                          shadowOpacity: 0.3,
-                          shadowRadius: 5,
-                          elevation: 0,
-                        }}
-                      >
-                        <Feather name="send" size={24} color="#A05FFF" />
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => {
-                          setIsVoiceMode(!isVoiceMode);
-                          if (!isVoiceMode) {
-                            // Start voice recording simulation
-                            setTimeout(() => {
-                              const mockTranscript =
-                                'This is a mock voice message transcript';
-                              handleSendMessage(
-                                mockTranscript,
-                                'mock_audio_uri.m4a',
-                                mockTranscript,
-                              );
-                              setIsVoiceMode(false);
-                            }, 3000);
-                          }
-                        }}
-                        className={`w-11 h-11 rounded-full items-center justify-center ${
-                          isVoiceMode ? 'bg-red-500' : 'bg-purple-600'
-                        }`}
-                        style={{
-                          shadowColor: isVoiceMode ? '#EF4444' : '#8B5CF6',
-                          shadowOffset: { width: 0, height: 3 },
-                          shadowOpacity: 0.3,
-                          shadowRadius: 5,
-                          elevation: 5,
-                        }}
-                      >
-                        <Text className="text-white text-lg">
-                          {isVoiceMode ? (
-                            <Feather name="pause" size={24} color="white" />
-                          ) : (
-                            <Feather name="mic" size={24} color="white" />
-                          )}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              </View>
+                onAttachFile={(file) => {
+                  setSelectedFile(file);
+                  setShowAttachmentPicker(false);
+                }}
+                onAttachImage={(image) => {
+                  setSelectedFile(image);
+                  setShowAttachmentPicker(false);
+                }}
+                placeholder={
+                  editingMessage
+                    ? 'Edit your message...'
+                    : editingReply
+                      ? 'Edit your reply...'
+                      : replyingToReply
+                        ? `Reply to ${replyingToReply.replyAuthor}...`
+                        : replyingTo
+                          ? 'Reply to message...'
+                          : 'Type your message here...'
+                }
+                disabled={false}
+              />
             </View>
           </Animated.View>
 
