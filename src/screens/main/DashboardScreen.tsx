@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -13,6 +14,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { PromptInput } from '../../components/voice/PromptInput';
 
 const DashboardScreen = () => {
+  const insets = useSafeAreaInsets();
   // Animation values
   const topIconsOpacity = useSharedValue(0);
   const topIconsTranslateY = useSharedValue(-50);
@@ -94,11 +96,11 @@ const DashboardScreen = () => {
   };
 
   return (
-    <View className="flex-1 flex-col  bg-white justify-end  px-4 pt-4  ">
+    <View className="flex-1 flex-col bg-white justify-end px-4 pt-4" style={{ paddingTop: insets.top }}>
       {/* Top Icons */}
       <Animated.View
-        className="absolute top-12 right-6 flex-row gap-2 items-center space-x-4 "
-        style={topIconsAnimatedStyle}
+        className="absolute right-6 flex-row gap-2 items-center space-x-4"
+        style={[topIconsAnimatedStyle, { top: insets.top + 12 }]}
       >
         {/* Refresh Icon */}
         <TouchableOpacity>

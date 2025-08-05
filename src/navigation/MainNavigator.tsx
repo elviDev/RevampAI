@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { TabNavigator } from './TabNavigator';
 import { ChannelDetailScreen } from '../screens/chats/ChannelDetailScreen';
+import { TaskDetailScreen } from '../screens/tasks/TaskDetailScreen';
 
 export type MainStackParamList = {
   Tabs: undefined;
@@ -9,6 +10,9 @@ export type MainStackParamList = {
     channelId: string;
     channelName: string;
     members: any[];
+  };
+  TaskDetailScreen: {
+    taskId: string;
   };
 };
 
@@ -24,6 +28,10 @@ export const MainNavigator: React.FC = () => {
       <Stack.Screen
         name="ChannelDetailScreen"
         component={ChannelDetailScreen}
+      />
+      <Stack.Screen
+        name="TaskDetailScreen"
+        component={TaskDetailScreen}
       />
     </Stack.Navigator>
   );
