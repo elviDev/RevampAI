@@ -5,30 +5,45 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Modal,
-  Alert,
+  Dimensions,
+  StatusBar,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   FadeInDown,
   FadeInUp,
   FadeInRight,
+  SlideInRight,
+  ZoomIn,
+  BounceIn,
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedScrollHandler,
   withSpring,
+  withSequence,
+  withTiming,
+  interpolate,
+  interpolateColor,
+  runOnJS,
 } from 'react-native-reanimated';
 import LinearGradient from 'react-native-linear-gradient';
+// import { BlurView } from '@react-native-community/blur'; // Commented out - not available
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useQuickActions } from '../../contexts/QuickActionsContext';
 import {
   Task,
   TaskStatus,
   TaskPriority,
   TaskCategory,
   TaskAssignee,
-  TaskComment,
-  TaskSubtask,
 } from '../../types/task.types';
+import { getPriorityColor, getCategoryIcon } from '../../utils/taskUtils';
+
+const { width, height } = Dimensions.get('window');
 
 interface TaskDetailScreenProps {
   navigation: any;
@@ -39,744 +54,963 @@ interface TaskDetailScreenProps {
   };
 }
 
-const AnimatedTouchableOpacity =
-  Animated.createAnimatedComponent(TouchableOpacity);
-
 export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   navigation,
   route,
 }) => {
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const { showNotification } = useQuickActions();
   const { taskId } = route.params;
 
   // State
   const [task, setTask] = useState<Task | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isAIMode, setIsAIMode] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [newComment, setNewComment] = useState('');
-  const [showStatusModal, setShowStatusModal] = useState(false);
-  const [showPriorityModal, setShowPriorityModal] = useState(false);
-  const [showAssigneeModal, setShowAssigneeModal] = useState(false);
+  const [showSubtasks, setShowSubtasks] = useState(true);
+  const [progress, setProgress] = useState(0);
 
   // Animation values
+  const scrollY = useSharedValue(0);
   const headerOpacity = useSharedValue(1);
-  const commentInputScale = useSharedValue(1);
+  const aiPulse = useSharedValue(0);
+  const progressAnimation = useSharedValue(0);
+  const sparkleAnimation = useSharedValue(0);
 
-  // Mock data - in real app, fetch from API/Redux
+  // Mock data (replace with actual API call)
   useEffect(() => {
     loadTaskDetails();
-  }, [taskId]);
+    startAnimations();
+  }, []);
+
+  const startAnimations = () => {
+    // AI pulse animation
+    aiPulse.value = withSequence(
+      withTiming(1, { duration: 2000 }),
+      withTiming(0, { duration: 2000 })
+    );
+
+    // Sparkle animation
+    sparkleAnimation.value = withSequence(
+      withTiming(1, { duration: 1000 }),
+      withTiming(0, { duration: 1000 })
+    );
+
+    // Repeat animations
+    const interval = setInterval(() => {
+      aiPulse.value = withSequence(
+        withTiming(1, { duration: 2000 }),
+        withTiming(0, { duration: 2000 })
+      );
+      sparkleAnimation.value = withSequence(
+        withTiming(1, { duration: 1000 }),
+        withTiming(0, { duration: 1000 })
+      );
+    }, 4000);
+
+    return () => clearInterval(interval);
+  };
 
   const loadTaskDetails = () => {
-    // Mock task data
+    // Mock task data - in real app, fetch from API
     const mockTask: Task = {
       id: taskId,
-      title: 'Implement advanced search functionality',
-      description:
-        'Create a comprehensive search system with filters, sorting, and real-time results. The search should be fast, accurate, and provide suggestions.',
-      status: 'in-progress',
-      priority: 'high',
-      category: 'development',
+      title: 'Implement AI-powered task recommendations',
+      description: 'Create an intelligent system that analyzes user behavior and suggests optimal task priorities, deadlines, and assignments based on historical data and current workload.',
+      status: 'in_progress' as TaskStatus,
+      priority: 'high' as TaskPriority,
+      category: 'development' as TaskCategory,
+      dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(),
       assignees: [
-        {
-          id: '1',
-          name: 'John Doe',
-          avatar: 'J',
-          role: 'Frontend Developer',
-          email: 'john@example.com',
+        { 
+          id: '1', 
+          name: 'Alex Chen', 
+          avatar: 'AC', 
+          role: 'AI Engineer',
+          email: 'alex@company.com'
         },
-        {
-          id: '2',
-          name: 'Sarah Wilson',
-          avatar: 'S',
+        { 
+          id: '2', 
+          name: 'Sarah Kim', 
+          avatar: 'SK', 
           role: 'UX Designer',
-          email: 'sarah@example.com',
-        },
-      ],
-      reporter: {
-        id: '3',
-        name: 'Mike Johnson',
-        avatar: 'M',
-        role: 'Product Manager',
-        email: 'mike@example.com',
+          email: 'sarah@company.com'
+        }
+      ] as TaskAssignee[],
+      reporter: { 
+        id: '3', 
+        name: 'John Doe', 
+        avatar: 'JD', 
+        role: 'Project Manager',
+        email: 'john@company.com'
       },
       channelId: '1',
-      channelName: 'Frontend Team',
-      tags: ['search', 'frontend', 'performance', 'user-experience'],
-      dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-      createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-      updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      estimatedHours: 32,
-      actualHours: 18,
+      channelName: 'AI Development',
+      tags: ['AI', 'Machine Learning', 'UX', 'Priority'],
+      estimatedHours: 24,
+      actualHours: 16,
       progress: 60,
       subtasks: [
-        {
-          id: 's1',
-          title: 'Design search UI components',
-          completed: true,
-          assignee: {
-            id: '2',
-            name: 'Sarah Wilson',
-            avatar: 'S',
-            role: 'UX Designer',
-            email: 'sarah@example.com',
-          },
-        },
-        {
-          id: 's2',
-          title: 'Implement search API integration',
-          completed: true,
-        },
-        { id: 's3', title: 'Add filter functionality', completed: false },
-        { id: 's4', title: 'Performance optimization', completed: false },
-        { id: 's5', title: 'User testing and feedback', completed: false },
+        { id: '1', title: 'Research existing solutions', completed: true },
+        { id: '2', title: 'Design system architecture', completed: true },
+        { id: '3', title: 'Implement core algorithm', completed: true },
+        { id: '4', title: 'Build user interface', completed: false },
+        { id: '5', title: 'Testing and optimization', completed: false },
       ],
-      comments: [
-        {
-          id: 'c1',
-          content:
-            'Great progress on the UI! The search interface looks clean and intuitive.',
-          author: {
-            id: '3',
-            name: 'Mike Johnson',
-            avatar: 'M',
-            role: 'Product Manager',
-            email: 'mike@example.com',
-          },
-          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
-        },
-        {
-          id: 'c2',
-          content:
-            "I've completed the API integration. The response time is under 200ms for most queries.",
-          author: {
-            id: '1',
-            name: 'John Doe',
-            avatar: 'J',
-            role: 'Frontend Developer',
-            email: 'john@example.com',
-          },
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        },
-      ],
+      comments: [],
       attachments: [],
-      dependencies: ['task-456', 'task-789'],
+      dependencies: [],
       watchers: [],
     };
+
     setTask(mockTask);
+    setProgress(mockTask.progress || 0);
+    progressAnimation.value = withSpring((mockTask.progress || 0) / 100, {
+      damping: 15,
+      stiffness: 100,
+    });
+
+    // Generate AI suggestions
+    generateAISuggestions(mockTask);
   };
 
-  // Helper functions
-  const getPriorityColor = (priority: TaskPriority) => {
-    switch (priority) {
-      case 'urgent':
-        return '#EF4444';
-      case 'high':
-        return '#F97316';
-      case 'medium':
-        return '#EAB308';
-      case 'low':
-        return '#22C55E';
-      default:
-        return '#6B7280';
-    }
+  const generateAISuggestions = (taskData: Task) => {
+    const suggestions = [
+      'Based on your team\'s velocity, consider extending the deadline by 2 days',
+      'Similar tasks took 20% longer on average - adjust time estimate',
+      'Add a code review subtask to maintain quality standards',
+      'Consider breaking this into smaller, more manageable tasks',
+      'Team member Sarah has expertise in this area - assign as reviewer',
+    ];
+    setAiSuggestions(suggestions.slice(0, 3));
   };
 
-  const getStatusColor = (status: TaskStatus) => {
-    switch (status) {
-      case 'pending':
-        return '#6B7280';
-      case 'in-progress':
-        return '#3B82F6';
-      case 'completed':
-        return '#22C55E';
-      case 'on-hold':
-        return '#F59E0B';
-      case 'cancelled':
-        return '#EF4444';
-      default:
-        return '#6B7280';
-    }
-  };
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
 
-  const getCategoryIcon = (category: TaskCategory) => {
-    switch (category) {
-      case 'development':
-        return 'code';
-      case 'design':
-        return 'palette';
-      case 'research':
-        return 'search';
-      case 'meeting':
-        return 'users';
-      case 'documentation':
-        return 'file-text';
-      case 'testing':
-        return 'check-circle';
-      case 'deployment':
-        return 'upload';
-      default:
-        return 'circle';
-    }
-  };
+  // Animated styles
+  const headerAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(scrollY.value, [0, 100], [0, 1]);
+    return {
+      opacity: opacity,
+      backgroundColor: interpolateColor(
+        scrollY.value,
+        [0, 100],
+        ['transparent', theme.colors.surface]
+      ),
+    };
+  });
 
-  const formatDueDate = (dueDate: Date) => {
-    const now = new Date();
-    const diffTime = dueDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const heroAnimatedStyle = useAnimatedStyle(() => {
+    const translateY = interpolate(scrollY.value, [0, 300], [0, -50]);
+    const scale = interpolate(scrollY.value, [0, 300], [1, 0.9]);
+    return {
+      transform: [{ translateY }, { scale }],
+    };
+  });
 
-    if (diffDays < 0) {
-      return `Overdue by ${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''}`;
-    } else if (diffDays === 0) {
-      return 'Due today';
-    } else if (diffDays === 1) {
-      return 'Due tomorrow';
-    } else if (diffDays <= 7) {
-      return `Due in ${diffDays} days`;
-    } else {
-      return dueDate.toLocaleDateString();
-    }
-  };
+  const aiPulseAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(aiPulse.value, [0, 1], [0.4, 1]),
+    transform: [{ scale: interpolate(aiPulse.value, [0, 1], [0.95, 1.05]) }],
+  }));
 
-  const updateTaskStatus = (newStatus: TaskStatus) => {
-    if (task) {
-      setTask({ ...task, status: newStatus, updatedAt: new Date() });
-      setShowStatusModal(false);
-    }
-  };
+  const sparkleAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(sparkleAnimation.value, [0, 1], [0.3, 1]),
+    transform: [
+      { scale: interpolate(sparkleAnimation.value, [0, 1], [0.8, 1.2]) },
+      { rotate: `${interpolate(sparkleAnimation.value, [0, 1], [0, 360])}deg` },
+    ],
+  }));
 
-  const updateTaskPriority = (newPriority: TaskPriority) => {
-    if (task) {
-      setTask({ ...task, priority: newPriority, updatedAt: new Date() });
-      setShowPriorityModal(false);
-    }
-  };
-
-  const toggleSubtask = (subtaskId: string) => {
-    if (task) {
-      const updatedSubtasks = task.subtasks.map(subtask =>
-        subtask.id === subtaskId
-          ? { ...subtask, completed: !subtask.completed }
-          : subtask,
-      );
-      const completedCount = updatedSubtasks.filter(s => s.completed).length;
-      const progress = Math.round(
-        (completedCount / updatedSubtasks.length) * 100,
-      );
-
-      setTask({
-        ...task,
-        subtasks: updatedSubtasks,
-        progress,
-        updatedAt: new Date(),
-      });
-    }
-  };
-
-  const addComment = () => {
-    if (newComment.trim() && task) {
-      const comment: TaskComment = {
-        id: Date.now().toString(),
-        content: newComment.trim(),
-        author: {
-          id: 'current_user',
-          name: 'You',
-          avatar: 'Y',
-          role: 'Developer',
-          email: 'you@example.com',
-        },
-        timestamp: new Date(),
-      };
-
-      setTask({
-        ...task,
-        comments: [...task.comments, comment],
-        updatedAt: new Date(),
-      });
-      setNewComment('');
-
-      // Animation feedback
-      commentInputScale.value = withSpring(0.98, {}, () => {
-        commentInputScale.value = withSpring(1);
-      });
-    }
-  };
-
-  const animatedCommentInputStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: commentInputScale.value }],
+  const progressAnimatedStyle = useAnimatedStyle(() => ({
+    width: `${interpolate(progressAnimation.value, [0, 1], [0, 100])}%`,
   }));
 
   if (!task) {
     return (
-      <View
-        className="flex-1 bg-gray-50 items-center justify-center"
-        style={{ paddingTop: insets.top }}
-      >
-        <Text className="text-gray-500 text-lg">Loading task...</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>Loading...</Text>
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-gray-50" style={{ paddingTop: insets.top }}>
-      {/* Header */}
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <StatusBar backgroundColor="transparent" translucent />
+      
+      {/* Floating Sparkles */}
       <Animated.View
-        entering={FadeInDown.duration(600)}
-        className="bg-white px-4 py-3 border-b border-gray-100"
+        style={[
+          {
+            position: 'absolute',
+            top: height * 0.15,
+            right: 30,
+            width: 6,
+            height: 6,
+            backgroundColor: theme.colors.primary,
+            borderRadius: 3,
+            zIndex: 1000,
+          },
+          sparkleAnimatedStyle
+        ]}
+      />
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            top: height * 0.25,
+            left: 40,
+            width: 4,
+            height: 4,
+            backgroundColor: theme.colors.accent,
+            borderRadius: 2,
+            zIndex: 1000,
+          },
+          sparkleAnimatedStyle
+        ]}
+      />
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            bottom: height * 0.3,
+            right: 50,
+            width: 8,
+            height: 8,
+            backgroundColor: theme.colors.success,
+            borderRadius: 4,
+            zIndex: 1000,
+          },
+          sparkleAnimatedStyle
+        ]}
+      />
+
+      {/* Animated Header */}
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: insets.top + 60,
+            paddingTop: insets.top,
+            paddingHorizontal: 20,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            zIndex: 1000,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.border + '20',
+          },
+          headerAnimatedStyle,
+        ]}
       >
-        <View className="flex-row items-center justify-between">
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: theme.colors.surface + '90',
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: theme.colors.shadows.neutral,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 4,
+          }}
+        >
+          <Feather name="arrow-left" size={20} color={theme.colors.text.primary} />
+        </TouchableOpacity>
+
+        <Text
+          style={{
+            fontSize: 18,
+            fontWeight: 'bold',
+            color: theme.colors.text.primary,
+            flex: 1,
+            textAlign: 'center',
+            marginHorizontal: 16,
+          }}
+          numberOfLines={1}
+        >
+          Task Details
+        </Text>
+
+        <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center"
+            onPress={() => setIsAIMode(!isAIMode)}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: isAIMode ? theme.colors.primary : theme.colors.surface + '90',
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: theme.colors.shadows.neutral,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 4,
+            }}
           >
-            <Feather name="arrow-left" size={20} color="#6B7280" />
+            <MaterialCommunityIcon 
+              name="brain" 
+              size={20} 
+              color={isAIMode ? theme.colors.text.onPrimary : theme.colors.text.primary} 
+            />
           </TouchableOpacity>
 
-          <View className="flex-1 mx-4">
-            <Text className="text-lg font-bold text-gray-900" numberOfLines={1}>
-              Task Details
-            </Text>
-            <Text className="text-sm text-gray-500">
-              {task.channelName} • {task.category}
-            </Text>
-          </View>
-
           <TouchableOpacity
-            onPress={() => setIsEditing(!isEditing)}
-            className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center"
+            onPress={() => setIsEditMode(!isEditMode)}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: isEditMode ? theme.colors.accent : theme.colors.surface + '90',
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: theme.colors.shadows.neutral,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 4,
+            }}
           >
-            <Feather name="edit-2" size={18} color="#6B7280" />
+            <Feather 
+              name={isEditMode ? "check" : "edit-3"} 
+              size={20} 
+              color={isEditMode ? theme.colors.text.onPrimary : theme.colors.text.primary} 
+            />
           </TouchableOpacity>
         </View>
       </Animated.View>
 
-      <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-        {/* Task Header */}
+      <Animated.ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero Section */}
         <Animated.View
-          entering={FadeInUp.delay(200).duration(600)}
-          className="bg-white mx-4 mt-4 rounded-2xl p-6"
-          style={{
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 2,
-            elevation: 0,
-          }}
+          style={[
+            {
+              paddingTop: insets.top + 80,
+              paddingHorizontal: 20,
+              paddingBottom: 20,
+            },
+            heroAnimatedStyle,
+          ]}
         >
-          {/* Title and Category */}
-          <View className="flex-row items-start mb-4">
-            <View className="flex-1">
-              <View className="flex-row items-center mb-2">
-                <Feather
-                  name={getCategoryIcon(task.category)}
-                  size={16}
-                  color="#6B7280"
-                />
-                <Text className="text-gray-500 text-xs ml-2 uppercase tracking-wide">
-                  {task.category}
-                </Text>
-              </View>
-              <Text className="text-2xl font-bold text-gray-900 mb-2">
-                {task.title}
-              </Text>
-              <Text className="text-gray-600 leading-6">
-                {task.description}
-              </Text>
-            </View>
-          </View>
-
-          {/* Status Cards */}
-          <View className="flex-row space-x-3 mb-6">
-            {/* Status */}
-            <TouchableOpacity
-              onPress={() => setShowStatusModal(true)}
-              className="flex-1 p-3 rounded-xl border border-gray-200"
-            >
-              <Text className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                Status
-              </Text>
-              <View className="flex-row items-center">
+          <Animated.View
+            entering={FadeInDown.duration(800)}
+            style={{
+              backgroundColor: theme.colors.surface,
+              borderRadius: 24,
+              padding: 24,
+              shadowColor: theme.colors.shadows.neutral,
+              shadowOffset: { width: 0, height: 12 },
+              shadowOpacity: 0.1,
+              shadowRadius: 24,
+              elevation: 12,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+            }}
+          >
+            {/* Priority & Category Header */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
                 <View
-                  className="w-3 h-3 rounded-full mr-2"
-                  style={{ backgroundColor: getStatusColor(task.status) }}
-                />
-                <Text className="text-sm font-medium text-gray-900">
-                  {task.status.replace('-', ' ').toUpperCase()}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Priority */}
-            <TouchableOpacity
-              onPress={() => setShowPriorityModal(true)}
-              className="flex-1 p-3 rounded-xl border border-gray-200"
-            >
-              <Text className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                Priority
-              </Text>
-              <View className="flex-row items-center">
-                <View
-                  className="w-3 h-3 rounded-full mr-2"
-                  style={{ backgroundColor: getPriorityColor(task.priority) }}
-                />
-                <Text className="text-sm font-medium text-gray-900">
-                  {task.priority.toUpperCase()}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Due Date */}
-            <View className="flex-1 p-3 rounded-xl border border-gray-200">
-              <Text className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                Due Date
-              </Text>
-              <Text className="text-sm font-medium text-gray-900">
-                {formatDueDate(task.dueDate)}
-              </Text>
-            </View>
-          </View>
-
-          {/* Progress */}
-          <View className="mb-6">
-            <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-sm font-medium text-gray-900">
-                Progress
-              </Text>
-              <Text className="text-sm font-bold text-gray-900">
-                {task.progress}%
-              </Text>
-            </View>
-            <View className="h-3 bg-gray-200 rounded-full">
-              <LinearGradient
-                colors={['#3933C6', '#A05FFF']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{
-                  width: `${task.progress}%`,
-                  height: '100%',
-                  borderRadius: 6,
-                }}
-              />
-            </View>
-          </View>
-
-          {/* Assignees */}
-          <View className="mb-6">
-            <Text className="text-sm font-medium text-gray-900 mb-3">
-              Assignees
-            </Text>
-            <View className="flex-row flex-wrap gap-3">
-              {task.assignees.map((assignee, index) => (
-                <View
-                  key={assignee.id}
-                  className="flex-row items-center bg-gray-50 rounded-lg px-3 py-2"
-                >
-                  <LinearGradient
-                    colors={
-                      index % 2 === 0
-                        ? ['#3933C6', '#A05FFF']
-                        : ['#A05FFF', '#3933C6']
-                    }
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 12,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      marginRight: 8,
-                    }}
-                  >
-                    <Text className="text-white text-xs font-bold">
-                      {assignee.avatar}
-                    </Text>
-                  </LinearGradient>
-                  <Text className="text-sm font-medium text-gray-900">
-                    {assignee.name}
-                  </Text>
-                </View>
-              ))}
-              <TouchableOpacity
-                onPress={() => setShowAssigneeModal(true)}
-                className="flex-row items-center bg-gray-100 rounded-lg px-3 py-2"
-              >
-                <Feather name="plus" size={16} color="#6B7280" />
-                <Text className="text-sm text-gray-600 ml-2">Add assignee</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Tags */}
-          <View>
-            <Text className="text-sm font-medium text-gray-900 mb-3">Tags</Text>
-            <View className="flex-row flex-wrap gap-2">
-              {task.tags.map((tag, index) => (
-                <View key={index} className="bg-blue-50 px-3 py-1 rounded-full">
-                  <Text className="text-blue-600 text-xs font-medium">
-                    #{tag}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* Subtasks */}
-        <Animated.View
-          entering={FadeInUp.delay(400).duration(600)}
-          className="bg-white mx-4 mt-4 rounded-2xl p-6"
-          style={{
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 2,
-            elevation: 0,
-          }}
-        >
-          <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-lg font-bold text-gray-900">
-              Subtasks ({task.subtasks.filter(s => s.completed).length}/
-              {task.subtasks.length})
-            </Text>
-            <TouchableOpacity className="w-8 h-8 bg-blue-100 rounded-full items-center justify-center">
-              <Feather name="plus" size={16} color="#3B82F6" />
-            </TouchableOpacity>
-          </View>
-
-          {task.subtasks.map((subtask, index) => (
-            <Animated.View
-              key={subtask.id}
-              entering={FadeInRight.delay(index * 100).duration(400)}
-              className="flex-row items-center py-3 border-b border-gray-100 last:border-b-0"
-            >
-              <TouchableOpacity
-                onPress={() => toggleSubtask(subtask.id)}
-                className={`w-5 h-5 rounded border-2 mr-3 items-center justify-center ${
-                  subtask.completed
-                    ? 'bg-green-500 border-green-500'
-                    : 'border-gray-300'
-                }`}
-              >
-                {subtask.completed && (
-                  <Feather name="check" size={12} color="white" />
-                )}
-              </TouchableOpacity>
-
-              <Text
-                className={`flex-1 ${
-                  subtask.completed
-                    ? 'text-gray-500 line-through'
-                    : 'text-gray-900'
-                }`}
-              >
-                {subtask.title}
-              </Text>
-
-              {subtask.assignee && (
-                <LinearGradient
-                  colors={['#3933C6', '#A05FFF']}
                   style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: 10,
-                    justifyContent: 'center',
-                    alignItems: 'center',
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 16,
+                    backgroundColor: getPriorityColor(task.priority),
+                    shadowColor: getPriorityColor(task.priority),
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 8,
+                    elevation: 4,
                   }}
                 >
-                  <Text className="text-white text-xs font-bold">
-                    {subtask.assignee.avatar}
-                  </Text>
-                </LinearGradient>
-              )}
-            </Animated.View>
-          ))}
-        </Animated.View>
-
-        {/* Comments */}
-        <Animated.View
-          entering={FadeInUp.delay(600).duration(600)}
-          className="bg-white mx-4 mt-4 rounded-2xl p-6"
-          style={{
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 2,
-            elevation: 0,
-          }}
-        >
-          <Text className="text-lg font-bold text-gray-900 mb-4">
-            Comments ({task.comments.length})
-          </Text>
-
-          {task.comments.map((comment, index) => (
-            <Animated.View
-              key={comment.id}
-              entering={FadeInUp.delay(index * 100).duration(400)}
-              className="flex-row mb-4 last:mb-0"
-            >
-              <LinearGradient
-                colors={['#3933C6', '#A05FFF']}
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 16,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  marginRight: 12,
-                }}
-              >
-                <Text className="text-white text-sm font-bold">
-                  {comment.author.avatar}
-                </Text>
-              </LinearGradient>
-
-              <View className="flex-1">
-                <View className="flex-row items-center mb-1">
-                  <Text className="font-medium text-gray-900 mr-2">
-                    {comment.author.name}
-                  </Text>
-                  <Text className="text-xs text-gray-500">
-                    {comment.timestamp.toLocaleTimeString()}
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                      color: theme.colors.text.onPrimary,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {task.priority}
                   </Text>
                 </View>
-                <Text className="text-gray-700 leading-5">
-                  {comment.content}
-                </Text>
-              </View>
-            </Animated.View>
-          ))}
 
-          {/* Add Comment */}
-          <Animated.View
-            style={animatedCommentInputStyle}
-            className="flex-row items-center mt-4 pt-4 border-t border-gray-100"
-          >
-            <LinearGradient
-              colors={['#3933C6', '#A05FFF']}
+                <View
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 16,
+                    backgroundColor: theme.colors.accent + '20',
+                    borderWidth: 1,
+                    borderColor: theme.colors.accent + '40',
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Feather 
+                      name={getCategoryIcon(task.category)} 
+                      size={12} 
+                      color={theme.colors.accent} 
+                    />
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontWeight: '600',
+                        color: theme.colors.accent,
+                        marginLeft: 4,
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      {task.category}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {isAIMode && (
+                <Animated.View
+                  style={[
+                    {
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 12,
+                      backgroundColor: theme.colors.success + '20',
+                      borderWidth: 1,
+                      borderColor: theme.colors.success + '40',
+                    },
+                    aiPulseAnimatedStyle,
+                  ]}
+                >
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontWeight: '600',
+                      color: theme.colors.success,
+                    }}
+                  >
+                    🤖 AI Active
+                  </Text>
+                </Animated.View>
+              )}
+            </View>
+
+            {/* Task Title */}
+            <Text
               style={{
-                width: 32,
-                height: 32,
-                borderRadius: 16,
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginRight: 12,
+                fontSize: 24,
+                fontWeight: 'bold',
+                color: theme.colors.text.primary,
+                lineHeight: 32,
+                marginBottom: 12,
               }}
             >
-              <Text className="text-white text-sm font-bold">Y</Text>
-            </LinearGradient>
+              {task.title}
+            </Text>
 
-            <View className="flex-1 flex-row items-center bg-gray-50 rounded-lg px-3 py-2">
-              <TextInput
-                placeholder="Add a comment..."
-                value={newComment}
-                onChangeText={setNewComment}
-                className="flex-1 text-gray-900"
-                placeholderTextColor="#9CA3AF"
-                multiline
-              />
-              {newComment.trim() && (
-                <TouchableOpacity onPress={addComment} className="ml-2">
-                  <Feather name="send" size={18} color="#3933C6" />
-                </TouchableOpacity>
-              )}
+            {/* Progress Bar */}
+            <View style={{ marginBottom: 20 }}>
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 8,
+              }}>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: theme.colors.text.secondary,
+                }}>
+                  Progress
+                </Text>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: 'bold',
+                  color: theme.colors.primary,
+                }}>
+                  {Math.round(progress)}%
+                </Text>
+              </View>
+              
+              <View style={{
+                height: 8,
+                backgroundColor: theme.colors.background,
+                borderRadius: 4,
+                overflow: 'hidden',
+              }}>
+                <Animated.View
+                  style={[
+                    {
+                      height: '100%',
+                      borderRadius: 4,
+                    },
+                    progressAnimatedStyle,
+                  ]}
+                >
+                  <LinearGradient
+                    colors={theme.colors.gradients.primary}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={{ flex: 1 }}
+                  />
+                </Animated.View>
+              </View>
+            </View>
+
+            {/* Task Stats */}
+            <View style={{ 
+              flexDirection: 'row', 
+              justifyContent: 'space-between',
+              paddingTop: 16,
+              borderTopWidth: 1,
+              borderTopColor: theme.colors.border,
+            }}>
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <MaterialCommunityIcon 
+                  name="clock-outline" 
+                  size={20} 
+                  color={theme.colors.primary} 
+                />
+                <Text style={{
+                  fontSize: 12,
+                  color: theme.colors.text.secondary,
+                  marginTop: 4,
+                }}>
+                  {task.actualHours || 0} / {task.estimatedHours} hrs
+                </Text>
+              </View>
+
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <MaterialCommunityIcon 
+                  name="check-circle-outline" 
+                  size={20} 
+                  color={theme.colors.success} 
+                />
+                <Text style={{
+                  fontSize: 12,
+                  color: theme.colors.text.secondary,
+                  marginTop: 4,
+                }}>
+                  {task.subtasks.filter(st => st.completed).length} / {task.subtasks.length} tasks
+                </Text>
+              </View>
+
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <MaterialCommunityIcon 
+                  name="calendar-outline" 
+                  size={20} 
+                  color={theme.colors.warning} 
+                />
+                <Text style={{
+                  fontSize: 12,
+                  color: theme.colors.text.secondary,
+                  marginTop: 4,
+                }}>
+                  {task.dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </Text>
+              </View>
             </View>
           </Animated.View>
         </Animated.View>
 
-        <View className="h-20" />
-      </ScrollView>
-
-      {/* Status Modal */}
-      <Modal visible={showStatusModal} transparent animationType="fade">
-        <View className="flex-1 bg-black bg-opacity-50 justify-center px-4">
-          <View className="bg-white rounded-2xl p-6">
-            <Text className="text-xl font-bold text-gray-900 mb-4">
-              Update Status
-            </Text>
-            {(
-              [
-                'pending',
-                'in-progress',
-                'completed',
-                'on-hold',
-                'cancelled',
-              ] as TaskStatus[]
-            ).map(status => (
-              <TouchableOpacity
-                key={status}
-                onPress={() => updateTaskStatus(status)}
-                className="flex-row items-center py-3 border-b border-gray-100 last:border-b-0"
-              >
-                <View
-                  className="w-4 h-4 rounded-full mr-3"
-                  style={{ backgroundColor: getStatusColor(status) }}
+        {/* AI Suggestions (when AI mode is active) */}
+        {isAIMode && aiSuggestions.length > 0 && (
+          <Animated.View
+            entering={SlideInRight.duration(500)}
+            style={{ paddingHorizontal: 20, marginBottom: 20 }}
+          >
+            <View
+              style={{
+                backgroundColor: theme.colors.primary + '10',
+                borderRadius: 20,
+                padding: 20,
+                borderWidth: 1,
+                borderColor: theme.colors.primary + '20',
+              }}
+            >
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 16,
+              }}>
+                <MaterialCommunityIcon 
+                  name="brain" 
+                  size={20} 
+                  color={theme.colors.primary} 
                 />
-                <Text className="text-gray-900 font-medium">
-                  {status.replace('-', ' ').toUpperCase()}
+                <Text style={{
+                  fontSize: 16,
+                  fontWeight: 'bold',
+                  color: theme.colors.primary,
+                  marginLeft: 8,
+                }}>
+                  AI Insights & Recommendations
                 </Text>
-                {task.status === status && (
-                  <Feather
-                    name="check"
-                    size={16}
-                    color="#22C55E"
-                    style={{ marginLeft: 'auto' }}
-                  />
-                )}
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              onPress={() => setShowStatusModal(false)}
-              className="mt-4 bg-gray-100 rounded-lg py-3"
-            >
-              <Text className="text-center text-gray-700 font-medium">
-                Cancel
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+              </View>
 
-      {/* Priority Modal */}
-      <Modal visible={showPriorityModal} transparent animationType="fade">
-        <View className="flex-1 bg-black bg-opacity-50 justify-center px-4">
-          <View className="bg-white rounded-2xl p-6">
-            <Text className="text-xl font-bold text-gray-900 mb-4">
-              Update Priority
-            </Text>
-            {(['low', 'medium', 'high', 'urgent'] as TaskPriority[]).map(
-              priority => (
-                <TouchableOpacity
-                  key={priority}
-                  onPress={() => updateTaskPriority(priority)}
-                  className="flex-row items-center py-3 border-b border-gray-100 last:border-b-0"
+              {aiSuggestions.map((suggestion, index) => (
+                <Animated.View
+                  key={index}
+                  entering={FadeInRight.delay(index * 100).duration(400)}
+                  style={{
+                    flexDirection: 'row',
+                    backgroundColor: theme.colors.surface,
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 12,
+                    borderWidth: 1,
+                    borderColor: theme.colors.border,
+                  }}
                 >
-                  <View
-                    className="w-4 h-4 rounded-full mr-3"
-                    style={{ backgroundColor: getPriorityColor(priority) }}
+                  <MaterialIcon 
+                    name="auto-awesome" 
+                    size={16} 
+                    color={theme.colors.primary}
+                    style={{ marginTop: 2, marginRight: 12 }}
                   />
-                  <Text className="text-gray-900 font-medium">
-                    {priority.toUpperCase()}
+                  <Text style={{
+                    fontSize: 14,
+                    color: theme.colors.text.primary,
+                    lineHeight: 20,
+                    flex: 1,
+                  }}>
+                    {suggestion}
                   </Text>
-                  {task.priority === priority && (
-                    <Feather
-                      name="check"
-                      size={16}
-                      color="#22C55E"
-                      style={{ marginLeft: 'auto' }}
-                    />
-                  )}
-                </TouchableOpacity>
-              ),
-            )}
-            <TouchableOpacity
-              onPress={() => setShowPriorityModal(false)}
-              className="mt-4 bg-gray-100 rounded-lg py-3"
-            >
-              <Text className="text-center text-gray-700 font-medium">
-                Cancel
+                </Animated.View>
+              ))}
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Description Section */}
+        <Animated.View
+          entering={FadeInUp.delay(200).duration(600)}
+          style={{ paddingHorizontal: 20, marginBottom: 24 }}
+        >
+          <View
+            style={{
+              backgroundColor: theme.colors.surface,
+              borderRadius: 20,
+              padding: 20,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+            }}
+          >
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 16,
+            }}>
+              <MaterialCommunityIcon 
+                name="text-box-outline" 
+                size={20} 
+                color={theme.colors.accent} 
+              />
+              <Text style={{
+                fontSize: 18,
+                fontWeight: 'bold',
+                color: theme.colors.text.primary,
+                marginLeft: 12,
+              }}>
+                Description
               </Text>
-            </TouchableOpacity>
+            </View>
+
+            <Text style={{
+              fontSize: 16,
+              color: theme.colors.text.primary,
+              lineHeight: 24,
+            }}>
+              {task.description}
+            </Text>
           </View>
-        </View>
-      </Modal>
+        </Animated.View>
+
+        {/* Team Section */}
+        <Animated.View
+          entering={FadeInUp.delay(300).duration(600)}
+          style={{ paddingHorizontal: 20, marginBottom: 24 }}
+        >
+          <View
+            style={{
+              backgroundColor: theme.colors.surface,
+              borderRadius: 20,
+              padding: 20,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+            }}
+          >
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 16,
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialCommunityIcon 
+                  name="account-group" 
+                  size={20} 
+                  color={theme.colors.success} 
+                />
+                <Text style={{
+                  fontSize: 18,
+                  fontWeight: 'bold',
+                  color: theme.colors.text.primary,
+                  marginLeft: 12,
+                }}>
+                  Team Members
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 12,
+                  backgroundColor: theme.colors.primary + '20',
+                  borderWidth: 1,
+                  borderColor: theme.colors.primary + '40',
+                }}
+              >
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '600',
+                  color: theme.colors.primary,
+                }}>
+                  + Add Member
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {task.assignees.map((assignee, index) => (
+              <Animated.View
+                key={assignee.id}
+                entering={BounceIn.delay(index * 100).duration(600)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  backgroundColor: theme.colors.background,
+                  borderRadius: 16,
+                  marginBottom: 12,
+                  borderWidth: 1,
+                  borderColor: theme.colors.border,
+                }}
+              >
+                <LinearGradient
+                  colors={index % 2 === 0 
+                    ? [theme.colors.primary, theme.colors.accent] 
+                    : [theme.colors.accent, theme.colors.success]
+                  }
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 16,
+                  }}
+                >
+                  <Text style={{
+                    fontSize: 18,
+                    fontWeight: 'bold',
+                    color: theme.colors.text.onPrimary,
+                  }}>
+                    {assignee.avatar}
+                  </Text>
+                </LinearGradient>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontSize: 16,
+                    fontWeight: 'bold',
+                    color: theme.colors.text.primary,
+                  }}>
+                    {assignee.name}
+                  </Text>
+                  <Text style={{
+                    fontSize: 14,
+                    color: theme.colors.text.secondary,
+                    marginTop: 2,
+                  }}>
+                    {assignee.role}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={{
+                    padding: 8,
+                    borderRadius: 12,
+                    backgroundColor: theme.colors.success + '20',
+                  }}
+                >
+                  <MaterialCommunityIcon 
+                    name="message-outline" 
+                    size={20} 
+                    color={theme.colors.success} 
+                  />
+                </TouchableOpacity>
+              </Animated.View>
+            ))}
+          </View>
+        </Animated.View>
+
+        {/* Tags Section */}
+        {task.tags && task.tags.length > 0 && (
+          <Animated.View
+            entering={FadeInUp.delay(400).duration(600)}
+            style={{ paddingHorizontal: 20, marginBottom: 24 }}
+          >
+            <View
+              style={{
+                backgroundColor: theme.colors.surface,
+                borderRadius: 20,
+                padding: 20,
+                borderWidth: 1,
+                borderColor: theme.colors.border,
+              }}
+            >
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 16,
+              }}>
+                <MaterialCommunityIcon 
+                  name="tag-multiple" 
+                  size={20} 
+                  color={theme.colors.warning} 
+                />
+                <Text style={{
+                  fontSize: 18,
+                  fontWeight: 'bold',
+                  color: theme.colors.text.primary,
+                  marginLeft: 12,
+                }}>
+                  Tags
+                </Text>
+              </View>
+
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {task.tags.map((tag, index) => (
+                  <Animated.View
+                    key={tag}
+                    entering={ZoomIn.delay(index * 50).duration(400)}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 16,
+                      backgroundColor: theme.colors.primary + '20',
+                      borderWidth: 1,
+                      borderColor: theme.colors.primary + '40',
+                    }}
+                  >
+                    <Text style={{
+                      fontSize: 12,
+                      fontWeight: '600',
+                      color: theme.colors.primary,
+                    }}>
+                      #{tag}
+                    </Text>
+                  </Animated.View>
+                ))}
+              </View>
+            </View>
+          </Animated.View>
+        )}
+      </Animated.ScrollView>
+
+      {/* Floating Action Buttons */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 20 + insets.bottom,
+          right: 20,
+          flexDirection: 'row',
+          gap: 12,
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => showNotification('Task updated successfully! 🎉', 'success')}
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            shadowColor: theme.colors.success,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.3,
+            shadowRadius: 12,
+            elevation: 8,
+          }}
+        >
+          <LinearGradient
+            colors={[theme.colors.success, '#10B981']}
+            style={{
+              width: '100%',
+              height: '100%',
+              borderRadius: 28,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <MaterialIcon 
+              name="check" 
+              size={24} 
+              color={theme.colors.text.onPrimary} 
+            />
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => showNotification('Starting AI task analysis... 🤖', 'info')}
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            shadowColor: theme.colors.primary,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.3,
+            shadowRadius: 12,
+            elevation: 8,
+          }}
+        >
+          <LinearGradient
+            colors={theme.colors.gradients.primary}
+            style={{
+              width: '100%',
+              height: '100%',
+              borderRadius: 28,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <MaterialCommunityIcon 
+              name="robot" 
+              size={24} 
+              color={theme.colors.text.onPrimary} 
+            />
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };

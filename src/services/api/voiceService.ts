@@ -65,7 +65,7 @@ export class VoiceService {
     };
   }
 
-  private static extractTaskParameters(transcript: string) {
+  private static extractTaskParameters(_transcript: string) {
     // Extract task details from transcript
     return {
       title: 'New Task',
@@ -74,7 +74,7 @@ export class VoiceService {
     };
   }
 
-  private static extractMeetingParameters(transcript: string) {
+  private static extractMeetingParameters(_transcript: string) {
     // Extract meeting details from transcript
     return {
       title: 'Team Meeting',

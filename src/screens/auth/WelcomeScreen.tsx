@@ -9,9 +9,11 @@ import Animated, {
   withSequence,
   withDelay,
 } from 'react-native-reanimated';
+import { useTheme } from '../../contexts/ThemeContext';
 import { CurvedBackground } from '../../components/common/CurvedBackground/CurvedBackground';
-import { Button } from '../../components/common/Botton';
-import { Colors } from '../../utils/colors';
+import { Button } from '../../components/common/Button';
+import { ThemeToggle } from '../../components/common/ThemeToggle';
+import { Logo } from '../../components/common/Logo';
 import { loginSuccess, loginFailure } from '../../store/slices/authSlice';
 import type { AppDispatch } from '../../store/store';
 
@@ -20,6 +22,7 @@ interface WelcomeScreenProps {
 }
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
+  const { theme } = useTheme();
   const dispatch = useDispatch<AppDispatch>();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -93,7 +96,19 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
   };
 
   return (
-    <CurvedBackground customColor={Colors.primary} opacity={0.4}>
+    <CurvedBackground customColor={theme.colors.primary} opacity={0.4}>
+      {/* Theme Toggle */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 60,
+          right: 24,
+          zIndex: 1000,
+        }}
+      >
+        <ThemeToggle size="medium" />
+      </View>
+
       <View
         style={{
           flex: 1,
@@ -104,53 +119,61 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
       >
         {/* Logo */}
         <Animated.View style={[logoAnimatedStyle]}>
-          <Image source={require('../../assets/icons/logo.png')} />
+          <Logo
+            size={120}
+            variant="primary"
+            enableRotation={true}
+            rotationDuration={6000}
+            imageSize={180}
+          />
         </Animated.View>
 
         {/* Welcome Text */}
-        <Animated.View style={[{ alignItems: 'center' }, textAnimatedStyle]}>
+        <Animated.View
+          style={[{ alignItems: 'center', marginTop: 40 }, textAnimatedStyle]}
+        >
           <Text
             style={{
               fontSize: 12,
-              color: Colors.text.secondary,
+              color: theme.colors.text.secondary,
               marginBottom: 8,
               fontWeight: '500',
             }}
           >
-            T&T AI Voice Command
+            Javier AI Platform
           </Text>
           <Text
             style={{
               fontSize: 32,
-              color: Colors.text.primary,
+              color: theme.colors.text.primary,
               fontWeight: '700',
               marginBottom: 16,
               textAlign: 'center',
             }}
           >
-            Welcome.
+            Welcome
           </Text>
           <Text
             style={{
               fontSize: 18,
-              color: Colors.text.secondary,
+              color: theme.colors.text.secondary,
               textAlign: 'center',
               lineHeight: 28,
               paddingHorizontal: 20,
             }}
           >
-            I'm your smart assistant,{'\n'}
-            here to help you work faster,{'\n'}
-            think clearer,{'\n'}
-            and stay in flow.
+            Your smart assistant to boost speed, clarity, and focus.
           </Text>
         </Animated.View>
 
         {/* Buttons */}
         <Animated.View
-          className="mt-10"
           style={[
-            { width: '100%', paddingHorizontal: 20 },
+            {
+              width: '100%',
+              paddingHorizontal: 20,
+              marginTop: 40,
+            },
             buttonAnimatedStyle,
           ]}
         >
@@ -158,23 +181,28 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
             title="Sign In"
             onPress={() => navigation.navigate('Login')}
             variant="outline"
+            size="medium"
+            fullWidth
             style={{
-              backgroundColor: Colors.surface,
-              borderColor: Colors.gray[300],
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
               marginBottom: 16,
             }}
-            textStyle={{ color: Colors.text.primary }}
+            textStyle={{ color: theme.colors.text.primary }}
           />
 
           <Button
             title="Sign In with Google"
             onPress={handleGoogleSignIn}
             loading={isLoading}
+            variant="primary"
+            size="medium"
+            fullWidth
             style={{ marginBottom: 16 }}
             icon={
               <Image
                 source={require('../../assets/icons/google.png')}
-                style={{ width: 20, height: 20, marginRight: 8 }}
+                style={{ width: 20, height: 20 }}
                 resizeMode="contain"
               />
             }
@@ -187,11 +215,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
             <Text
               style={{
                 fontSize: 14,
-                color: Colors.text.secondary,
+                color: theme.colors.text.secondary,
               }}
             >
               Don't have an account?{' '}
-              <Text style={{ color: Colors.primary, fontWeight: '600' }}>
+              <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>
                 Create account
               </Text>
             </Text>

@@ -1,4 +1,3 @@
-import { NativeModules, Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 
 class CustomAudioRecorderPlayer {
@@ -127,7 +126,7 @@ class CustomAudioRecorderPlayer {
     }
   }
 
-  addPlayBackListener(callback: (data: any) => void) {
+  addPlayBackListener(_callback: (data: any) => void) {
     // Mock implementation
     console.log('Mock: Added playback listener');
     return {
@@ -137,7 +136,7 @@ class CustomAudioRecorderPlayer {
     };
   }
 
-  addRecordBackListener(callback: (data: any) => void) {
+  addRecordBackListener(_callback: (data: any) => void) {
     // Mock implementation
     console.log('Mock: Added record listener');
     return {
