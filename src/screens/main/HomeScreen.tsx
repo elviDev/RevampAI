@@ -21,7 +21,8 @@ import {
 
 const HomeScreen = () => {
   const { theme } = useTheme();
-  const { createTask, createProject, searchTasks, showNotification } = useQuickActions();
+  const { createTask, createProject, searchTasks, showNotification } =
+    useQuickActions();
   const insets = useSafeAreaInsets();
   const [activeCapability, setActiveCapability] = useState(0);
 
@@ -70,31 +71,54 @@ const HomeScreen = () => {
 
   const processAICommand = (command: string) => {
     const lowercaseCommand = command.toLowerCase();
-    
-    if (lowercaseCommand.includes('create task') || lowercaseCommand.includes('new task')) {
+
+    if (
+      lowercaseCommand.includes('create task') ||
+      lowercaseCommand.includes('new task')
+    ) {
       createTask();
       showNotification('Creating a new task for you!', 'success');
-    } else if (lowercaseCommand.includes('create project') || lowercaseCommand.includes('new project')) {
+    } else if (
+      lowercaseCommand.includes('create project') ||
+      lowercaseCommand.includes('new project')
+    ) {
       createProject();
       showNotification('Opening project creation form!', 'success');
-    } else if (lowercaseCommand.includes('search task') || lowercaseCommand.includes('find task')) {
-      const searchTerm = command.replace(/(search|find)\s+(task|tasks?)\s*/i, '').trim();
+    } else if (
+      lowercaseCommand.includes('search task') ||
+      lowercaseCommand.includes('find task')
+    ) {
+      const searchTerm = command
+        .replace(/(search|find)\s+(task|tasks?)\s*/i, '')
+        .trim();
       if (searchTerm) {
         searchTasks(searchTerm);
       } else {
         searchTasks('');
       }
-    } else if (lowercaseCommand.includes('show analytics') || lowercaseCommand.includes('analytics')) {
+    } else if (
+      lowercaseCommand.includes('show analytics') ||
+      lowercaseCommand.includes('analytics')
+    ) {
       NavigationService.navigateToAnalytics();
       showNotification('Opening analytics dashboard!', 'success');
-    } else if (lowercaseCommand.includes('show activity') || lowercaseCommand.includes('activity')) {
+    } else if (
+      lowercaseCommand.includes('show activity') ||
+      lowercaseCommand.includes('activity')
+    ) {
       NavigationService.navigateToActivity();
       showNotification('Opening activity feed!', 'success');
-    } else if (lowercaseCommand.includes('my profile') || lowercaseCommand.includes('profile')) {
+    } else if (
+      lowercaseCommand.includes('my profile') ||
+      lowercaseCommand.includes('profile')
+    ) {
       NavigationService.navigateToProfile();
       showNotification('Opening your profile!', 'success');
     } else {
-      showNotification(`Processing: "${command}" - Feature coming soon!`, 'info');
+      showNotification(
+        `Processing: "${command}" - Feature coming soon!`,
+        'info',
+      );
     }
   };
 
@@ -113,7 +137,10 @@ const HomeScreen = () => {
   };
 
   const handleVoiceCTAPress = () => {
-    showNotification('Try saying: "Create a new task" or "Show my analytics"', 'info');
+    showNotification(
+      'Try saying: "Create a new task" or "Show my analytics"',
+      'info',
+    );
   };
 
   return (
@@ -172,33 +199,6 @@ const HomeScreen = () => {
       </ScrollView>
 
       {/* Bottom Prompt Input */}
-      <Animated.View
-        style={[
-          {
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: theme.colors.background,
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-            paddingBottom: insets.bottom + 12,
-            borderTopWidth: 1,
-            borderTopColor: theme.colors.border,
-          },
-          promptAnimatedStyle,
-        ]}
-      >
-        <PromptInput
-          onSendMessage={handleSendMessage}
-          onSendRecording={handleSendRecording}
-          onAttachFile={handleAttachFile}
-          onAttachImage={handleAttachImage}
-          placeholder="Tell Javier what you need..."
-          maxLines={4}
-          disabled={false}
-        />
-      </Animated.View>
     </View>
   );
 };
