@@ -77,6 +77,9 @@ class RCTVoice {
   }
 
   start(locale: string, options: { [key: string]: any } = {}) {
+    // Ensure locale is never null or undefined
+    const safeLocale = locale || 'en-US';
+    
     if (!this._loaded && !this._listeners && voiceEmitter !== null) {
       this._listeners = Object.keys(this._events).map(key =>
         voiceEmitter.addListener(key, this._events[key]),
@@ -97,9 +100,11 @@ class RCTVoice {
         }
       };
 
+      console.log('🔍 CustomVoice: Starting speech with locale:', safeLocale);
+
       if (Platform.OS === 'android') {
         Voice.startSpeech(
-          locale,
+          safeLocale,
           Object.assign(
             {
               EXTRA_LANGUAGE_MODEL: 'LANGUAGE_MODEL_FREE_FORM',
@@ -112,7 +117,7 @@ class RCTVoice {
           callback,
         );
       } else {
-        Voice.startSpeech(locale, callback);
+        Voice.startSpeech(safeLocale, callback);
       }
     });
   }

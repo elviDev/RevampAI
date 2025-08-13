@@ -5,17 +5,14 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useQuickActions } from '../../contexts/QuickActionsContext';
 import { NavigationService } from '../../services/NavigationService';
-import { PromptInput } from '../../components/voice/PromptInput';
 import { HomeHeader } from '../../components/home/HomeHeader';
 import { AIBrainVisualization } from '../../components/home/AIBrainVisualization';
 import { GreetingSection } from '../../components/home/GreetingSection';
 import { AICapabilitiesShowcase } from '../../components/home/AICapabilitiesShowcase';
-import { PerformanceStats } from '../../components/home/PerformanceStats';
 import { VoiceCommandCTA } from '../../components/home/VoiceCommandCTA';
 import {
   useHomeScreenAnimations,
   createAICapabilities,
-  createPerformanceStats,
   CAPABILITY_CYCLE_INTERVAL,
 } from '../../utils/homeScreenUtils';
 
@@ -28,7 +25,6 @@ const HomeScreen = () => {
 
   const { values, startAnimations } = useHomeScreenAnimations();
   const aiCapabilities = createAICapabilities(theme);
-  const performanceStats = createPerformanceStats(theme);
 
   // Start animations on mount
   useEffect(() => {
@@ -50,24 +46,6 @@ const HomeScreen = () => {
       { rotate: `${values.logoRotation.value}deg` },
     ],
   }));
-
-  const promptAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: values.promptOpacity.value,
-  }));
-
-  // Event handlers with AI command processing
-  const handleSendMessage = (text: string) => {
-    console.log('Sending text message:', text);
-    processAICommand(text);
-  };
-
-  const handleSendRecording = (audioUri: string, transcript?: string) => {
-    console.log('Sending audio recording:', audioUri);
-    console.log('Voice transcript:', transcript);
-    if (transcript) {
-      processAICommand(transcript);
-    }
-  };
 
   const processAICommand = (command: string) => {
     const lowercaseCommand = command.toLowerCase();
@@ -122,18 +100,21 @@ const HomeScreen = () => {
     }
   };
 
-  const handleAttachFile = (file: any) => {
-    console.log('File attached:', file);
-    showNotification('File attached successfully!', 'success');
-  };
-
-  const handleAttachImage = (image: any) => {
-    console.log('Image attached:', image);
-    showNotification('Image attached successfully!', 'success');
-  };
-
   const handleUserPress = () => {
     NavigationService.navigateToProfile();
+  };
+
+  const handleVoiceTranscript = (transcript: string, confidence: number) => {
+    console.log(
+      'Voice transcript received:',
+      transcript,
+      'confidence:',
+      confidence,
+    );
+
+    // No more disruptive notifications during voice input
+    // Confidence feedback will be shown in the voice component itself
+    processAICommand(transcript);
   };
 
   const handleVoiceCTAPress = () => {
@@ -159,11 +140,7 @@ const HomeScreen = () => {
         onUserPress={handleUserPress}
       />
 
-      <ScrollView
-        style={{ flex: 1 }}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-      >
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
         {/* AI Brain Visualization */}
         <AIBrainVisualization
           aiPulse={values.aiPulse}
@@ -185,16 +162,16 @@ const HomeScreen = () => {
           onCapabilityPress={setActiveCapability}
         />
 
-        {/* Performance Stats */}
-        <PerformanceStats
-          statsOpacity={values.statsOpacity}
-          stats={performanceStats}
-        />
-
         {/* Voice Command CTA */}
         <VoiceCommandCTA
           promptOpacity={values.promptOpacity}
           onPress={handleVoiceCTAPress}
+          onVoiceTranscript={handleVoiceTranscript}
+          enableVoiceToText={true}
+          enableVAD={true}
+          confidenceThreshold={0.6}
+          showConfidence={true}
+          showRealTimeTranscript={true}
         />
       </ScrollView>
 
