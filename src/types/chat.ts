@@ -31,6 +31,7 @@ export interface Reply {
     avatar?: string;
   };
   timestamp: Date;
+  reactions?: Reaction[];
 }
 
 export interface Reaction {

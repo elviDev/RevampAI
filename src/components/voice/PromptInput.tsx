@@ -119,6 +119,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const audioRecorderPlayer = useRef(new CustomAudioRecorderPlayer()).current;
   const recordingTimer = useRef<NodeJS.Timeout | null>(null);
   const textInputRef = useRef<TextInput>(null);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Animations
   const recordingScale = useSharedValue(1);
@@ -142,10 +143,15 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const handleTextChange = (newText: string) => {
     setText(newText);
 
-    // Use setTimeout to ensure the text state is updated before checking mentions
-    setTimeout(() => {
+    // Clear existing debounce timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    // Debounce mention detection to avoid excessive calls
+    debounceTimer.current = setTimeout(() => {
       checkForMentions(newText, selectionStart);
-    }, 0);
+    }, 300); // 300ms debounce delay
   };
 
   const checkForMentions = (currentText: string, cursorPos: number) => {
@@ -287,6 +293,11 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         }
       } catch (error) {
         console.warn('Voice cleanup failed:', error);
+      }
+      
+      // Clear debounce timer on cleanup
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
       }
     };
   }, []);
@@ -670,435 +681,154 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      className="px-4 py-2"
-    >
-      {/* Attachments Preview */}
-      {attachedFiles.length > 0 && (
-        <View className="mb-2">
-          <View className="flex-row flex-wrap gap-1">
-            {attachedFiles.map((file, index) => (
-              <View
-                key={index}
-                className="bg-blue-50 border border-blue-200 rounded-md  p-2 flex-row items-center"
-              >
-                {file.uri &&
-                (file.type?.startsWith('image') ||
-                  file.fileName?.match(/\.(jpg|jpeg|png|gif)$/i)) ? (
-                  <Image
-                    source={{ uri: file.uri }}
-                    className="w-8 h-8 rounded mr-2"
-                  />
-                ) : (
-                  <View className="w-8 h-8 bg-blue-500 rounded mr-2 items-center justify-center">
-                    <Icon name="file-text" size={12} color="white" />
-                  </View>
-                )}
-                <Text
-                  className="text-blue-700 text-sm flex-1"
-                  numberOfLines={1}
-                >
-                  {file.fileName || file.name || 'Unknown file'}
-                </Text>
-                <TouchableOpacity onPress={() => removeAttachment(index)}>
-                  <Text className="text-red-500 ml-2">×</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Mention Suggestions */}
-      {showMentionSuggestions && filteredMentionUsers.length > 0 && (
-        <View className="mb-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48">
-          <FlatList
-            data={filteredMentionUsers}
-            keyExtractor={item => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => insertMention(item)}
-                className="p-3 border-b border-gray-100 flex-row items-center"
-              >
-                <View className="w-8 h-8 bg-purple-100 rounded-full items-center justify-center mr-3">
-                  <Text className="text-purple-600 font-semibold text-sm">
-                    {item.name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-                <View className="flex-1">
-                  <Text className="text-gray-900 font-medium">{item.name}</Text>
-                  <Text className="text-gray-500 text-sm">
-                    @{item.username}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-      )}
-
-      {/* Main Input Container */}
-      <View className="relative">
-        {/* Gradient Border Container */}
+    <View className="relative">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        className="px-1 py-1"
+      >
+        {/* Main Input Container */}
+        <View className="relative">
         <LinearGradient
           colors={['#3933C6', '#A05FFF']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
-            borderRadius: 12,
-            padding: 1,
-            shadowColor: '#A05FFF',
-            shadowOffset: { width: 0, height: 8 },
-            shadowRadius: 28,
-            shadowOpacity: 0.25,
-            elevation: 6,
+            borderRadius: 16,
+            padding: 2,
           }}
         >
-          {/* Inner Container with Glow Effect */}
           <View
             style={{
               backgroundColor: '#FFFFFF',
-              borderRadius: 12,
+              borderRadius: 14,
               padding: 12,
-              minHeight: 70,
-
-              elevation: 0,
+              minHeight: 50,
             }}
           >
-            {/* Input Area - Full Width at Top */}
-            <View className="mb-2">
-              {recording.isRecording ? (
-                <View className="min-h-[60px] justify-center">
-                  <View className="flex-row items-center justify-center">
-                    <Animated.View
-                      style={recordingAnimatedStyle}
-                      className="w-3 h-3 bg-red-500 rounded-full mr-2"
-                    />
-                    <Text className="text-gray-700 font-medium text-center text-base">
-                      Recording {formatDuration(recording.duration)}
-                      {recording.isPaused && ' (Paused)'}
-                    </Text>
-                  </View>
-                  {voiceResults.length > 0 && (
-                    <Text
-                      className="text-blue-600 text-sm mt-3 text-center px-4"
-                      numberOfLines={3}
-                      style={{
-                        lineHeight: 20,
-                      }}
-                    >
-                      "{voiceResults[0]}"
-                    </Text>
-                  )}
-                </View>
-              ) : (
-                <View className="relative">
-                  {/* Background Gradient for Text Input */}
-                  <LinearGradient
-                    colors={[
-                      'rgba(57, 51, 198, 0.03)',
-                      'rgba(160, 95, 255, 0.03)',
-                    ]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      borderRadius: 8,
-                    }}
-                  />
+            {/* Text Input Area - Full Width */}
+            <TextInput
+              ref={textInputRef}
+              placeholder={
+                recording.isRecording
+                  ? `Recording ${formatDuration(recording.duration)}${recording.isPaused ? ' (Paused)' : ''}...`
+                  : placeholder
+              }
+              value={
+                recording.isRecording && voiceResults.length > 0
+                  ? voiceResults[0]
+                  : text
+              }
+              onChangeText={
+                recording.isRecording ? undefined : handleTextChange
+              }
+              onSelectionChange={event => {
+                setSelectionStart(event.nativeEvent.selection.start);
+              }}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              className="text-gray-800 mb-3"
+              placeholderTextColor={
+                recording.isRecording ? '#EF4444' : '#999999'
+              }
+              multiline={true}
+              editable={!recording.isRecording}
+              style={{
+                fontSize: 16,
+                fontWeight: '400',
+                backgroundColor: 'transparent',
+                paddingVertical: 8,
+                paddingHorizontal: 8,
+                maxHeight: 100,
+                minHeight: 40,
+                color: recording.isRecording ? '#EF4444' : '#374151',
+              }}
+            />
 
-                  <TextInput
-                    ref={textInputRef}
-                    placeholder={placeholder}
-                    value={text}
-                    onChangeText={handleTextChange}
-                    onSelectionChange={event => {
-                      setSelectionStart(event.nativeEvent.selection.start);
-                    }}
-                    onFocus={handleFocus}
-                    onBlur={handleBlur}
-                    className="text-gray-900 w-full"
-                    placeholderTextColor="#9CA3AF"
-                    multiline={true}
-                    scrollEnabled={true}
-                    style={{
-                      textAlignVertical: 'top',
-                      paddingTop: 16,
-                      paddingBottom: 16,
-                      paddingHorizontal: 16,
-                      minHeight: 60,
-                      maxHeight: 140,
-                      lineHeight: 22,
-                      fontSize: 16,
-                      fontWeight: '400',
-                      letterSpacing: 0.3,
-                      borderRadius: 16,
-                      backgroundColor: 'transparent',
-                    }}
-                    removeClippedSubviews={false}
-                    keyboardType="default"
-                    blurOnSubmit={false}
-                    enablesReturnKeyAutomatically={false}
-                    returnKeyType="default"
-                    textBreakStrategy="balanced"
-                    autoCorrect={true}
-                    spellCheck={true}
-                  />
-                </View>
-              )}
-            </View>
-
-            {/* Action Buttons Row - Bottom Right */}
-            <View className="flex-row justify-end items-center">
-              {/* Attachment Button */}
-              {!recording.isRecording && (
-                <TouchableOpacity
-                  onPress={() => setShowAttachmentModal(true)}
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 22,
-                    backgroundColor: '#F8F9FF',
-                    borderWidth: 1,
-                    borderColor: '#E5E7FF',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: 12,
-                    shadowColor: '#3933C6',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowRadius: 8,
-                    shadowOpacity: 0.1,
-                    elevation: 3,
-                  }}
-                >
-                  <Icon name="paperclip" size={18} color="#3933C6" />
-                </TouchableOpacity>
-              )}
-
-              {/* Emoji Button */}
-              {!recording.isRecording && (
-                <TouchableOpacity
-                  onPress={() => setShowEmojiPicker(true)}
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 22,
-                    backgroundColor: '#FFF8F0',
-                    borderWidth: 1,
-                    borderColor: '#FFE4CC',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: 12,
-                    shadowColor: '#A05FFF',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowRadius: 8,
-                    shadowOpacity: 0.1,
-                    elevation: 3,
-                  }}
-                >
-                  <Text className="text-xl">😊</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Enhancement Button - Only show when word count <= 100 and text exists */}
-              {!recording.isRecording && shouldShowEnhanceButton() && (
-                <TouchableOpacity
-                  onPress={handleEnhance}
-                  disabled={isEnhancing}
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 22,
-                    backgroundColor: isEnhancing ? '#F0F9F0' : '#F0FDF4',
-                    borderWidth: 1,
-                    borderColor: isEnhancing ? '#D1E7DD' : '#DCFCE7',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: 12,
-                    shadowColor: '#10B981',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowRadius: 8,
-                    shadowOpacity: 0.1,
-                    elevation: 3,
-                    opacity: isEnhancing ? 0.7 : 1,
-                  }}
-                >
-                  <MaterialIcon
-                    name={isEnhancing ? 'hourglass-empty' : 'auto-fix-high'}
-                    size={18}
-                    color="#10B981"
-                  />
-                </TouchableOpacity>
-              )}
-
-              {/* Send/Record Button - Rightmost */}
-              {recording.isRecording ? (
-                <LinearGradient
-                  colors={['#3933C6', '#A05FFF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 26,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    shadowColor: '#A05FFF',
-                    shadowOffset: { width: 0, height: 6 },
-                    shadowRadius: 16,
-                    shadowOpacity: 0.4,
-                    elevation: 8,
-                  }}
-                >
+            {/* Bottom Action Buttons Row */}
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center space-x-4">
+                {/* Plus Button - Hidden during recording */}
+                {!recording.isRecording && (
                   <TouchableOpacity
-                    onPress={stopRecording}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
+                    onPress={() => setShowAttachmentModal(true)}
                   >
-                    <MaterialIcon name="send" size={22} color="white" />
+                    <Icon name="plus" size={20} color="#666666" />
                   </TouchableOpacity>
-                </LinearGradient>
-              ) : text.trim() || attachedFiles.length > 0 ? (
-                <Animated.View style={sendButtonAnimatedStyle}>
-                  <LinearGradient
-                    colors={['#3933C6', '#A05FFF']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: 26,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      shadowColor: '#A05FFF',
-                      shadowOffset: { width: 0, height: 6 },
-                      shadowRadius: 16,
-                      shadowOpacity: 0.4,
-                      elevation: 8,
-                    }}
-                  >
+                )}
+
+                {/* Emoji Button - Hidden during recording */}
+                {!recording.isRecording && (
+                  <TouchableOpacity onPress={() => setShowEmojiPicker(true)}>
+                    <Text className="text-xl">😊</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Recording Controls - Show during recording */}
+                {recording.isRecording && (
+                  <View className="flex-row items-center space-x-4">
+                    {/* Delete/Cancel Button */}
                     <TouchableOpacity
-                      onPress={handleSend}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
+                      onPress={cancelRecording}
+                      className="w-8 h-8 bg-red-100 rounded-full items-center justify-center"
                     >
-                      <MaterialIcon name="send" size={22} color="white" />
+                      <MaterialIcon name="delete" size={16} color="#EF4444" />
                     </TouchableOpacity>
-                  </LinearGradient>
-                </Animated.View>
-              ) : (
-                <View
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 26,
-                    backgroundColor: '#F8F9FF',
-                    borderWidth: 2,
-                    borderColor: '#E5E7FF',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    shadowColor: '#3933C6',
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowRadius: 12,
-                    shadowOpacity: 0.15,
-                    elevation: 6,
-                    position: 'relative',
-                  }}
-                >
-                  <TouchableOpacity
-                    onPress={startRecording}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <MaterialIcon name="mic" size={22} color="#3933C6" />
-                  </TouchableOpacity>
 
-                  {/* Voice status indicator */}
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: -2,
-                      right: -2,
-                      width: 12,
-                      height: 12,
-                      borderRadius: 6,
-                      backgroundColor: voiceAvailable ? '#10B981' : '#EF4444',
-                      borderWidth: 2,
-                      borderColor: '#FFFFFF',
-                    }}
-                  />
-                </View>
-              )}
+                    {/* Pause/Resume Button */}
+                    <TouchableOpacity
+                      onPress={
+                        recording.isPaused ? resumeRecording : pauseRecording
+                      }
+                      className="w-8 h-8 bg-orange-100 rounded-full items-center justify-center"
+                    >
+                      <MaterialIcon
+                        name={recording.isPaused ? 'play-arrow' : 'pause'}
+                        size={16}
+                        color="#F97316"
+                      />
+                    </TouchableOpacity>
+
+                    {/* Recording indicator */}
+                    <View className="flex-row items-center">
+                      <Animated.View
+                        style={recordingAnimatedStyle}
+                        className="w-2 h-2 bg-red-500 rounded-full mr-2"
+                      />
+                      <Text className="text-red-500 text-xs font-medium">
+                        {formatDuration(recording.duration)}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              <View className="flex-row items-center space-x-4">
+                {/* Sound/Record Button - Hidden during recording */}
+                {!recording.isRecording && (
+                  <TouchableOpacity onPress={() => console.log('Sound/Record')}>
+                    <MaterialIcon name="graphic-eq" size={24} color="#666666" />
+                  </TouchableOpacity>
+                )}
+
+                {/* Microphone/Send Button - Always rightmost */}
+                {recording.isRecording ? (
+                  <TouchableOpacity onPress={stopRecording}>
+                    <MaterialIcon name="send" size={24} color="#4285F4" />
+                  </TouchableOpacity>
+                ) : text.trim() ? (
+                  <TouchableOpacity onPress={handleSend}>
+                    <MaterialIcon name="send" size={24} color="#4285F4" />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={startRecording}>
+                    <MaterialIcon name="mic" size={24} color="#666666" />
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </View>
         </LinearGradient>
       </View>
-
-      {/* Voice Recording Controls - Bottom */}
-      {recording.isRecording && (
-        <View className="mt-3 flex-row justify-center space-x-4">
-          {recording.isPaused ? (
-            <TouchableOpacity
-              onPress={resumeRecording}
-              className="w-12 h-12 bg-green-500 rounded-full items-center justify-center"
-              style={{
-                shadowColor: '#22C55E',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.3,
-                shadowRadius: 6,
-                elevation: 4,
-              }}
-            >
-              <MaterialIcon name="play-arrow" size={24} color="white" />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              onPress={pauseRecording}
-              className="w-12 h-12 bg-orange-500 rounded-full items-center justify-center"
-              style={{
-                shadowColor: '#F97316',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.3,
-                shadowRadius: 6,
-                elevation: 4,
-              }}
-            >
-              <MaterialIcon name="pause" size={24} color="white" />
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
-            onPress={cancelRecording}
-            className="w-12 h-12 bg-red-500 rounded-full items-center justify-center"
-            style={{
-              shadowColor: '#EF4444',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.3,
-              shadowRadius: 6,
-              elevation: 4,
-            }}
-          >
-            <MaterialIcon name="delete" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Attachment Modal */}
       <Modal
@@ -1193,19 +923,55 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         </View>
       )}
 
-      {/* Voice Debug Info */}
-      {__DEV__ && (
-        <View className="mt-2 px-4">
-          <Text className="text-xs text-gray-500 text-center">
-            Voice Module: {voiceAvailable ? '✅ Available' : '❌ Not Available'}
-          </Text>
-          {voiceResults.length > 0 && (
-            <Text className="text-xs text-blue-600 text-center mt-1">
-              Last: {voiceResults[0]}
+        {/* Voice Debug Info */}
+        {__DEV__ && (
+          <View className="mt-2 px-4">
+            <Text className="text-xs text-gray-500 text-center">
+              Voice Module: {voiceAvailable ? '✅ Available' : '❌ Not Available'}
             </Text>
-          )}
+            {voiceResults.length > 0 && (
+              <Text className="text-xs text-blue-600 text-center mt-1">
+                Last: {voiceResults[0]}
+              </Text>
+            )}
+            {showMentionSuggestions && (
+              <Text className="text-xs text-green-600 text-center mt-1">
+                Mention suggestions: {filteredMentionUsers.length} users found for "{mentionQuery}"
+              </Text>
+            )}
+          </View>
+        )}
+      </KeyboardAvoidingView>
+
+      {/* Mention Suggestions - Outside KeyboardAvoidingView for better positioning */}
+      {showMentionSuggestions && filteredMentionUsers.length > 0 && (
+        <View className="absolute bottom-full mb-2 left-2 right-2 bg-white rounded-lg shadow-lg border border-gray-200 max-h-48 z-50">
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="always"
+          >
+            {filteredMentionUsers.slice(0, 5).map((user, index) => (
+              <TouchableOpacity
+                key={user.id}
+                onPress={() => insertMention(user)}
+                className={`px-4 py-3 flex-row items-center ${
+                  index < filteredMentionUsers.slice(0, 5).length - 1 ? 'border-b border-gray-100' : ''
+                }`}
+              >
+                <View className="w-8 h-8 bg-purple-100 rounded-full items-center justify-center mr-3">
+                  <Text className="text-purple-600 font-semibold text-sm">
+                    {user.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-gray-900 font-medium">{user.name}</Text>
+                  <Text className="text-gray-500 text-sm">@{user.username}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
       )}
-    </KeyboardAvoidingView>
+    </View>
   );
 };
