@@ -5,7 +5,10 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
-type UserProfileScreenProps = NativeStackScreenProps<MainStackParamList, 'UserProfile'>;
+type UserProfileScreenProps = NativeStackScreenProps<
+  MainStackParamList,
+  'UserProfile'
+>;
 
 export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   navigation,
@@ -17,11 +20,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   return (
     <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
-      
+
       {/* Header */}
       <View className="flex-row items-center px-4 py-3 border-b border-gray-200">
-        <TouchableOpacity 
-          onPress={() => navigation.goBack()} 
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
           className="mr-3 p-1"
         >
           <MaterialIcon name="arrow-back" size={24} color="#374151" />
@@ -36,8 +39,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           Profile for user ID: {userId}
         </Text>
         <Text className="text-gray-500 text-center mt-4">
-          This is a placeholder screen. In a real app, this would show detailed user information, 
-          status, contact options, and shared content.
+          This is where user profile details would be displayed.
         </Text>
       </View>
     </View>
