@@ -19,6 +19,7 @@ export type MainStackParamList = {
   TaskDetailScreen: {
     taskId: string;
   };
+  TaskCreateScreen: undefined;
 };
 
 // Auth Navigator Types

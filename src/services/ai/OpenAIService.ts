@@ -14,6 +14,8 @@ interface OpenAIResponse {
   }>;
 }
 
+console.log(OPENAI_API_KEY);
+
 class OpenAIService {
   private apiKey: string;
   private baseUrl: string = 'https://api.openai.com/v1';
@@ -22,38 +24,52 @@ class OpenAIService {
     // Try multiple approaches to get the API key
     const envKey = OPENAI_API_KEY;
     const fallbackKey = getAPIKey();
-    
+
     this.apiKey = envKey || fallbackKey;
-    
+
     console.log('🔑 OpenAI Service initialized');
     console.log('🔑 Environment key present:', !!envKey);
     console.log('🔑 Fallback key present:', !!fallbackKey);
     console.log('🔑 Final API Key present:', !!this.apiKey);
     console.log('🔑 API Key length:', this.apiKey ? this.apiKey.length : 0);
-    console.log('🔑 API Key preview:', this.apiKey ? this.apiKey.substring(0, 10) + '...' : 'NOT FOUND');
-    
+    console.log(
+      '🔑 API Key preview:',
+      this.apiKey ? this.apiKey.substring(0, 10) + '...' : 'NOT FOUND',
+    );
+
     if (!this.apiKey) {
       console.error('❌ No OpenAI API key found in any configuration method');
-      console.warn('⚠️ Make sure .env file exists with OPENAI_API_KEY=your_key');
-      console.warn('⚠️ Make sure to restart Metro bundler after adding .env file');
-      console.warn('⚠️ Alternatively, update src/config/apiKeys.ts with your key');
+      console.warn(
+        '⚠️ Make sure .env file exists with OPENAI_API_KEY=your_key',
+      );
+      console.warn(
+        '⚠️ Make sure to restart Metro bundler after adding .env file',
+      );
+      console.warn(
+        '⚠️ Alternatively, update src/config/apiKeys.ts with your key',
+      );
     }
   }
 
-  private async makeRequest(endpoint: string, data: any): Promise<OpenAIResponse> {
+  private async makeRequest(
+    endpoint: string,
+    data: any,
+  ): Promise<OpenAIResponse> {
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify(data),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`OpenAI API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+        throw new Error(
+          `OpenAI API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`,
+        );
       }
 
       return await response.json();
@@ -88,12 +104,13 @@ ${text}`;
         messages: [
           {
             role: 'system',
-            content: 'You are a professional text editor. Your job is to enhance user text to make it clearer, more professional, and better formatted while preserving the original meaning and intent. Always respond with only the enhanced text, no explanations or quotes.'
+            content:
+              'You are a professional text editor. Your job is to enhance user text to make it clearer, more professional, and better formatted while preserving the original meaning and intent. Always respond with only the enhanced text, no explanations or quotes.',
           },
           {
             role: 'user',
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
         max_tokens: 150,
         temperature: 0.3,
@@ -117,7 +134,9 @@ ${text}`;
 
   async correctTranscription(transcript: string): Promise<string> {
     if (!this.apiKey) {
-      console.warn('⚠️ OpenAI API key not configured, returning original transcript');
+      console.warn(
+        '⚠️ OpenAI API key not configured, returning original transcript',
+      );
       return transcript;
     }
 
@@ -135,12 +154,13 @@ ${transcript}`;
         messages: [
           {
             role: 'system',
-            content: 'You are a transcription editor. Your job is to correct speech-to-text transcriptions by fixing grammar, punctuation, capitalization, and ensuring natural readability. Always respond with only the corrected text, no explanations or quotes.'
+            content:
+              'You are a transcription editor. Your job is to correct speech-to-text transcriptions by fixing grammar, punctuation, capitalization, and ensuring natural readability. Always respond with only the corrected text, no explanations or quotes.',
           },
           {
             role: 'user',
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
         max_tokens: 100,
         temperature: 0.1,
@@ -148,7 +168,9 @@ ${transcript}`;
 
       const correctedText = response.choices[0]?.message?.content?.trim();
       if (!correctedText) {
-        console.warn('⚠️ No corrected text received from OpenAI, returning original');
+        console.warn(
+          '⚠️ No corrected text received from OpenAI, returning original',
+        );
         return transcript;
       }
 
@@ -175,8 +197,8 @@ ${transcript}`;
         messages: [
           {
             role: 'user',
-            content: 'Hello'
-          }
+            content: 'Hello',
+          },
         ],
         max_tokens: 5,
       });

@@ -4,6 +4,7 @@ import { TabNavigator } from './TabNavigator';
 import { ChannelDetailScreen } from '../screens/chats/ChannelDetailScreen';
 import { ThreadScreen } from '../screens/chats/ThreadScreen';
 import { TaskDetailScreen } from '../screens/tasks/TaskDetailScreen';
+import { TaskCreateScreen } from '../screens/tasks/TaskCreateScreen';
 import { UserProfileScreen } from '../screens/users/UserProfileScreen';
 
 export type MainStackParamList = {
@@ -24,6 +25,7 @@ export type MainStackParamList = {
   TaskDetailScreen: {
     taskId: string;
   };
+  TaskCreateScreen: undefined;
   UserProfile: {
     userId: string;
   };
@@ -49,6 +51,10 @@ export const MainNavigator: React.FC = () => {
       <Stack.Screen
         name="TaskDetailScreen"
         component={TaskDetailScreen}
+      />
+      <Stack.Screen
+        name="TaskCreateScreen"
+        component={TaskCreateScreen}
       />
       <Stack.Screen
         name="UserProfile"

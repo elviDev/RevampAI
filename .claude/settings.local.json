@@ -23,8 +23,30 @@
       "Bash(taskkill:*)",
       "Bash(npm run:*)",
       "Bash(npx eslint:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(git push:*)",
+      "Bash(npm test:*)",
+      "Bash(grep:*)",
+      "Bash(timeout 10s npm run dev)",
+      "Bash(timeout 15s npm run dev)",
+      "Bash(psql:*)",
+      "Bash(cat:*)",
+      "Bash(source .env)",
+      "Bash(pg_ctl:*)",
+      "Bash(npx node-pg-migrate:*)",
+      "Bash(docker:*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:root@localhost:5432/ceo_platform_dev\" npm run dev)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:root@localhost:5433/ceo_platform_dev\" npm run dev)",
+      "Bash(cmd //c:*)",
+      "Bash(tsx:*)",
+      "Bash(npx tsx:*)",
+      "Bash(git add:*)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": [
+      "C:\\c\\RNProjects",
+      "C:\\c\\RNProjects\\app"
+    ]
   }
 }
