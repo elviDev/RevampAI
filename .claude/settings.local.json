@@ -40,7 +40,8 @@
       "Bash(cmd //c:*)",
       "Bash(tsx:*)",
       "Bash(npx tsx:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

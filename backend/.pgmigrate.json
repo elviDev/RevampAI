@@ -1,0 +1,10 @@
+{
+  "database-url": "postgresql://postgres:root@localhost:5432/ceo_platform_dev",
+  "migrations-dir": "migrations",
+  "migrations-table": "pgmigrations",
+  "schema": "public",
+  "check-order": false,
+  "verbose": true,
+  "migration-filename-format": "timestamp",
+  "single-transaction": false
+}

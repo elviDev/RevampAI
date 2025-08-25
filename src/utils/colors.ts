@@ -34,9 +34,20 @@ export const Colors = {
     tertiary: '#9CA3AF',
     inverse: '#FFFFFF',
   },
+  white: '#FFFFFF',
   success: '#10B981',
-  warning: '#F59E0B',
+  warning: {
+    light: '#FEF3C7',
+    dark: '#92400E'
+  },
   error: '#EF4444',
-  info: '#3B82F6',
+  info: {
+    light: '#DBEAFE',
+    dark: '#1E40AF'
+  },
+  blue: {
+    50: '#EFF6FF',
+    700: '#1D4ED8'
+  },
   online: '#10B981',
 };

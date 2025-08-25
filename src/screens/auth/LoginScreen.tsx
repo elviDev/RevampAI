@@ -6,9 +6,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Image,
+  Alert,
 } from 'react-native';
-import { useDispatch } from 'react-redux';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -19,23 +18,20 @@ import { CurvedBackground } from '../../components/common/CurvedBackground/Curve
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Botton';
 import { Colors } from '../../utils/colors';
-import { loginSuccess, loginFailure } from '../../store/slices/authSlice';
+import { useAuth } from '../../hooks/useAuth';
 import type { LoginCredentials } from '../../types/auth';
-import type { AppDispatch } from '../../store/store';
 
 interface LoginScreenProps {
   navigation: any;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
-  const dispatch = useDispatch<AppDispatch>();
+  const { login, isLoading, error, clearAuthError } = useAuth();
   const [credentials, setCredentials] = useState<LoginCredentials>({
     email: '',
     password: '',
   });
   const [errors, setErrors] = useState<Partial<LoginCredentials>>({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(50);
@@ -61,8 +57,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
     if (!credentials.password) {
       newErrors.password = 'Password is required';
-    } else if (credentials.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
     }
 
     setErrors(newErrors);
@@ -72,45 +66,27 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const handleLogin = async () => {
     if (!validateForm()) return;
 
+    clearAuthError();
+
     try {
-      setIsLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Dispatch login success action instead of navigating manually
-      dispatch(loginSuccess({ 
-        id: '1', 
-        email: credentials.email, 
-        fullName: 'Demo User',
-        role: 'member' as const
-      }));
-    } catch (error) {
-      console.error('Login error:', error);
-      dispatch(loginFailure('Login failed. Please try again.'));
-    } finally {
-      setIsLoading(false);
+      const result = await login(credentials);
+      if (result.type === 'auth/login/fulfilled') {
+        // Navigation will be handled by the AuthNavigator based on auth state
+        console.log('Login successful');
+      } else {
+        const errorMessage = result.payload as string;
+        Alert.alert('Login Failed', errorMessage);
+      }
+    } catch (error: any) {
+      Alert.alert(
+        'Login Failed',
+        error.message || 'An unexpected error occurred',
+      );
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    try {
-      setIsGoogleLoading(true);
-      // Simulate Google sign in
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Dispatch login success action instead of navigating manually
-      dispatch(loginSuccess({ 
-        id: '1', 
-        email: 'user@gmail.com', 
-        fullName: 'Google User',
-        role: 'member' as const
-      }));
-    } catch (error) {
-      console.error('Google sign in error:', error);
-      dispatch(loginFailure('Google sign in failed. Please try again.'));
-    } finally {
-      setIsGoogleLoading(false);
-    }
+  const handleForgotPassword = () => {
+    navigation.navigate('ForgotPassword');
   };
 
   return (
@@ -141,7 +117,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 label="Email"
                 placeholder="Enter your email"
                 value={credentials.email}
-                onChangeText={(email) =>
+                onChangeText={email =>
                   setCredentials(prev => ({ ...prev, email }))
                 }
                 error={errors.email}
@@ -155,7 +131,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 label="Password"
                 placeholder="Enter your password"
                 value={credentials.password}
-                onChangeText={(password) =>
+                onChangeText={password =>
                   setCredentials(prev => ({ ...prev, password }))
                 }
                 error={errors.password}
@@ -168,15 +144,28 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 title="Sign In"
                 onPress={handleLogin}
                 loading={isLoading}
-                disabled={isLoading || isGoogleLoading}
                 style={{ marginBottom: 16 }}
               />
 
-             
+              {/* Forgot Password Link */}
+              <TouchableOpacity
+                onPress={handleForgotPassword}
+                style={{ alignItems: 'center', marginBottom: 24 }}
+              >
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: Colors.primary,
+                    fontWeight: '600',
+                  }}
+                >
+                  Forgot Password?
+                </Text>
+              </TouchableOpacity>
 
               {/* Create Account Link */}
               <TouchableOpacity
-                onPress={() => navigation.navigate('Register')}
+                onPress={() => navigation.navigate('BasicInfoStep')}
                 style={{ alignItems: 'center', marginTop: 24 }}
               >
                 <Text

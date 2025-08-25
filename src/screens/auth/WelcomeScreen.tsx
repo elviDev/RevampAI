@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
-import { useDispatch } from 'react-redux';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -12,15 +11,12 @@ import Animated, {
 import { CurvedBackground } from '../../components/common/CurvedBackground/CurvedBackground';
 import { Button } from '../../components/common/Botton';
 import { Colors } from '../../utils/colors';
-import { loginSuccess, loginFailure } from '../../store/slices/authSlice';
-import type { AppDispatch } from '../../store/store';
 
 interface WelcomeScreenProps {
   navigation: any;
 }
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
-  const dispatch = useDispatch<AppDispatch>();
   const [isLoading, setIsLoading] = useState(false);
 
   const logoScale = useSharedValue(0);
@@ -65,26 +61,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
   }));
 
   const handleGoogleSignIn = async () => {
-    try {
-      setIsLoading(true);
-      // Simulate Google sign in
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Dispatch login success action
-      dispatch(
-        loginSuccess({
-          id: '1',
-          email: 'user@gmail.com',
-          fullName: 'Google User',
-          role: 'member' as const,
-        }),
-      );
-    } catch (error) {
-      console.error('Google sign in error:', error);
-      dispatch(loginFailure('Google sign in failed. Please try again.'));
-    } finally {
-      setIsLoading(false);
-    }
+    // For now, redirect to login screen
+    // TODO: Implement Google Sign-In integration with backend
+    navigation.navigate('Login');
   };
 
   const handleVoiceCommand = () => {
@@ -181,7 +160,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
           />
 
           <TouchableOpacity
-            onPress={() => navigation.navigate('Register')}
+            onPress={() => navigation.navigate('BasicInfoStep')}
             style={{ alignItems: 'center', marginTop: 16 }}
           >
             <Text
