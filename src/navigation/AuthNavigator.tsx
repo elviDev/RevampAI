@@ -40,8 +40,8 @@ export const AuthNavigator: React.FC = () => {
       screenOptions={{ headerShown: false }}
     >
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
-      {/* <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} /> */}
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="BasicInfoStep" component={BasicInfoScreen} />
       <Stack.Screen name="WorkInfoStep" component={WorkInfoScreen} />
       <Stack.Screen

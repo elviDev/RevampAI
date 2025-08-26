@@ -126,9 +126,9 @@ export const authSlice = createSlice({
       .addCase(loginUser.fulfilled, (state, action) => {
         state.user = action.payload.user;
         state.tokens = {
-          accessToken: action.payload.accessToken,
-          refreshToken: action.payload.refreshToken,
-          expiresIn: action.payload.expiresIn,
+          accessToken: action.payload.token || action.payload.accessToken,
+          refreshToken: action.payload.refreshToken || action.payload.token,
+          expiresIn: action.payload.expiresIn || 7 * 24 * 60 * 60,
         };
         state.isAuthenticated = true;
         state.isLoading = false;

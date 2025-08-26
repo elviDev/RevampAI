@@ -1,7 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert } from 'react-native';
-import { API_BASE_URL } from '@env';
+import { Alert, Platform } from 'react-native';
 import type { User, AuthTokens } from '../../types/auth';
+
+// Use proper URL for Android emulator
+const API_BASE_URL = Platform.OS === 'android' 
+  ? 'http://10.0.2.2:3000'  // Android emulator localhost
+  : 'http://localhost:3000'; // iOS simulator or web
 
 interface LoginRequest {
   email: string;
@@ -86,13 +90,23 @@ class AuthService {
   }
 
   async login(credentials: LoginRequest): Promise<AuthResponse> {
-    const response = await this.makeRequest<AuthResponse>('/auth/login', {
+    console.log('Attempting login with:', credentials.email);
+    console.log('API URL:', `${API_BASE_URL}/api/v1/auth/login`);
+    
+    const response = await this.makeRequest<AuthResponse>('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
 
-    if (response.success) {
-      await this.storeTokens(response.data);
+    console.log('Login response:', response);
+
+    if (response.success && response.data) {
+      // Store tokens with simplified structure
+      await this.storeTokens({
+        accessToken: response.data.token || response.data.accessToken,
+        refreshToken: response.data.refreshToken || response.data.token,
+        expiresIn: 7 * 24 * 60 * 60 // 7 days in seconds
+      });
     }
 
     return response;
@@ -101,13 +115,19 @@ class AuthService {
   async register(
     userData: RegisterRequest,
   ): Promise<{ success: boolean; data: { user: User; message: string } }> {
-    const response = await this.makeRequest<{
-      success: boolean;
-      data: { user: User; message: string };
-    }>('/auth/register', {
+    const response = await this.makeRequest<any>('/api/v1/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
+
+    // Store tokens if registration includes auto-login
+    if (response.success && response.data?.token) {
+      await this.storeTokens({
+        accessToken: response.data.token,
+        refreshToken: response.data.refreshToken || response.data.token,
+        expiresIn: 7 * 24 * 60 * 60
+      });
+    }
 
     return response;
   }
@@ -130,7 +150,7 @@ class AuthService {
     const response = await this.makeRequest<{
       success: boolean;
       message: string;
-    }>('/auth/password-reset-request', {
+    }>('/api/v1/auth/forgot-password', {
       method: 'POST',
       body: JSON.stringify({ email }),
     });
@@ -140,14 +160,14 @@ class AuthService {
 
   async resetPassword(
     token: string,
-    newPassword: string,
+    password: string,
   ): Promise<{ success: boolean; message: string }> {
     const response = await this.makeRequest<{
       success: boolean;
       message: string;
-    }>('/auth/password-reset', {
+    }>('/api/v1/auth/reset-password', {
       method: 'POST',
-      body: JSON.stringify({ token, newPassword }),
+      body: JSON.stringify({ token, password }),
     });
 
     return response;
@@ -180,7 +200,7 @@ class AuthService {
     const response = await this.makeRequest<{
       success: boolean;
       data: { user: User };
-    }>('/auth/me');
+    }>('/api/v1/users/profile');
     return response;
   }
 
