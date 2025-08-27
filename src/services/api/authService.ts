@@ -2,10 +2,24 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Platform } from 'react-native';
 import type { User, AuthTokens } from '../../types/auth';
 
-// Use proper URL for Android emulator
-const API_BASE_URL = Platform.OS === 'android' 
-  ? 'http://10.0.2.2:3000'  // Android emulator localhost
-  : 'http://localhost:3000'; // iOS simulator or web
+// Detect if running on physical device vs emulator/simulator
+const getAPIBaseURL = () => {
+  if (__DEV__) {
+    // Development mode
+    if (Platform.OS === 'android') {
+      // Check if running on emulator (10.0.2.2 is emulator's host)
+      // For physical devices, use your computer's local IP
+      return 'http://192.168.1.2:3000'; // Your computer's IP address
+    } else if (Platform.OS === 'ios') {
+      // iOS simulator can use localhost
+      return 'http://localhost:3000';
+    }
+  }
+  // Production URL would go here
+  return 'http://192.168.1.2:3000'; // Fallback to your computer's IP
+};
+
+const API_BASE_URL = getAPIBaseURL();
 
 interface LoginRequest {
   email: string;
@@ -79,11 +93,18 @@ class AuthService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error?.message || 'Request failed');
+        // Handle error response format from backend
+        throw new Error(data.message || data.error?.message || 'Request failed');
       }
 
       return data;
-    } catch (error) {
+    } catch (error: any) {
+      // Better error logging
+      if (error.message === 'Network request failed') {
+        console.error('Network error - Backend server may not be running');
+        console.error('Ensure backend is running on:', API_BASE_URL);
+        throw new Error('Cannot connect to server. Please ensure the backend is running.');
+      }
       console.error('API Request failed:', error);
       throw error;
     }
