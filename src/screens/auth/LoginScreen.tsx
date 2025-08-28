@@ -69,18 +69,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     clearAuthError();
 
     try {
+      console.log('Attempting login with:', credentials.email);
       const result = await login(credentials);
+      console.log('Login result:', result);
+      
       if (result.type === 'auth/login/fulfilled') {
         // Navigation will be handled by the AuthNavigator based on auth state
         console.log('Login successful');
       } else {
-        const errorMessage = result.payload as string;
-        Alert.alert('Login Failed', errorMessage);
+        const errorMessage = result.payload as string || 'Login failed';
+        console.error('Login error:', errorMessage);
+        Alert.alert(
+          'Login Failed', 
+          errorMessage === 'Network request failed' 
+            ? 'Cannot connect to server. Please ensure the backend is running on port 3000.'
+            : errorMessage
+        );
       }
     } catch (error: any) {
+      console.error('Login exception:', error);
       Alert.alert(
         'Login Failed',
-        error.message || 'An unexpected error occurred',
+        error.message === 'Network request failed'
+          ? 'Cannot connect to server. Please ensure the backend is running on port 3000.'
+          : error.message || 'An unexpected error occurred',
       );
     }
   };

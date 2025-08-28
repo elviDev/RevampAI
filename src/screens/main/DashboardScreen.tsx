@@ -47,7 +47,7 @@ const DashboardScreen = () => {
             elevation: 3,
           }}
         >
-          <Text className="text-white font-semibold text-sm">IE</Text>
+          <Text className="text-white font-semibold text-sm">JL</Text>
         </TouchableOpacity>
       </View>
 
@@ -73,7 +73,7 @@ const DashboardScreen = () => {
                     color: 'black',
                   }}
                 >
-                  Hello, Ifeanyi Elvis
+                  Hola, Javier López
                 </Text>
               </View>
             }
@@ -121,7 +121,7 @@ const DashboardScreen = () => {
           onSendRecording={handleSendRecording}
           onAttachFile={handleAttachFile}
           onAttachImage={handleAttachImage}
-          placeholder="Ask Javiar"
+          placeholder="Ask TT"
           maxLines={6}
           disabled={false}
         />
