@@ -9,14 +9,14 @@ const getAPIBaseURL = () => {
     if (Platform.OS === 'android') {
       // Check if running on emulator (10.0.2.2 is emulator's host)
       // For physical devices, use your computer's local IP
-      return 'http://192.168.1.2:3000'; // Your computer's IP address
+      return 'http://192.168.1.5:3000'; // Your computer's IP address
     } else if (Platform.OS === 'ios') {
       // iOS simulator can use localhost
       return 'http://localhost:3000';
     }
   }
   // Production URL would go here
-  return 'http://192.168.1.2:3000'; // Fallback to your computer's IP
+  return 'http://192.168.1.5:3000'; // Fallback to your computer's IP
 };
 
 const API_BASE_URL = getAPIBaseURL();

@@ -80,6 +80,6 @@ const HOST = '0.0.0.0'; // Accept connections from any IP
 
 app.listen(PORT, HOST, () => {
   console.log(`Mock backend server running on http://${HOST}:${PORT}`);
-  console.log('Your computer IP: 192.168.1.2');
-  console.log(`Physical device should connect to: http://192.168.1.2:${PORT}`);
+  console.log('Your computer IP: 192.168.1.5');
+  console.log(`Physical device should connect to: http://192.168.1.5:${PORT}`);
 });
