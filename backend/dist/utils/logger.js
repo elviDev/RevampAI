@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.securityLogger = exports.performanceLogger = exports.loggers = exports.logger = void 0;
+exports.metricsLogger = exports.startupLogger = exports.securityLogger = exports.performanceLogger = exports.loggers = exports.logger = void 0;
 const pino_1 = __importDefault(require("pino"));
 const index_1 = require("@config/index");
 // Create logger configuration based on environment
@@ -21,10 +21,18 @@ const loggerConfig = {
                     colorize: true,
                     translateTime: 'HH:MM:ss Z',
                     ignore: 'pid,hostname',
+                    messageFormat: '{time} [{level}] {component}: {msg}',
+                    hideObject: false,
+                    singleLine: false,
                 },
             },
         }
         : {}),
+    // Reduce noise from frequent operations
+    redact: {
+        paths: ['password', 'token', 'secret', 'key'],
+        censor: '[REDACTED]'
+    },
 };
 // Create base logger
 const baseLogger = (0, pino_1.default)(loggerConfig);
@@ -66,10 +74,19 @@ exports.performanceLogger = {
         const startTime = Date.now();
         const operationLogger = exports.logger.withContext({ operation: operationName, ...context });
         try {
-            operationLogger.info('Operation started');
+            // Only log start for critical operations or when debug level is enabled
+            if (index_1.config.logging.level === 'debug' || operationName.includes('migration') || operationName.includes('startup')) {
+                operationLogger.debug('Operation started');
+            }
             const result = await operation();
             const duration = Date.now() - startTime;
-            operationLogger.info({ duration }, 'Operation completed successfully');
+            // Only log completion for operations that take > 500ms or are critical
+            if (duration > 500 || operationName.includes('migration') || operationName.includes('startup')) {
+                operationLogger.info({ duration }, 'Operation completed');
+            }
+            else if (index_1.config.logging.level === 'debug') {
+                operationLogger.debug({ duration }, 'Operation completed');
+            }
             // Log performance warning if operation takes too long
             if (duration > 1000) {
                 exports.loggers.performance.warn({ operation: operationName, duration }, 'Slow operation detected');
@@ -126,6 +143,76 @@ exports.securityLogger = {
     logSecurityViolation: (violation, context) => {
         exports.loggers.security.error({ violation, ...context }, 'Security violation detected');
     },
+};
+// Startup logging utilities to reduce verbosity during initialization
+exports.startupLogger = {
+    /**
+     * Log startup steps with grouped output
+     */
+    logStep: (step, status = 'starting') => {
+        switch (status) {
+            case 'starting':
+                exports.logger.info(`📋 ${step}...`);
+                break;
+            case 'completed':
+                exports.logger.info(`✅ ${step}`);
+                break;
+            case 'failed':
+                exports.logger.error(`❌ ${step}`);
+                break;
+        }
+    },
+    /**
+     * Log initialization summary
+     */
+    logSummary: (services) => {
+        exports.logger.info('\n🚀 Server Initialization Summary:');
+        services.forEach(service => {
+            const status = service.status ? '✅' : '❌';
+            const duration = service.duration ? ` (${service.duration}ms)` : '';
+            exports.logger.info(`   ${status} ${service.name}${duration}`);
+        });
+    },
+    /**
+     * Create a startup timer
+     */
+    createTimer: (name) => {
+        const start = Date.now();
+        return {
+            end: () => Date.now() - start,
+            log: (status = 'completed') => {
+                const duration = Date.now() - start;
+                exports.startupLogger.logStep(`${name} (${duration}ms)`, status);
+                return duration;
+            }
+        };
+    }
+};
+// Utility to reduce metrics logging noise
+exports.metricsLogger = {
+    /**
+     * Log metrics only when significant changes occur
+     */
+    logMetricsIfSignificant: (component, currentMetrics, previousMetrics, threshold = 0.1) => {
+        if (!previousMetrics) {
+            exports.loggers[component]?.info({ metrics: currentMetrics }, `${component} metrics`);
+            return;
+        }
+        // Check if metrics have changed significantly
+        let hasSignificantChange = false;
+        for (const [key, value] of Object.entries(currentMetrics)) {
+            if (typeof value === 'number' && typeof previousMetrics[key] === 'number') {
+                const change = Math.abs(value - previousMetrics[key]) / (previousMetrics[key] || 1);
+                if (change > threshold) {
+                    hasSignificantChange = true;
+                    break;
+                }
+            }
+        }
+        if (hasSignificantChange) {
+            exports.loggers[component]?.info({ metrics: currentMetrics }, `${component} metrics`);
+        }
+    }
 };
 // Export default logger
 exports.default = exports.logger;

@@ -73,7 +73,7 @@ const initializeDatabase = async () => {
             poolSize: pool.totalCount,
             currentTime: result.rows[0].current_time,
             postgresVersion: result.rows[0].pg_version,
-        }, 'Database connection pool initialized successfully');
+        }, 'Database initialized');
     }
     catch (error) {
         logger_1.logger.error({ error }, 'Failed to initialize database connection pool');

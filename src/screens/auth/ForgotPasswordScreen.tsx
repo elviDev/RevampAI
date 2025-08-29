@@ -6,7 +6,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -19,6 +18,7 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Botton';
 import { Colors } from '../../utils/colors';
 import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../contexts/ToastContext';
 
 interface ForgotPasswordScreenProps {
   navigation: any;
@@ -28,6 +28,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
   navigation,
 }) => {
   const { requestReset, isLoading, error, clearAuthError } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
 
@@ -67,24 +68,15 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
     try {
       const result = await requestReset(email);
       if (result.meta && result.meta.requestStatus === 'fulfilled') {
-        Alert.alert(
-          'Reset Link Sent',
-          "Please check your email for password reset instructions. If you don't see the email, check your spam folder.",
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('Login'),
-            },
-          ],
-        );
+        showSuccess("Reset link sent! Please check your email for password reset instructions. If you don't see the email, check your spam folder.");
+        setTimeout(() => navigation.navigate('Login'), 2000); // Navigate after toast shows
       } else {
         const errorMessage = result.payload as string;
-        Alert.alert('Request Failed', errorMessage);
+        showError(`Request Failed: ${errorMessage}`);
       }
     } catch (error: any) {
-      Alert.alert(
-        'Request Failed',
-        error.message || 'An unexpected error occurred',
+      showError(
+        error.message || 'An unexpected error occurred'
       );
     }
   };

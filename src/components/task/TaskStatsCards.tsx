@@ -11,12 +11,12 @@ export const TaskStatsCards: React.FC<TaskStatsCardsProps> = ({
   taskStats,
 }) => {
   const statsData = [
-    { label: 'Total', value: taskStats.total, color: '#6B7280' },
-    { label: 'Pending', value: taskStats.pending, color: '#F59E0B' },
-    { label: 'In Progress', value: taskStats.inProgress, color: '#3B82F6' },
-    { label: 'Completed', value: taskStats.completed, color: '#22C55E' },
-    { label: 'Overdue', value: taskStats.overdue, color: '#EF4444' },
-    { label: 'Unassigned', value: taskStats.unassigned, color: '#9CA3AF' },
+    { label: 'Total', value: taskStats.totalTasks || taskStats.total || 0, color: '#6B7280' },
+    { label: 'Pending', value: taskStats.tasksByStatus?.pending || taskStats.pending || 0, color: '#F59E0B' },
+    { label: 'In Progress', value: taskStats.tasksByStatus?.in_progress || taskStats.inProgress || 0, color: '#3B82F6' },
+    { label: 'Review', value: taskStats.tasksByStatus?.review || 0, color: '#8B5CF6' },
+    { label: 'Completed', value: taskStats.tasksByStatus?.completed || taskStats.completed || 0, color: '#22C55E' },
+    { label: 'Overdue', value: taskStats.overdueTasks || taskStats.overdue || 0, color: '#EF4444' },
   ];
 
   return (

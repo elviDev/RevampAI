@@ -26,9 +26,22 @@ export const useAuth = () => {
     try {
       const isTokenValid = await authService.isTokenValid();
       if (isTokenValid) {
-        dispatch(getCurrentUser());
+        try {
+          await dispatch(getCurrentUser()).unwrap();
+        } catch (error) {
+          // If getCurrentUser fails, clear invalid tokens and show auth
+          console.log('🧹 Clearing invalid stored tokens');
+          await authService.clearTokens();
+          dispatch(clearAuth());
+        }
+      } else {
+        // No valid token, clear any stored data and show auth
+        await authService.clearTokens();
+        dispatch(clearAuth());
       }
     } catch (error) {
+      console.error('Auth initialization error:', error);
+      await authService.clearTokens();
       dispatch(clearAuth());
     }
   }, [dispatch]);
@@ -45,7 +58,17 @@ export const useAuth = () => {
 
   // Logout function
   const logout = useCallback(async () => {
-    return dispatch(logoutUser());
+    try {
+      await authService.clearTokens();
+      dispatch(clearAuth());
+      return { type: 'fulfilled' };
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force clear even if there's an error
+      await authService.clearTokens();
+      dispatch(clearAuth());
+      return { type: 'fulfilled' };
+    }
   }, [dispatch]);
 
   // Get current user function

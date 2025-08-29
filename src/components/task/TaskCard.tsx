@@ -25,8 +25,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onLongPress,
   viewMode = 'list',
 }) => {
-  const isOverdue = TaskUtils.isOverdue(task.dueDate, task.status);
-  const isDueSoon = TaskUtils.isDueSoon(task.dueDate, task.status);
+  const dueDateValue = task.dueDate || task.due_date;
+  const dueDate = dueDateValue ? new Date(dueDateValue) : new Date();
+  const isOverdue = TaskUtils.isOverdue(dueDate, task.status);
+  const isDueSoon = TaskUtils.isDueSoon(dueDate, task.status);
+  
+  // Handle both field formats for assignees
+  const assignees = task.assignees || (task.assigned_to ? task.assigned_to.map(id => ({ id, name: 'User', avatar: id.slice(0, 2).toUpperCase() })) : []);
+  const channelName = task.channelName || task.channel_name || 'General';
+  const progress = task.progress || task.progress_percentage || 0;
 
   return (
     <AnimatedTouchableOpacity
@@ -64,17 +71,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <View className="flex-row items-center mb-2 flex-wrap">
             <View className="flex-row items-center bg-gray-100 rounded-full px-2 py-1 mr-2">
               <Feather
-                name={TaskUtils.getCategoryIcon(task.category)}
+                name={TaskUtils.getTaskTypeIcon(task.task_type || 'general')}
                 size={12}
                 color="#6B7280"
               />
               <Text className="text-gray-600 text-xs ml-1 uppercase font-medium">
-                {task.category}
+                {task.task_type || task.category || 'general'}
               </Text>
             </View>
             <View className="bg-blue-50 rounded-full px-2 py-1">
               <Text className="text-blue-600 text-xs font-medium">
-                {task.channelName}
+                {task.channelName || task.channel_id || 'General'}
               </Text>
             </View>
           </View>
@@ -126,19 +133,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       </View>
 
       {/* Progress Bar */}
-      {task.progress > 0 && (
+      {progress > 0 && (
         <View className="mb-3">
           <View className="flex-row items-center justify-between mb-1">
             <Text className="text-gray-500 text-xs">Progress</Text>
             <Text className="text-gray-700 text-xs font-semibold">
-              {task.progress}%
+              {progress}%
             </Text>
           </View>
           <View className="h-2 bg-gray-200 rounded-full">
             <View
               className="h-full rounded-full"
               style={{
-                width: `${task.progress}%`,
+                width: `${progress}%`,
                 backgroundColor: TaskUtils.getStatusColor(task.status),
               }}
             />
@@ -147,7 +154,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       )}
 
       {/* Tags */}
-      {task.tags.length > 0 && (
+      {task.tags && task.tags.length > 0 && (
         <View className="flex-row flex-wrap mb-3 gap-1">
           {task.tags.slice(0, 3).map((tag, tagIndex) => (
             <View key={tagIndex} className="bg-purple-50 px-2 py-1 rounded-md">
@@ -170,11 +177,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       <View className="flex-row items-center justify-between">
         {/* Assignees */}
         <View className="flex-row items-center">
-          {task.assignees.length > 0 ? (
+          {assignees && assignees.length > 0 ? (
             <View className="flex-row -space-x-2">
-              {task.assignees.slice(0, 3).map((assignee, avatarIndex) => (
+              {assignees.slice(0, 3).map((assignee, avatarIndex) => (
                 <LinearGradient
-                  key={assignee.id}
+                  key={`${task.id}-${assignee.id}-${avatarIndex}`}
                   colors={
                     avatarIndex % 2 === 0
                       ? ['#3B82F6', '#8B5CF6']
@@ -188,7 +195,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     borderColor: 'white',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    zIndex: task.assignees.length - avatarIndex,
+                    zIndex: assignees.length - avatarIndex,
                   }}
                 >
                   <Text className="text-white text-xs font-bold">
@@ -196,10 +203,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   </Text>
                 </LinearGradient>
               ))}
-              {task.assignees.length > 3 && (
+              {assignees.length > 3 && (
                 <View className="w-7 h-7 bg-gray-400 rounded-full border-2 border-white flex items-center justify-center">
                   <Text className="text-white text-xs font-bold">
-                    +{task.assignees.length - 3}
+                    +{assignees.length - 3}
                   </Text>
                 </View>
               )}
@@ -225,7 +232,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               color: isOverdue ? '#EF4444' : isDueSoon ? '#F59E0B' : '#6B7280',
             }}
           >
-            {TaskUtils.formatDueDate(task.dueDate)}
+            {TaskUtils.formatDueDate(dueDate)}
           </Text>
         </View>
       </View>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList } from 'react-native';
+import { View, FlatList, Text, RefreshControl, TouchableOpacity } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Feather from 'react-native-vector-icons/Feather';
 import { Task } from '../../types/task.types';
@@ -14,6 +14,8 @@ interface TaskViewRendererProps {
   searchQuery: string;
   onTaskPress: (task: Task) => void;
   onTaskLongPress: (task: Task) => void;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }
 
 export const TaskViewRenderer: React.FC<TaskViewRendererProps> = ({
@@ -22,6 +24,8 @@ export const TaskViewRenderer: React.FC<TaskViewRendererProps> = ({
   searchQuery,
   onTaskPress,
   onTaskLongPress,
+  refreshing = false,
+  onRefresh,
 }) => {
   const [useSimpleViews, setUseSimpleViews] = useState(false);
 
@@ -67,10 +71,15 @@ export const TaskViewRenderer: React.FC<TaskViewRendererProps> = ({
           <FlatList
             data={tasks}
             renderItem={renderTaskCard}
-            keyExtractor={item => item.id}
+            keyExtractor={(item, index) => `${item.id}-${index}`}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 40 }}
             ListEmptyComponent={renderEmptyState()}
+            refreshControl={
+              onRefresh ? (
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              ) : undefined
+            }
           />
         );
       case 'board':
@@ -79,7 +88,7 @@ export const TaskViewRenderer: React.FC<TaskViewRendererProps> = ({
             <Text className="text-lg font-bold mb-4">Board View (Simple)</Text>
             {tasks.slice(0, 5).map((task, index) => (
               <TaskCard
-                key={task.id}
+                key={`board-${task.id}-${index}`}
                 task={task}
                 index={index}
                 onPress={(task) => {
@@ -108,10 +117,10 @@ export const TaskViewRenderer: React.FC<TaskViewRendererProps> = ({
               Calendar View (Simple)
             </Text>
             {tasks.slice(0, 5).map((task, index) => (
-              <View key={task.id} className="mb-2 p-3 bg-white rounded-lg">
+              <View key={`calendar-${task.id}-${index}`} className="mb-2 p-3 bg-white rounded-lg">
                 <Text className="font-semibold">{task.title}</Text>
                 <Text className="text-sm text-gray-600">
-                  Due: {task.dueDate.toLocaleDateString()}
+                  Due: {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date'}
                 </Text>
               </View>
             ))}
@@ -129,16 +138,21 @@ export const TaskViewRenderer: React.FC<TaskViewRendererProps> = ({
           <FlatList
             data={tasks}
             renderItem={renderTaskCard}
-            keyExtractor={item => item.id}
+            keyExtractor={(item, index) => `${item.id}-${index}`}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 40 }}
             ListEmptyComponent={renderEmptyState()}
+            refreshControl={
+              onRefresh ? (
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              ) : undefined
+            }
           />
         );
       case 'board':
         return (
           <TaskBoardView 
-            filteredTasks={tasks} 
+            filteredTasks={tasks}
             onTaskPress={(task) => {
               try {
                 onTaskPress(task);

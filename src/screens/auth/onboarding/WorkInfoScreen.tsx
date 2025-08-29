@@ -6,7 +6,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -21,6 +20,8 @@ import { CustomPicker } from '../../../components/common/CustomPicker';
 import { StepIndicator } from '../../../components/common/StepIndicator';
 import { Colors } from '../../../utils/colors';
 import { useAuth } from '../../../hooks/useAuth';
+import { useToast } from '../../../contexts/ToastContext';
+import { AuthError } from '../../../services/api/authService';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../../navigation/AuthNavigator';
 
@@ -48,6 +49,7 @@ export const WorkInfoScreen: React.FC<WorkInfoScreenProps> = ({
   route,
 }) => {
   const { register, isLoading } = useAuth();
+  const { showSuccess, showError } = useToast();
   const { basicCredentials } = route.params;
 
   const [workInfo, setWorkInfo] = useState<WorkCredentials>({
@@ -95,19 +97,22 @@ export const WorkInfoScreen: React.FC<WorkInfoScreenProps> = ({
       const result = await register(completeCredentials);
 
       if (result.type === 'auth/register/fulfilled') {
-        // Navigate to completion screen
-        navigation.navigate('OnboardingComplete', {
-          userEmail: basicCredentials.email,
+        showSuccess('Account created successfully! Please check your email to verify your account.');
+        // Navigate to email verification screen
+        navigation.navigate('EmailVerification', {
+          email: basicCredentials.email,
+          fromRegistration: true,
         });
       } else {
         const errorMessage = result.payload as string;
-        Alert.alert('Registration Failed', errorMessage);
+        showError(errorMessage || 'Registration failed. Please try again.');
       }
     } catch (error: any) {
-      Alert.alert(
-        'Registration Failed',
-        error.message || 'An unexpected error occurred',
-      );
+      if (error instanceof AuthError) {
+        showError(error.message);
+      } else {
+        showError('Something went wrong. Please try again.');
+      }
     }
   };
 
@@ -122,19 +127,22 @@ export const WorkInfoScreen: React.FC<WorkInfoScreenProps> = ({
       const result = await register(minimalCredentials);
 
       if (result.type === 'auth/register/fulfilled') {
-        navigation.navigate('OnboardingComplete', {
-          userEmail: basicCredentials.email,
-          skipped: true,
+        showSuccess('Account created successfully! Please check your email to verify your account.');
+        // Navigate to email verification screen
+        navigation.navigate('EmailVerification', {
+          email: basicCredentials.email,
+          fromRegistration: true,
         });
       } else {
         const errorMessage = result.payload as string;
-        Alert.alert('Registration Failed', errorMessage);
+        showError(errorMessage || 'Registration failed. Please try again.');
       }
     } catch (error: any) {
-      Alert.alert(
-        'Registration Failed',
-        error.message || 'An unexpected error occurred',
-      );
+      if (error instanceof AuthError) {
+        showError(error.message);
+      } else {
+        showError('Something went wrong. Please try again.');
+      }
     }
   };
 

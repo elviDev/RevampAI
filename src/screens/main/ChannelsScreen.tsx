@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Alert, TextInput, Modal, ScrollView, FlatList } from 'react-native';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, TextInput, Modal, ScrollView, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   FadeInDown,
@@ -15,9 +15,14 @@ import LinearGradient from 'react-native-linear-gradient';
 import Feather from 'react-native-vector-icons/Feather';
 import IonIcon from 'react-native-vector-icons/Ionicons';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import { useToast } from '../../contexts/ToastContext';
+import { channelService, type Channel as ApiChannel, type ChannelCategory } from '../../services/api/channelService';
+import { AuthError } from '../../services/api/authService';
+import { useAuth } from '../../hooks/useAuth';
+import { ChannelCard, ConfirmationModal, ActionSheet } from '../../components/common';
+
 // Create animated components
-const AnimatedTouchableOpacity =
-  Animated.createAnimatedComponent(TouchableOpacity);
+const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 const AnimatedView = Animated.createAnimatedComponent(View);
 
 interface Member {
@@ -35,267 +40,95 @@ interface Channel {
   tags: string[];
   members: Member[];
   memberAvatars: string[];
-  comments: number;
+  messages: number;
   files: number;
-  isPrivate: boolean;
+  memberCount: number;
+  privacy: 'public' | 'private' | 'restricted';
   createdAt: Date;
 }
 
-interface Category {
-  id: string;
-  name: string;
-  count: number;
-  color: string;
-  icon: string;
+interface DisplayChannel extends Channel {}
+
+interface Category extends ChannelCategory {
+  count: number; // Channel count per category - will be calculated from actual channels
 }
 
-interface ChannelCardProps {
-  title: string;
-  description: string;
-  category: string;
-  tags: string[];
-  memberAvatars: string[];
-  comments: number;
-  files: number;
-  isPrivate: boolean;
-  onPress: () => void;
-  index: number;
-}
-
-const ChannelCard: React.FC<ChannelCardProps> = ({
-  title,
-  description,
-  category,
-  tags,
-  memberAvatars,
-  comments,
-  files,
-  isPrivate,
-  onPress,
-  index,
-}) => {
-  const scale = useSharedValue(1);
-  const pressed = useSharedValue(false);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        {
-          scale: withSpring(pressed.value ? 0.98 : scale.value, {
-            damping: 15,
-            stiffness: 200,
-          }),
-        },
-      ],
-    };
-  });
-
-  const handlePressIn = () => {
-    pressed.value = true;
-  };
-
-  const handlePressOut = () => {
-    pressed.value = false;
-  };
-
-  const handlePress = () => {
-    // Add a subtle feedback animation before calling onPress
-    scale.value = withSequence(
-      withTiming(0.95, { duration: 100 }),
-      withTiming(1, { duration: 100 }),
-    );
-
-    // Delay the actual press action slightly for better UX
-    setTimeout(() => {
-      runOnJS(onPress)();
-    }, 50);
-  };
-
-  return (
-    <AnimatedTouchableOpacity
-      entering={FadeInDown.delay(index * 150)
-        .duration(600)
-        .springify()
-        .damping(12)
-        .stiffness(100)}
-      onPress={handlePress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={[animatedStyle]}
-      className="bg-white rounded-2xl p-4 mb-4 mx-4"
-      activeOpacity={1}
-    >
-      <Animated.View
-        style={{
-          shadowColor: '#8B5CF6',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 12,
-          elevation: 8,
-        }}
-      >
-        {/* Header Row */}
-        <View className="flex-row justify-between items-start mb-3">
-          <View className="flex-row items-center space-x-2">
-            <Animated.View
-              entering={FadeInUp.delay(index * 150 + 200).duration(400)}
-              className="bg-green-100 px-3 py-1 rounded-full"
-            >
-              <Text className="text-green-600 text-xs font-medium">
-                {category}
-              </Text>
-            </Animated.View>
-            {isPrivate && (
-              <Animated.View
-                entering={FadeInUp.delay(index * 150 + 220).duration(400)}
-                className="bg-orange-100 px-2 py-1 rounded-full flex-row items-center"
-              >
-                <MaterialIcon name="lock" size={10} color="#F97316" />
-                <Text className="text-orange-600 text-xs font-medium ml-1">Private</Text>
-              </Animated.View>
-            )}
-          </View>
-          <AnimatedTouchableOpacity
-            entering={FadeInUp.delay(index * 150 + 250).duration(400)}
-            className="p-1"
-          >
-            <MaterialIcon name="more-vert" size={20} color="#9CA3AF" />
-          </AnimatedTouchableOpacity>
-        </View>
-
-        {/* Title and Description */}
-        <Animated.View
-          entering={FadeInUp.delay(index * 150 + 300).duration(500)}
-        >
-          <Text className="text-gray-900 text-xl font-bold mb-2">{title}</Text>
-          <Text className="text-gray-500 text-sm mb-3 leading-5">
-            {description}
-          </Text>
-          
-          {/* Tags */}
-          {tags && tags.length > 0 && (
-            <View className="flex-row flex-wrap mb-3">
-              {tags.map((tag, tagIndex) => (
-                <View
-                  key={tagIndex}
-                  className="bg-purple-50 px-2 py-1 rounded-md mr-2 mb-1"
-                >
-                  <Text className="text-purple-600 text-xs font-medium">#{tag}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </Animated.View>
-
-        {/* Bottom Section */}
-        <Animated.View
-          entering={FadeInUp.delay(index * 150 + 400).duration(500)}
-          className="flex-row items-center justify-between"
-        >
-          {/* Member Avatars */}
-          <View className="flex-row -space-x-3">
-            {memberAvatars.slice(0, 4).map((member, avatarIndex) => (
-              <Animated.View
-                key={avatarIndex}
-                entering={FadeInUp.delay(index * 150 + 500 + avatarIndex * 100)
-                  .duration(400)
-                  .springify()}
-                style={{ zIndex: memberAvatars.length - avatarIndex }}
-              >
-                <LinearGradient
-                  colors={avatarIndex % 2 === 0 ? ['#3933C6', '#A05FFF'] : ['#A05FFF', '#3933C6']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
-                    borderWidth: 2,
-                    borderColor: 'white',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 3,
-                    elevation: 3,
-                  }}
-                >
-                  <Text className="text-white text-xs font-bold">
-                    {member.charAt(0)}
-                  </Text>
-                </LinearGradient>
-              </Animated.View>
-            ))}
-            {memberAvatars.length > 4 && (
-              <Animated.View
-                entering={FadeInUp.delay(index * 150 + 500 + 4 * 100)
-                  .duration(400)
-                  .springify()}
-                style={{ zIndex: 0 }}
-              >
-                <View className="w-9 h-9 bg-gray-400 rounded-full border-2 border-white flex items-center justify-center">
-                  <Text className="text-white text-xs font-bold">
-                    +{memberAvatars.length - 4}
-                  </Text>
-                </View>
-              </Animated.View>
-            )}
-          </View>
-
-          {/* Stats */}
-          <View className="flex-row items-center gap-2 space-x-4">
-            <Animated.View
-              entering={FadeInUp.delay(index * 150 + 600).duration(400)}
-              className="flex-row items-center"
-            >
-              <IonIcon
-                name="chatbox-ellipses-outline"
-                size={24}
-                color="#9E9E9E"
-              />
-              <Text className="text-gray-400 text-sm">{comments} comments</Text>
-            </Animated.View>
-            <Animated.View
-              entering={FadeInUp.delay(index * 150 + 650).duration(400)}
-              className="flex-row items-center"
-            >
-              <IonIcon name="folder-outline" size={24} color="#9E9E9E" />
-              <Text className="text-gray-400 text-sm">{files} files</Text>
-            </Animated.View>
-          </View>
-        </Animated.View>
-      </Animated.View>
-    </AnimatedTouchableOpacity>
-  );
+// Map channel_type to category IDs
+const CHANNEL_TYPE_TO_CATEGORY_MAP: Record<string, string> = {
+  'department': 'department',
+  'project': 'project', 
+  'initiative': 'project', // initiatives are project-like
+  'announcement': 'announcement',
+  'temporary': 'general',
+  'emergency': 'general',
+  'general': 'general',
+  'private': 'private'
 };
+
+// Map API channel to display channel with enhanced statistics
+const mapApiChannelToDisplayChannel = (apiChannel: ApiChannel, stats?: {
+  messageCount: number;
+  fileCount: number;
+  members: Member[];
+}): Channel => ({
+  id: apiChannel.id,
+  title: apiChannel.name,
+  description: apiChannel.description || '',
+  category: apiChannel.channel_type || 'general',
+  tags: [], // Tags would need to be implemented in the API
+  members: stats?.members || [], // Members from API
+  memberAvatars: stats?.members?.map(m => m.avatar || m.name?.charAt(0) || '?') || [], // URLs if available, otherwise initials
+  messages: stats?.messageCount || 0, // Actual message count from API
+  files: stats?.fileCount || 0, // Actual file count from API
+  memberCount: apiChannel.member_count || stats?.members?.length || 0,
+  privacy: apiChannel.privacy_level || 'public',
+  createdAt: new Date(apiChannel.created_at),
+});
 
 export const ChannelsScreen: React.FC<{ navigation: any }> = ({
   navigation,
 }) => {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
-  // Channel creation form state
+  // Channel creation/editing form state
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    category: '',
+    type: '', // channel type (category)
+    privacy: 'public' as 'public' | 'private' | 'restricted',
+    parent_id: '',
     tags: [] as string[],
-    isPrivate: false,
+    color: '',
+    settings: {} as Record<string, any>,
     members: [] as Member[],
   });
   const [formErrors, setFormErrors] = useState({
     name: '',
-    category: '',
+    type: '',
+    privacy: '',
     members: '',
   });
   const [tagInput, setTagInput] = useState('');
   const [showMemberSelector, setShowMemberSelector] = useState(false);
+  
+  // Modal states for UI consistency
+  const [showActionSheet, setShowActionSheet] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [selectedChannelForAction, setSelectedChannelForAction] = useState<Channel | null>(null);
+  
+  const { showError, showSuccess, showToast, showInfo, showWarning } = useToast();
 
   // Available members (in real app, this would come from API)
   const availableMembers: Member[] = [
@@ -310,8 +143,168 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
     { id: '8', name: 'David Kim', avatar: 'D', role: 'CEO' },
   ];
 
+  // Categories
+  // Load categories from API
+  const loadCategories = useCallback(async () => {
+    try {
+      console.log('🔄 Loading categories from API...');
+      const apiCategories = await channelService.getChannelCategories();
+      console.log('✅ Categories loaded:', apiCategories.length, 'categories');
+      
+      // Calculate channel counts for each category
+      const categoriesWithCounts: Category[] = apiCategories.map(category => ({
+        ...category,
+        count: channels.filter(channel => {
+          const channelMappedCategory = CHANNEL_TYPE_TO_CATEGORY_MAP[channel.category];
+          return channelMappedCategory === category.id;
+        }).length,
+      }));
+      
+      setCategories(categoriesWithCounts);
+    } catch (error) {
+      console.error('❌ Failed to load categories:', error);
+      // Fallback to mock categories for better user experience
+      const fallbackCategories: Category[] = [
+        { id: 'general', name: 'General', description: 'General discussions', count: Math.floor(Math.random() * 8) + 2, color: '#6B7280', icon: 'chatbubble-outline' },
+        { id: 'project', name: 'Project', description: 'Project discussions', count: Math.floor(Math.random() * 12) + 3, color: '#3B82F6', icon: 'folder-outline' },
+        { id: 'department', name: 'Department', description: 'Department communications', count: Math.floor(Math.random() * 6) + 1, color: '#10B981', icon: 'business-outline' },
+        { id: 'announcement', name: 'Announcement', description: 'Important announcements', count: Math.floor(Math.random() * 4) + 1, color: '#F59E0B', icon: 'megaphone-outline' },
+        { id: 'private', name: 'Private', description: 'Private discussions', count: Math.floor(Math.random() * 5) + 1, color: '#8B5CF6', icon: 'lock-closed-outline' },
+      ];
+      console.log('🎭 Using fallback categories:', fallbackCategories);
+      setCategories(fallbackCategories);
+    }
+  }, [channels]);
+
+  // Load channels function
+  const loadChannels = useCallback(async (showLoadingSpinner: boolean = true) => {
+    try {
+      if (showLoadingSpinner) {
+        setLoading(true);
+      }
+      
+      // Fetch channels with statistics from API
+      try {
+        console.log('🔄 Loading channels with statistics...');
+        const apiChannelsWithStats = await channelService.getChannelsWithStats();
+        console.log('📊 Channels with stats loaded:', apiChannelsWithStats.length, 'channels');
+        
+        // Get member details for each channel
+        const displayChannels: Channel[] = await Promise.all(
+          apiChannelsWithStats.map(async (apiChannel) => {
+            try {
+              // Fetch member details for better display
+              const membersResponse = await channelService.getChannelMembers(apiChannel.id, { limit: 10 });
+              const members: Member[] = membersResponse?.data?.slice(0, 10)?.map((member: any) => ({
+                id: member.user_id,
+                name: member.user_name || 'Unknown User',
+                avatar: member.user_avatar || undefined, // Let Avatar component handle fallback
+                role: member.role,
+              })) || [];
+
+              return mapApiChannelToDisplayChannel(apiChannel, {
+                messageCount: apiChannel.messageCount,
+                fileCount: apiChannel.fileCount,
+                members,
+              });
+            } catch (memberError: any) {
+              // Handle permission errors gracefully
+              if (memberError?.statusCode === 403 || memberError?.message?.includes('403')) {
+                console.log(`📝 Channel "${apiChannel.name}" members not accessible (private/restricted access)`);
+              } else {
+                console.warn('Failed to fetch members for channel:', apiChannel.name, memberError?.message || memberError);
+              }
+              
+              // Return channel without member details - this is expected for private channels
+              return mapApiChannelToDisplayChannel(apiChannel, {
+                messageCount: apiChannel.messageCount,
+                fileCount: apiChannel.fileCount,
+                members: [],
+              });
+            }
+          })
+        );
+        
+        setChannels(displayChannels);
+      } catch (apiError) {
+        console.warn('Failed to fetch from API, using fallback data:', apiError);
+        // Fallback to demo data
+        setChannels([
+          {
+            id: '1',
+            title: 'Project Alpha',
+            description: 'Strategic planning and brainstorming for our next major product launch.',
+            category: 'work',
+            tags: ['strategy', 'planning', 'launch'],
+            members: [
+              { id: '1', name: 'John', avatar: 'J', role: 'Team Lead' },
+              { id: '2', name: 'Sarah', avatar: 'S', role: 'Designer' },
+              { id: '3', name: 'Mike', avatar: 'M', role: 'Developer' },
+            ],
+            memberAvatars: ['J', 'S', 'M'],
+            messages: 24,
+            files: 8,
+            memberCount: 3,
+            privacy: 'public',
+            createdAt: new Date(),
+          },
+          {
+            id: '2',
+            title: 'Design System',
+            description: 'Building and maintaining our comprehensive design system and component library.',
+            category: 'design',
+            tags: ['ui', 'components', 'tokens'],
+            members: [
+              { id: '2', name: 'Sarah', avatar: 'S', role: 'Designer' },
+              { id: '5', name: 'Lisa', avatar: 'L', role: 'UI Designer' },
+              { id: '6', name: 'Emma', avatar: 'E', role: 'UX Designer' },
+            ],
+            memberAvatars: ['S', 'L', 'E'],
+            messages: 18,
+            files: 12,
+            memberCount: 3,
+            privacy: 'public',
+            createdAt: new Date(),
+          },
+          {
+            id: '3',
+            title: 'API Development',
+            description: 'Backend development discussions, API design, and technical implementation.',
+            category: 'development',
+            tags: ['backend', 'api', 'database'],
+            members: [
+              { id: '3', name: 'Mike', avatar: 'M', role: 'Developer' },
+              { id: '7', name: 'Alex', avatar: 'A', role: 'Backend Dev' },
+              { id: '8', name: 'Chris', avatar: 'C', role: 'DevOps' },
+            ],
+            memberAvatars: ['M', 'A', 'C'],
+            messages: 31,
+            files: 5,
+            memberCount: 3,
+            privacy: 'private',
+            createdAt: new Date(),
+          },
+        ]);
+      }
+      
+    } catch (error) {
+      console.error('Failed to load channels:', error);
+      showError('Failed to load channels. Please try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [showError]);
+
+  // Load categories after channels are loaded
+  useEffect(() => {
+    if (channels.length > 0) {
+      loadCategories();
+    }
+  }, [channels, loadCategories]);
+
   // Initialize form with current user as member
-  React.useEffect(() => {
+  useEffect(() => {
     if (showCreateChannel && formData.members.length === 0) {
       setFormData(prev => ({
         ...prev,
@@ -320,103 +313,10 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
     }
   }, [showCreateChannel]);
 
-  // Categories
-  const categories: Category[] = [
-    { id: 'work', name: 'Work', count: 8, color: '#10B981', icon: 'work-outline' },
-    { id: 'social', name: 'Social', count: 3, color: '#3B82F6', icon: 'people-outline' },
-    { id: 'design', name: 'Design', count: 5, color: '#8B5CF6', icon: 'color-palette-outline' },
-    { id: 'development', name: 'Development', count: 12, color: '#F59E0B', icon: 'code-slash-outline' },
-    { id: 'general', name: 'General', count: 4, color: '#6B7280', icon: 'chatbubble-outline' },
-  ];
-
-  const channels: Channel[] = [
-    {
-      id: '1',
-      title: 'Project Alpha',
-      description: 'Strategic planning and brainstorming for our next major product launch.',
-      category: 'work',
-      tags: ['strategy', 'planning', 'launch'],
-      members: [
-        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead' },
-        { id: '2', name: 'Sarah', avatar: 'S', role: 'Designer' },
-        { id: '3', name: 'Mike', avatar: 'M', role: 'Developer' },
-      ],
-      memberAvatars: ['J', 'S', 'M'],
-      comments: 24,
-      files: 8,
-      isPrivate: false,
-      createdAt: new Date(),
-    },
-    {
-      id: '2',
-      title: 'Design System',
-      description: 'Building and maintaining our comprehensive design system and component library.',
-      category: 'design',
-      tags: ['ui', 'components', 'tokens'],
-      members: [
-        { id: '2', name: 'Sarah', avatar: 'S', role: 'Designer' },
-        { id: '5', name: 'Lisa', avatar: 'L', role: 'UI Designer' },
-        { id: '6', name: 'Emma', avatar: 'E', role: 'UX Designer' },
-      ],
-      memberAvatars: ['S', 'L', 'E'],
-      comments: 18,
-      files: 12,
-      isPrivate: false,
-      createdAt: new Date(),
-    },
-    {
-      id: '3',
-      title: 'API Development',
-      description: 'Backend development discussions, API design, and technical implementation.',
-      category: 'development',
-      tags: ['backend', 'api', 'database'],
-      members: [
-        { id: '3', name: 'Mike', avatar: 'M', role: 'Developer' },
-        { id: '7', name: 'Alex', avatar: 'A', role: 'Backend Dev' },
-        { id: '8', name: 'Chris', avatar: 'C', role: 'DevOps' },
-      ],
-      memberAvatars: ['M', 'A', 'C'],
-      comments: 31,
-      files: 5,
-      isPrivate: true,
-      createdAt: new Date(),
-    },
-    {
-      id: '4',
-      title: 'Coffee Chat',
-      description: 'Casual conversations, team bonding, and non-work related discussions.',
-      category: 'social',
-      tags: ['casual', 'bonding', 'fun'],
-      members: [
-        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead' },
-        { id: '2', name: 'Sarah', avatar: 'S', role: 'Designer' },
-        { id: '3', name: 'Mike', avatar: 'M', role: 'Developer' },
-        { id: '5', name: 'Lisa', avatar: 'L', role: 'UI Designer' },
-        { id: '9', name: 'Tom', avatar: 'T', role: 'Marketing' },
-      ],
-      memberAvatars: ['J', 'S', 'M', 'L', 'T'],
-      comments: 47,
-      files: 2,
-      isPrivate: false,
-      createdAt: new Date(),
-    },
-    {
-      id: '5',
-      title: 'General Updates',
-      description: 'Company-wide announcements, updates, and important information.',
-      category: 'general',
-      tags: ['announcements', 'updates', 'company'],
-      members: [
-        { id: '1', name: 'John', avatar: 'J', role: 'Team Lead' },
-        { id: '10', name: 'David', avatar: 'D', role: 'CEO' },
-      ],
-      memberAvatars: ['J', 'D'],
-      comments: 8,
-      files: 3,
-      isPrivate: false,
-      createdAt: new Date(),
-    },
-  ];
+  // Load channels on component mount
+  useEffect(() => {
+    loadChannels();
+  }, [loadChannels]);
 
   // Filter channels based on search query and selected categories
   const filteredChannels = useMemo(() => {
@@ -424,9 +324,10 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
 
     // Filter by selected categories
     if (selectedCategories.length > 0) {
-      filtered = filtered.filter(channel =>
-        selectedCategories.includes(channel.category)
-      );
+      filtered = filtered.filter(channel => {
+        const channelMappedCategory = CHANNEL_TYPE_TO_CATEGORY_MAP[channel.category];
+        return selectedCategories.includes(channelMappedCategory);
+      });
     }
 
     // Filter by search query
@@ -446,7 +347,7 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
 
   // Form validation
   const validateForm = () => {
-    const errors = { name: '', category: '', members: '' };
+    const errors = { name: '', type: '', privacy: '', members: '' };
     let isValid = true;
 
     if (!formData.name.trim()) {
@@ -457,13 +358,13 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
       isValid = false;
     }
 
-    if (!formData.category) {
-      errors.category = 'Please select a category';
+    if (!formData.type) {
+      errors.type = 'Please select a channel type';
       isValid = false;
     }
 
-    if (formData.members.length === 0) {
-      errors.members = 'At least one member is required';
+    if (!formData.privacy) {
+      errors.privacy = 'Please select privacy level';
       isValid = false;
     }
 
@@ -476,42 +377,96 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
     setFormData({
       name: '',
       description: '',
-      category: '',
+      type: '',
+      privacy: 'public' as 'public' | 'private' | 'restricted',
+      parent_id: '',
       tags: [],
-      isPrivate: false,
-      members: [availableMembers[0]], // Keep current user
+      color: '',
+      settings: {},
+      members: [],
     });
-    setFormErrors({ name: '', category: '', members: '' });
+    setFormErrors({ name: '', type: '', privacy: '', members: '' });
     setTagInput('');
+    setIsEditMode(false);
+    setEditingChannelId(null);
   };
 
-  // Handle form submission
-  const handleCreateChannel = () => {
+  // Handle form submission (create or edit)
+  const handleSubmitChannel = async () => {
     if (!validateForm()) {
       return;
     }
 
-    // Create new channel
-    const newChannel: Channel = {
-      id: Date.now().toString(),
-      title: formData.name.trim(),
-      description: formData.description.trim(),
-      category: formData.category,
-      tags: formData.tags,
-      members: formData.members,
-      memberAvatars: formData.members.map(m => m.avatar),
-      comments: 0,
-      files: 0,
-      isPrivate: formData.isPrivate,
-      createdAt: new Date(),
-    };
+    try {
+      console.log('🚀 Submitting channel data:', formData);
+      
+      const channelData = {
+        name: formData.name.trim(),
+        description: formData.description.trim() || undefined,
+        type: formData.type as any, // Maps to channel_type in backend
+        privacy: formData.privacy as any, // Maps to privacy_level in backend
+        ...(formData.parent_id && { parent_id: formData.parent_id }),
+        tags: formData.tags,
+        ...(formData.color && { color: formData.color }),
+        settings: formData.settings,
+      };
+      
+      console.log('📤 API payload:', channelData);
 
-    // In real app, you would make API call here
-    console.log('Creating channel:', newChannel);
-    Alert.alert('Success', `Channel "${formData.name}" created successfully!`);
-    
-    resetForm();
-    setShowCreateChannel(false);
+      if (isEditMode && editingChannelId) {
+        // Edit existing channel
+        const updatedChannel = await channelService.updateChannel(editingChannelId, channelData);
+        showSuccess(`Channel "${formData.name}" updated successfully!`);
+      } else {
+        // Create new channel
+        const createdChannel = await channelService.createChannel(channelData);
+        showSuccess(`Channel "${formData.name}" created successfully!`);
+      }
+      
+      // Refresh channels list
+      await loadChannels(false);
+      
+      resetForm();
+      setShowCreateChannel(false);
+    } catch (error) {
+      console.error(`❌ Failed to ${isEditMode ? 'update' : 'create'} channel:`, {
+        error: error instanceof Error ? error.message : error,
+        formData,
+        channelData: {
+          name: formData.name.trim(),
+          description: formData.description.trim() || undefined,
+          type: formData.type,
+          privacy: formData.privacy,
+          tags: formData.tags,
+        }
+      });
+      
+      if (error instanceof AuthError) {
+        showError(`${error.message} (${error.code || 'Unknown'})`);
+      } else if (error instanceof Error) {
+        showError(`Failed to ${isEditMode ? 'update' : 'create'} channel: ${error.message}`);
+      } else {
+        showError(`Failed to ${isEditMode ? 'update' : 'create'} channel. Please try again.`);
+      }
+    }
+  };
+
+  // Start editing a channel
+  const startEditChannel = (channel: Channel) => {
+    setIsEditMode(true);
+    setEditingChannelId(channel.id);
+    setFormData({
+      name: channel.title,
+      description: channel.description,
+      type: channel.category,
+      privacy: channel.privacy,
+      parent_id: '',
+      tags: channel.tags,
+      color: '',
+      settings: {},
+      members: channel.members,
+    });
+    setShowCreateChannel(true);
   };
 
   // Add tag
@@ -576,11 +531,117 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
       console.error('Navigation error:', error);
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown navigation error';
-      Alert.alert(
-        'Navigation Error',
-        `Unable to navigate to channel: ${errorMessage}. Please check navigation setup.`,
-      );
+      showError(`Unable to navigate to channel: ${errorMessage}. Please check navigation setup.`);
     }
+  };
+
+  const handleChannelOptions = (channel: DisplayChannel) => {
+    setSelectedChannelForAction(channel);
+    setShowActionSheet(true);
+  };
+
+  const handleDeleteChannel = (channel: Channel) => {
+    setSelectedChannelForAction(channel);
+    setShowDeleteConfirmation(true);
+  };
+
+  const confirmDeleteChannel = async () => {
+    if (!selectedChannelForAction) return;
+    
+    try {
+      await channelService.deleteChannel(selectedChannelForAction.id);
+      showSuccess(`Channel "${selectedChannelForAction.title}" deleted successfully`);
+      
+      // Refresh channels list
+      await loadChannels(false);
+    } catch (error) {
+      console.error('Failed to delete channel:', error);
+      if (error instanceof AuthError) {
+        showError(error.message);
+      } else {
+        showError('Failed to delete channel. Please try again.');
+      }
+    } finally {
+      setShowDeleteConfirmation(false);
+      setSelectedChannelForAction(null);
+    }
+  };
+
+  const handleEditChannel = (channel: Channel) => {
+    startEditChannel(channel);
+  };
+
+  // Helper function to get action sheet options based on user role and channel
+  const getActionSheetOptions = () => {
+    if (!selectedChannelForAction) return [];
+    
+    // Check if user can edit (CEO, channel owner, or channel admin)
+    const canEdit = user?.role === 'ceo' || 
+                   selectedChannelForAction.members.some(m => 
+                     m.id === user?.id && (m.role === 'owner' || m.role === 'admin'));
+    
+    // Check if user can delete (CEO or channel owner only)
+    const canDelete = user?.role === 'ceo' || 
+                     selectedChannelForAction.members.some(m => 
+                       m.id === user?.id && m.role === 'owner');
+    
+    const options: Array<{
+      text: string;
+      icon: string;
+      iconLibrary: 'material' | 'ionicon';
+      style?: 'default' | 'destructive' | 'cancel';
+      onPress: () => void;
+    }> = [];
+    
+    // Add edit option if user has permission
+    if (canEdit) {
+      options.push({
+        text: 'Edit Channel',
+        icon: 'edit',
+        iconLibrary: 'material',
+        style: 'default',
+        onPress: () => {
+          setShowActionSheet(false);
+          handleEditChannel(selectedChannelForAction);
+        },
+      });
+    }
+    
+    // Add delete option if user has permission
+    if (canDelete) {
+      options.push({
+        text: 'Delete Channel',
+        icon: 'delete',
+        iconLibrary: 'material',
+        style: 'destructive',
+        onPress: () => {
+          setShowActionSheet(false);
+          handleDeleteChannel(selectedChannelForAction);
+        },
+      });
+    }
+    
+    // Always add view channel option
+    options.push({
+      text: 'View Channel',
+      icon: 'visibility',
+      iconLibrary: 'material',
+      style: 'default',
+      onPress: () => {
+        setShowActionSheet(false);
+        handleChannelPress(selectedChannelForAction);
+      },
+    });
+    
+    options.push({
+      text: 'Cancel',
+      icon: 'close',
+      iconLibrary: 'material',
+      style: 'cancel',
+      onPress: () => {},
+    });
+    
+    return options;
   };
 
   return (
@@ -704,53 +765,110 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
       </Animated.View>
 
       {/* Channels List */}
-      <Animated.ScrollView
-        entering={FadeInUp.delay(800).duration(600)}
-        showsVerticalScrollIndicator={false}
-      >
-        {filteredChannels.length > 0 ? (
-          filteredChannels.map((channel, index) => (
-            <ChannelCard
-              key={channel.id}
-              title={channel.title}
-              description={channel.description}
-              category={channel.category}
-              tags={channel.tags}
-              memberAvatars={channel.memberAvatars}
-              comments={channel.comments}
-              files={channel.files}
-              isPrivate={channel.isPrivate}
-              index={index}
-              onPress={() => handleChannelPress(channel)}
-            />
-          ))
-        ) : searchQuery.trim() ? (
-          <Animated.View
-            entering={FadeInUp.delay(400).duration(600)}
-            className="flex-1 items-center justify-center py-12"
-          >
-            <View
-              style={{
-                width: 80,
-                height: 80,
-                borderRadius: 40,
-                backgroundColor: '#F3F4F6',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 16,
+      {loading ? (
+        <Animated.View
+          entering={FadeInUp.delay(400).duration(600)}
+          className="flex-1 items-center justify-center py-12"
+        >
+          <ActivityIndicator size="large" color="#8B5CF6" />
+          <Text className="text-gray-500 text-lg font-medium mt-4">
+            Loading channels...
+          </Text>
+        </Animated.View>
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                loadChannels(false);
               }}
-            >
-              <Feather name="search" size={32} color="#9CA3AF" />
-            </View>
-            <Text className="text-gray-500 text-lg font-medium mb-2">
-              No channels found
-            </Text>
-            <Text className="text-gray-400 text-sm text-center px-8">
-              Try searching with different keywords or check your spelling
-            </Text>
+              tintColor="#8B5CF6"
+              colors={["#8B5CF6"]}
+            />
+          }
+        >
+          <Animated.View entering={FadeInUp.delay(800).duration(600)}>
+            {filteredChannels.length > 0 ? (
+              filteredChannels.map((channel, index) => (
+                <ChannelCard
+                  key={channel.id}
+                  title={channel.title}
+                  description={channel.description}
+                  category={channel.category}
+                  tags={channel.tags}
+                  memberAvatars={channel.memberAvatars}
+                  messages={channel.messages}
+                  files={channel.files}
+                  members={channel.memberCount}
+                  isPrivate={channel.privacy !== 'public'}
+                  index={index}
+                  onPress={() => handleChannelPress(channel)}
+                  onOptionsPress={() => handleChannelOptions(channel)}
+                />
+              ))
+            ) : searchQuery.trim() || selectedCategories.length > 0 ? (
+              <Animated.View
+                entering={FadeInUp.delay(400).duration(600)}
+                className="flex-1 items-center justify-center py-12"
+              >
+                <View
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 40,
+                    backgroundColor: '#F3F4F6',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 16,
+                  }}
+                >
+                  <Feather name="search" size={32} color="#9CA3AF" />
+                </View>
+                <Text className="text-gray-500 text-lg font-medium mb-2">
+                  No channels found
+                </Text>
+                <Text className="text-gray-400 text-sm text-center px-8">
+                  Try searching with different keywords or adjusting filters
+                </Text>
+              </Animated.View>
+            ) : (
+              <Animated.View
+                entering={FadeInUp.delay(400).duration(600)}
+                className="flex-1 items-center justify-center py-12"
+              >
+                <View
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 40,
+                    backgroundColor: '#F3F4F6',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 16,
+                  }}
+                >
+                  <Feather name="plus" size={32} color="#9CA3AF" />
+                </View>
+                <Text className="text-gray-500 text-lg font-medium mb-2">
+                  No channels yet
+                </Text>
+                <Text className="text-gray-400 text-sm text-center px-8 mb-4">
+                  Create your first channel to start collaborating with your team
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowCreateChannel(true)}
+                  className="bg-purple-600 rounded-xl px-6 py-3"
+                >
+                  <Text className="text-white font-medium">Create Channel</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            )}
           </Animated.View>
-        ) : null}
-      </Animated.ScrollView>
+        </ScrollView>
+      )}
 
       {/* Category Filter Modal */}
       <Modal
@@ -795,7 +913,7 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
                         className="w-10 h-10 rounded-full items-center justify-center mr-3"
                         style={{ backgroundColor: category.color + '20' }}
                       >
-                        <IonIcon name={category.icon} size={20} color={category.color} />
+                        <IonIcon name={category.icon ?? 'help'} size={20} color={category.color ?? '#6B7280'} />
                       </View>
                       <View className="flex-1">
                         <Text className="text-gray-900 font-medium">{category.name}</Text>
@@ -845,7 +963,7 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
           <View className="bg-white rounded-t-3xl p-6" style={{ maxHeight: '90%' }}>
             <View className="flex-row items-center justify-between mb-6">
-              <Text className="text-2xl font-bold text-gray-900">Create Channel</Text>
+              <Text className="text-2xl font-bold text-gray-900">{isEditMode ? 'Edit Channel' : 'Create Channel'}</Text>
               <TouchableOpacity onPress={() => {
                 resetForm();
                 setShowCreateChannel(false);
@@ -892,19 +1010,19 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
                 </View>
               </View>
 
-              {/* Category */}
+              {/* Channel Type */}
               <View className="mb-6">
-                <Text className="text-gray-700 font-medium mb-2">Category *</Text>
+                <Text className="text-gray-700 font-medium mb-2">Channel Type *</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View className="flex-row space-x-3">
                     {categories.map((category) => {
-                      const isSelected = formData.category === category.id;
+                      const isSelected = formData.type === category.id;
                       return (
                         <TouchableOpacity
                           key={category.id}
                           onPress={() => {
-                            setFormData(prev => ({ ...prev, category: category.id }));
-                            if (formErrors.category) setFormErrors(prev => ({ ...prev, category: '' }));
+                            setFormData(prev => ({ ...prev, type: category.id }));
+                            if (formErrors.type) setFormErrors(prev => ({ ...prev, type: '' }));
                           }}
                           className={`rounded-xl px-4 py-3 border flex-row items-center ${
                             isSelected 
@@ -912,7 +1030,7 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
                               : 'bg-gray-50 border-gray-200'
                           }`}
                         >
-                          <IonIcon name={category.icon} size={18} color={category.color} />
+                          <IonIcon name={category.icon ?? 'help'} size={18} color={category.color ?? '#6B7280'} />
                           <Text className={`font-medium ml-2 ${
                             isSelected ? 'text-purple-700' : 'text-gray-700'
                           }`}>
@@ -923,8 +1041,8 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
                     })}
                   </View>
                 </ScrollView>
-                {formErrors.category ? (
-                  <Text className="text-red-500 text-sm mt-1">{formErrors.category}</Text>
+                {formErrors.type ? (
+                  <Text className="text-red-500 text-sm mt-1">{formErrors.type}</Text>
                 ) : null}
               </View>
 
@@ -967,16 +1085,16 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
 
               {/* Privacy */}
               <View className="mb-6">
-                <Text className="text-gray-700 font-medium mb-2">Privacy</Text>
+                <Text className="text-gray-700 font-medium mb-2">Privacy *</Text>
                 <View className="space-y-3">
                   <TouchableOpacity 
-                    onPress={() => setFormData(prev => ({ ...prev, isPrivate: false }))}
+                    onPress={() => setFormData(prev => ({ ...prev, privacy: 'public' }))}
                     className="flex-row items-center p-3 bg-gray-50 rounded-xl"
                   >
                     <View className={`w-6 h-6 rounded-full border-2 items-center justify-center mr-3 ${
-                      !formData.isPrivate ? 'border-purple-600 bg-purple-600' : 'border-gray-300'
+                      formData.privacy === 'public' ? 'border-purple-600 bg-purple-600' : 'border-gray-300'
                     }`}>
-                      {!formData.isPrivate && <View className="w-2 h-2 rounded-full bg-white" />}
+                      {formData.privacy === 'public' && <View className="w-2 h-2 rounded-full bg-white" />}
                     </View>
                     <View className="flex-1">
                       <Text className="text-gray-900 font-medium">Public</Text>
@@ -986,13 +1104,13 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
                   </TouchableOpacity>
                   
                   <TouchableOpacity 
-                    onPress={() => setFormData(prev => ({ ...prev, isPrivate: true }))}
+                    onPress={() => setFormData(prev => ({ ...prev, privacy: 'private' }))}
                     className="flex-row items-center p-3 bg-gray-50 rounded-xl"
                   >
                     <View className={`w-6 h-6 rounded-full border-2 items-center justify-center mr-3 ${
-                      formData.isPrivate ? 'border-purple-600 bg-purple-600' : 'border-gray-300'
+                      formData.privacy === 'private' ? 'border-purple-600 bg-purple-600' : 'border-gray-300'
                     }`}>
-                      {formData.isPrivate && <View className="w-2 h-2 rounded-full bg-white" />}
+                      {formData.privacy === 'private' && <View className="w-2 h-2 rounded-full bg-white" />}
                     </View>
                     <View className="flex-1">
                       <Text className="text-gray-900 font-medium">Private</Text>
@@ -1000,7 +1118,26 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
                     </View>
                     <MaterialIcon name="lock" size={20} color="#F59E0B" />
                   </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    onPress={() => setFormData(prev => ({ ...prev, privacy: 'restricted' }))}
+                    className="flex-row items-center p-3 bg-gray-50 rounded-xl"
+                  >
+                    <View className={`w-6 h-6 rounded-full border-2 items-center justify-center mr-3 ${
+                      formData.privacy === 'restricted' ? 'border-purple-600 bg-purple-600' : 'border-gray-300'
+                    }`}>
+                      {formData.privacy === 'restricted' && <View className="w-2 h-2 rounded-full bg-white" />}
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-gray-900 font-medium">Restricted</Text>
+                      <Text className="text-gray-500 text-sm">Admin approval required to join</Text>
+                    </View>
+                    <MaterialIcon name="admin-panel-settings" size={20} color="#EF4444" />
+                  </TouchableOpacity>
                 </View>
+                {formErrors.privacy ? (
+                  <Text className="text-red-500 text-sm mt-1">{formErrors.privacy}</Text>
+                ) : null}
               </View>
 
               {/* Members */}
@@ -1056,10 +1193,10 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
                 <Text className="text-gray-700 font-medium text-center">Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={handleCreateChannel}
+                onPress={handleSubmitChannel}
                 className="flex-1 bg-purple-600 rounded-xl py-4"
               >
-                <Text className="text-white font-medium text-center">Create Channel</Text>
+                <Text className="text-white font-medium text-center">{isEditMode ? 'Update Channel' : 'Create Channel'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1134,6 +1271,37 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* Action Sheet for Channel Options */}
+      <ActionSheet
+        visible={showActionSheet}
+        title="Channel Options"
+        message={selectedChannelForAction ? `Options for "${selectedChannelForAction.title}"` : ''}
+        options={getActionSheetOptions()}
+        onClose={() => {
+          setShowActionSheet(false);
+          setSelectedChannelForAction(null);
+        }}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        visible={showDeleteConfirmation}
+        title="Delete Channel"
+        message={
+          selectedChannelForAction
+            ? `Are you sure you want to delete "${selectedChannelForAction.title}"? This action cannot be undone and will remove all messages and files in this channel.`
+            : ''
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmStyle="destructive"
+        onConfirm={confirmDeleteChannel}
+        onCancel={() => {
+          setShowDeleteConfirmation(false);
+          setSelectedChannelForAction(null);
+        }}
+      />
     </View>
   );
 };

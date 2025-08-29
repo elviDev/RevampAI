@@ -8,11 +8,13 @@ import { TaskAssignee } from '../../types/task.types';
 interface TaskAssigneesCardProps {
   assignees: TaskAssignee[];
   onAddAssignee: () => void;
+  onAssigneePress?: (assigneeId: string) => void;
 }
 
 export const TaskAssigneesCard: React.FC<TaskAssigneesCardProps> = ({
   assignees,
   onAddAssignee,
+  onAssigneePress,
 }) => {
   return (
     <Animated.View
@@ -38,33 +40,38 @@ export const TaskAssigneesCard: React.FC<TaskAssigneesCardProps> = ({
 
       <View className="space-y-3">
         {assignees.map((assignee, index) => (
-          <Animated.View
+          <TouchableOpacity
             key={assignee.id}
-            entering={SlideInRight.delay(index * 100).duration(600)}
-            className="flex-row items-center"
+            onPress={() => onAssigneePress?.(assignee.id)}
+            activeOpacity={0.7}
           >
-            <LinearGradient
-              colors={
-                index % 3 === 0
-                  ? ['#2563EB', '#7C3AED']
-                  : index % 3 === 1
-                  ? ['#7C3AED', '#EC4899']
-                  : ['#EC4899', '#F59E0B']
-              }
-              className="w-12 h-12 rounded-full items-center justify-center mr-4"
+            <Animated.View
+              entering={SlideInRight.delay(index * 100).duration(600)}
+              className="flex-row items-center"
             >
-              <Text className="text-white font-bold text-lg">
-                {assignee.avatar}
-              </Text>
-            </LinearGradient>
-            <View className="flex-1">
-              <Text className="text-gray-900 font-semibold text-base">
-                {assignee.name}
-              </Text>
-              <Text className="text-gray-500 text-sm">{assignee.role}</Text>
-            </View>
-            <View className="w-2 h-2 bg-green-400 rounded-full" />
-          </Animated.View>
+              <LinearGradient
+                colors={
+                  index % 3 === 0
+                    ? ['#2563EB', '#7C3AED']
+                    : index % 3 === 1
+                    ? ['#7C3AED', '#EC4899']
+                    : ['#EC4899', '#F59E0B']
+                }
+                className="w-12 h-12 rounded-full items-center justify-center mr-4"
+              >
+                <Text className="text-white font-bold text-lg">
+                  {assignee.avatar}
+                </Text>
+              </LinearGradient>
+              <View className="flex-1">
+                <Text className="text-gray-900 font-semibold text-base">
+                  {assignee.name}
+                </Text>
+                <Text className="text-gray-500 text-sm">{assignee.role}</Text>
+              </View>
+              <View className="w-2 h-2 bg-green-400 rounded-full" />
+            </Animated.View>
+          </TouchableOpacity>
         ))}
       </View>
     </Animated.View>

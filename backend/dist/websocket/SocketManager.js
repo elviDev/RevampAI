@@ -60,7 +60,7 @@ class SocketManager {
             this.setupErrorHandling();
             // Start metrics collection
             this.startMetricsCollection();
-            logger_1.logger.info('WebSocket server initialized successfully');
+            logger_1.logger.info('WebSocket server initialized');
         }
         catch (error) {
             logger_1.logger.error({ error }, 'Failed to initialize WebSocket server');

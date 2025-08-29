@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { View, FlatList, Text, TouchableOpacity } from 'react-native';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { View, FlatList, Text, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useDispatch, useSelector } from 'react-redux';
 import Animated, {
   FadeInUp,
   useSharedValue,
@@ -17,12 +18,27 @@ import {
   TaskStatus,
 } from '../../types/task.types';
 import { MainStackParamList } from '../../types/navigation.types';
+import { RootState, AppDispatch } from '../../store/store';
+import {
+  fetchTasks,
+  fetchTaskStats,
+  selectTasks,
+  selectTaskStats,
+  selectTasksLoading,
+  selectViewMode,
+  selectActiveFilters,
+  setViewMode,
+  setActiveFilters,
+  setSearchQuery,
+} from '../../store/slices/taskSlice';
 import { TasksHeader } from '../../components/task/TasksHeader';
 import { TaskStatsCards } from '../../components/task/TaskStatsCards';
 import { TaskSearchAndFilters } from '../../components/task/TaskSearchAndFilters';
 import { TaskFilterModal } from '../../components/task/TaskFilterModal';
 import { TaskViewRenderer } from '../../components/task/TaskViewRenderer';
 import { TaskCard } from '../../components/task/TaskCard';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { useWebSocket } from '../../services/websocketService';
 import Feather from 'react-native-vector-icons/Feather';
 
 type TasksScreenNavigationProp = NativeStackNavigationProp<MainStackParamList>;
@@ -30,297 +46,207 @@ type TasksScreenNavigationProp = NativeStackNavigationProp<MainStackParamList>;
 export const TasksScreen: React.FC = () => {
   const navigation = useNavigation<TasksScreenNavigationProp>();
   const insets = useSafeAreaInsets();
+  const dispatch = useDispatch<AppDispatch>();
+  const { isConnected } = useWebSocket();
+  const isFocused = useIsFocused();
 
-  // State management
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  // Navigation safety state
+  const [navigationReady, setNavigationReady] = useState(false);
+
+  // Check navigation readiness
+  useEffect(() => {
+    if (navigation && isFocused) {
+      setNavigationReady(true);
+      console.log('TasksScreen: Navigation context ready');
+    } else {
+      setNavigationReady(false);
+      console.log('TasksScreen: Navigation context not ready');
+    }
+  }, [navigation, isFocused]);
+
+  // Redux state
+  const tasks = useSelector(selectTasks);
+  const taskStats = useSelector(selectTaskStats);
+  const loading = useSelector(selectTasksLoading);
+  const viewModeState = useSelector(selectViewMode);
+  const activeFilters = useSelector(selectActiveFilters);
+
+  // Debug logging for state
+  useEffect(() => {
+    console.log('TasksScreen: Redux state updated:', {
+      tasksCount: tasks.length,
+      loading,
+      viewMode: viewModeState,
+      activeFilters,
+      taskStats
+    });
+  }, [tasks, loading, viewModeState, activeFilters, taskStats]);
+
+  // Local state
+  const [searchQueryLocal, setSearchQueryLocal] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<TaskFilter>({});
   const [sortBy, setSortBy] = useState<TaskSort>({
-    field: 'dueDate',
+    field: 'due_date',
     direction: 'asc',
   });
-  const [viewMode, setViewMode] = useState<'list' | 'board' | 'calendar'>(
-    'list',
-  );
   const [viewModeError, setViewModeError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [_selectedTasks, _setSelectedTasks] = useState<string[]>([]);
-  const [_isMultiSelectMode, _setIsMultiSelectMode] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+
+  // Handle view mode compatibility
+  const compatibleViewMode = viewModeState === 'timeline' ? 'list' : viewModeState as 'list' | 'board' | 'calendar';
 
   // Animation values
   const headerScale = useSharedValue(1);
   const filterButtonScale = useSharedValue(1);
 
-  // Mock data for demonstration
+  // Load tasks on component mount
   useEffect(() => {
-    loadMockTasks();
+    console.log('TasksScreen: Component mounted, loading tasks...');
+    loadTasks();
+    loadTaskStats();
   }, []);
 
-  const loadMockTasks = () => {
-    const mockTasks: Task[] = [
-      {
-        id: '1',
-        title: 'Implement user authentication',
-        description: 'Create login, signup, and password reset functionality',
-        status: 'in-progress',
-        priority: 'high',
-        category: 'development',
-        assignees: [
-          {
-            id: '1',
-            name: 'John Doe',
-            avatar: 'J',
-            role: 'Developer',
-            email: 'john@example.com',
-          },
-          {
-            id: '2',
-            name: 'Sarah Wilson',
-            avatar: 'S',
-            role: 'Designer',
-            email: 'sarah@example.com',
-          },
-        ],
-        reporter: {
-          id: '3',
-          name: 'Mike Johnson',
-          avatar: 'M',
-          role: 'Product Manager',
-          email: 'mike@example.com',
-        },
-        channelId: '1',
-        channelName: 'Brainstorming',
-        tags: ['authentication', 'security', 'frontend'],
-        dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
-        estimatedHours: 40,
-        actualHours: 25,
-        progress: 65,
-        subtasks: [
-          { id: 's1', title: 'Design login UI', completed: true },
-          { id: 's2', title: 'Implement backend API', completed: true },
-          { id: 's3', title: 'Add validation', completed: false },
-        ],
-        comments: [],
-        attachments: [],
-        dependencies: [],
-        watchers: [],
-      },
-      {
-        id: '2',
-        title: 'Design system documentation',
-        description: 'Create comprehensive design system documentation',
-        status: 'pending',
-        priority: 'medium',
-        category: 'documentation',
-        assignees: [],
-        reporter: {
-          id: '2',
-          name: 'Sarah Wilson',
-          avatar: 'S',
-          role: 'Designer',
-          email: 'sarah@example.com',
-        },
-        channelId: '2',
-        channelName: 'Design',
-        tags: ['design-system', 'documentation'],
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        estimatedHours: 16,
-        progress: 0,
-        subtasks: [],
-        comments: [],
-        attachments: [],
-        dependencies: [],
-        watchers: [],
-      },
-      {
-        id: '3',
-        title: 'API performance optimization',
-        description: 'Optimize API endpoints for better performance',
-        status: 'completed',
-        priority: 'high',
-        category: 'development',
-        assignees: [
-          {
-            id: '4',
-            name: 'Alex Chen',
-            avatar: 'A',
-            role: 'Backend Developer',
-            email: 'alex@example.com',
-          },
-        ],
-        reporter: {
-          id: '3',
-          name: 'Mike Johnson',
-          avatar: 'M',
-          role: 'Product Manager',
-          email: 'mike@example.com',
-        },
-        channelId: '3',
-        channelName: 'Backend',
-        tags: ['performance', 'api', 'optimization'],
-        dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-        createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-        completedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-        estimatedHours: 20,
-        actualHours: 18,
-        progress: 100,
-        subtasks: [],
-        comments: [],
-        attachments: [],
-        dependencies: [],
-        watchers: [],
-      },
-    ];
-    setTasks(mockTasks);
+  // Reload when filters change
+  useEffect(() => {
+    loadTasks();
+  }, [activeFilters]);
+
+  // Handle search with debounce
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      dispatch(setSearchQuery(searchQueryLocal));
+      if (searchQueryLocal) {
+        loadTasks();
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQueryLocal]);
+
+  const loadTasks = async () => {
+    try {
+      console.log('TasksScreen: Loading tasks with filters:', {
+        ...activeFilters,
+        search: searchQueryLocal || undefined,
+        limit: 50,
+      });
+      
+      const result = await dispatch(fetchTasks({
+        ...activeFilters,
+        search: searchQueryLocal || undefined,
+        limit: 50,
+      })).unwrap();
+      
+      console.log('TasksScreen: Tasks loaded successfully:', {
+        taskCount: result?.data?.length || 0,
+        hasData: !!result?.data,
+        pagination: result?.pagination
+      });
+    } catch (error: any) {
+      console.error('TasksScreen: Failed to load tasks:', {
+        name: error?.name,
+        message: error?.message,
+        stack: error?.stack,
+        statusCode: error?.statusCode,
+        details: error?.details
+      });
+      
+      // Don't re-throw the error - let the UI continue to function
+      // The Redux state will have the error message and tasks might still be visible
+    }
   };
 
-  // Computed values
-  const taskStats = useMemo((): TaskStats => {
-    const stats = {
-      total: tasks.length,
-      pending: 0,
-      inProgress: 0,
-      completed: 0,
-      overdue: 0,
-      dueSoon: 0,
-      unassigned: 0,
+  const loadTaskStats = async () => {
+    try {
+      await dispatch(fetchTaskStats()).unwrap();
+    } catch (error) {
+      console.error('Failed to load task stats:', error);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      loadTasks(),
+      loadTaskStats(),
+    ]);
+    setRefreshing(false);
+  };
+
+
+  // Use Redux taskStats or compute from tasks if not available
+  const displayStats = useMemo((): TaskStats => {
+    // If we have taskStats from Redux, use them
+    if (taskStats) {
+      return taskStats;
+    }
+
+    // Otherwise compute stats from tasks
+    const stats: TaskStats = {
+      totalTasks: tasks.length,
+      tasksByStatus: {
+        pending: 0,
+        in_progress: 0,
+        review: 0,
+        completed: 0,
+        cancelled: 0,
+        on_hold: 0,
+      },
+      tasksByPriority: {
+        low: 0,
+        medium: 0,
+        high: 0,
+        urgent: 0,
+        critical: 0,
+      },
+      overdueTasks: 0,
+      completedThisWeek: 0,
+      averageCompletionTime: 0,
     };
 
     const now = new Date();
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     tasks.forEach(task => {
-      switch (task.status) {
-        case 'pending':
-          stats.pending++;
-          break;
-        case 'in-progress':
-          stats.inProgress++;
-          break;
-        case 'completed':
-          stats.completed++;
-          break;
+      // Status counts
+      if (stats.tasksByStatus[task.status] !== undefined) {
+        stats.tasksByStatus[task.status]++;
+      }
+      
+      // Priority counts  
+      if (stats.tasksByPriority[task.priority] !== undefined) {
+        stats.tasksByPriority[task.priority]++;
       }
 
-      if (task.assignees.length === 0) {
-        stats.unassigned++;
+      // Overdue count
+      const dueDate = task.due_date || task.dueDate;
+      if (dueDate) {
+        const dueDateObj = new Date(dueDate);
+        if (dueDateObj < now && task.status !== 'completed' && task.status !== 'cancelled') {
+          stats.overdueTasks++;
+        }
       }
 
-      if (task.dueDate < now && task.status !== 'completed') {
-        stats.overdue++;
-      }
-
-      if (
-        task.dueDate <= tomorrow &&
-        task.dueDate > now &&
-        task.status !== 'completed'
-      ) {
-        stats.dueSoon++;
+      // Completed this week
+      const completedAt = task.completed_at || task.completedAt;
+      if (task.status === 'completed' && completedAt) {
+        const completedDate = new Date(completedAt);
+        if (completedDate >= weekAgo) {
+          stats.completedThisWeek++;
+        }
       }
     });
 
     return stats;
-  }, [tasks]);
+  }, [tasks, taskStats]);
 
+  // Filtered tasks are now handled by Redux state
   const filteredTasks = useMemo(() => {
-    let filtered = tasks;
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        task =>
-          task.title.toLowerCase().includes(query) ||
-          task.description.toLowerCase().includes(query) ||
-          task.tags.some(tag => tag.toLowerCase().includes(query)) ||
-          task.channelName.toLowerCase().includes(query),
-      );
-    }
-
-    // Apply status filter
-    if (selectedFilter.status && selectedFilter.status.length > 0) {
-      filtered = filtered.filter(task =>
-        selectedFilter.status!.includes(task.status),
-      );
-    }
-
-    // Apply priority filter
-    if (selectedFilter.priority && selectedFilter.priority.length > 0) {
-      filtered = filtered.filter(task =>
-        selectedFilter.priority!.includes(task.priority),
-      );
-    }
-
-    // Apply category filter
-    if (selectedFilter.category && selectedFilter.category.length > 0) {
-      filtered = filtered.filter(task =>
-        selectedFilter.category!.includes(task.category),
-      );
-    }
-
-    // Apply assignee filter
-    if (selectedFilter.assignee && selectedFilter.assignee.length > 0) {
-      if (selectedFilter.assignee.includes('unassigned')) {
-        filtered = filtered.filter(
-          task =>
-            task.assignees.length === 0 ||
-            task.assignees.some(assignee =>
-              selectedFilter.assignee!.includes(assignee.id),
-            ),
-        );
-      } else {
-        filtered = filtered.filter(task =>
-          task.assignees.some(assignee =>
-            selectedFilter.assignee!.includes(assignee.id),
-          ),
-        );
-      }
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      let comparison = 0;
-
-      switch (sortBy.field) {
-        case 'dueDate':
-          comparison = a.dueDate.getTime() - b.dueDate.getTime();
-          break;
-        case 'priority':
-          const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
-          comparison = priorityOrder[a.priority] - priorityOrder[b.priority];
-          break;
-        case 'status':
-          const statusOrder: Record<TaskStatus, number> = {
-            pending: 1,
-            'in-progress': 2,
-            completed: 3,
-            'on-hold': 4,
-            cancelled: 5,
-          };
-          comparison = statusOrder[a.status] - statusOrder[b.status];
-          break;
-        case 'createdAt':
-          comparison = a.createdAt.getTime() - b.createdAt.getTime();
-          break;
-        case 'updatedAt':
-          comparison = a.updatedAt.getTime() - b.updatedAt.getTime();
-          break;
-        case 'title':
-          comparison = a.title.localeCompare(b.title);
-          break;
-      }
-
-      return sortBy.direction === 'desc' ? -comparison : comparison;
-    });
-
-    return filtered;
-  }, [tasks, searchQuery, selectedFilter, sortBy]);
+    return tasks; // Redux already handles filtering
+  }, [tasks]);
 
   // Animation handlers
   const handleFilterPress = () => {
@@ -333,6 +259,10 @@ export const TasksScreen: React.FC = () => {
   // Event handlers
   const handleTaskPress = (task: Task) => {
     try {
+      if (!navigation || !navigationReady) {
+        console.error('TasksScreen: Navigation not ready for task navigation');
+        return;
+      }
       navigation.navigate('TaskDetailScreen', { taskId: task.id });
     } catch (error) {
       console.error(
@@ -342,7 +272,9 @@ export const TasksScreen: React.FC = () => {
       // Retry after a brief delay
       setTimeout(() => {
         try {
-          navigation.navigate('TaskDetailScreen', { taskId: task.id });
+          if (navigation && navigationReady) {
+            navigation.navigate('TaskDetailScreen', { taskId: task.id });
+          }
         } catch (retryError) {
           console.error('TasksScreen: Retry navigation failed:', retryError);
         }
@@ -359,27 +291,36 @@ export const TasksScreen: React.FC = () => {
     }
   };
 
-  const handleCreateTask = () => {
+  const handleCreateTask = useCallback(() => {
     try {
-      navigation.navigate('TaskCreateScreen');
+      // Check if navigation is available and ready before attempting to navigate
+      if (!navigation || !navigationReady) {
+        console.error('TasksScreen: Navigation context not available or not ready');
+        return;
+      }
+      
+      console.log('TasksScreen: Navigating to TaskCreateScreen');
+      navigation.navigate('TaskCreateScreen', {});
     } catch (error) {
       console.error(
         'TasksScreen: Error navigating to TaskCreateScreen:',
         error,
       );
-      // Retry after a brief delay
+      // Retry after a brief delay if navigation context becomes available
       setTimeout(() => {
         try {
-          navigation.navigate('TaskCreateScreen');
+          if (navigation && navigationReady) {
+            navigation.navigate('TaskCreateScreen', {});
+          }
         } catch (retryError) {
           console.error('TasksScreen: Retry navigation failed:', retryError);
         }
       }, 100);
     }
-  };
+  }, [navigation, navigationReady]);
 
   const handleFilterClear = () => {
-    setSelectedFilter({});
+    dispatch(setActiveFilters({}));
     setShowFilters(false);
   };
 
@@ -411,12 +352,12 @@ export const TasksScreen: React.FC = () => {
     <View className="flex-1 bg-gray-50" style={{ paddingTop: insets.top }}>
       {/* Header */}
       <TasksHeader
-        viewMode={viewMode}
+        viewMode={compatibleViewMode}
         onViewModeChange={mode => {
           try {
             console.log('TasksScreen: Switching to view mode:', mode);
             setViewModeError(null);
-            setViewMode(mode);
+            dispatch(setViewMode(mode));
           } catch (error) {
             console.error('TasksScreen: Error switching view mode:', error);
             setViewModeError(`Failed to switch to ${mode} view: ${error}`);
@@ -428,14 +369,14 @@ export const TasksScreen: React.FC = () => {
 
       {/* Stats Cards */}
       <View className="p-2">
-        <TaskStatsCards taskStats={taskStats} />
+        <TaskStatsCards taskStats={displayStats} />
       </View>
 
       {/* Search and Filters */}
       <TaskSearchAndFilters
-        searchQuery={searchQuery}
+        searchQuery={searchQueryLocal}
         isSearchFocused={isSearchFocused}
-        onSearchChange={setSearchQuery}
+        onSearchChange={setSearchQueryLocal}
         onSearchFocus={() => setIsSearchFocused(true)}
         onSearchBlur={() => setIsSearchFocused(false)}
         onFilterPress={handleFilterPress}
@@ -452,20 +393,28 @@ export const TasksScreen: React.FC = () => {
       )}
 
       {/* Task Views with Error Handling */}
-      <TaskViewRenderer
-        tasks={filteredTasks}
-        viewMode={viewMode}
-        searchQuery={searchQuery}
-        onTaskPress={handleTaskPress}
-        onTaskLongPress={handleTaskLongPress}
-      />
+      {loading ? (
+        <View className="flex-1 items-center justify-center">
+          <LoadingSpinner size="large" />
+        </View>
+      ) : (
+        <TaskViewRenderer
+          tasks={filteredTasks}
+          viewMode={compatibleViewMode}
+          searchQuery={searchQueryLocal}
+          onTaskPress={handleTaskPress}
+          onTaskLongPress={handleTaskLongPress}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+        />
+      )}
 
       {/* Filter Modal */}
       <TaskFilterModal
         visible={showFilters}
-        selectedFilter={selectedFilter}
+        selectedFilter={activeFilters}
         onClose={() => setShowFilters(false)}
-        onFilterChange={setSelectedFilter}
+        onFilterChange={(filters) => dispatch(setActiveFilters(filters))}
         onClearAll={handleFilterClear}
       />
     </View>

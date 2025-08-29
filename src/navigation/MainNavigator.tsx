@@ -6,6 +6,7 @@ import { ThreadScreen } from '../screens/chats/ThreadScreen';
 import { TaskDetailScreen } from '../screens/tasks/TaskDetailScreen';
 import { TaskCreateScreen } from '../screens/tasks/TaskCreateScreen';
 import { UserProfileScreen } from '../screens/users/UserProfileScreen';
+import { AdminTaskDashboard } from '../screens/admin/AdminTaskDashboard';
 
 export type MainStackParamList = {
   Tabs: undefined;
@@ -19,7 +20,6 @@ export type MainStackParamList = {
     channelId: string;
     channelName: string;
     members: any[];
-    channels: any[];
     onUpdateMessage: (messageId: string, replies: any[]) => void;
   };
   TaskDetailScreen: {
@@ -27,8 +27,9 @@ export type MainStackParamList = {
   };
   TaskCreateScreen: undefined;
   UserProfile: {
-    userId: string;
+    userId?: string;
   };
+  AdminDashboard: undefined;
 };
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
@@ -59,6 +60,10 @@ export const MainNavigator: React.FC = () => {
       <Stack.Screen
         name="UserProfile"
         component={UserProfileScreen}
+      />
+      <Stack.Screen
+        name="AdminDashboard"
+        component={AdminTaskDashboard}
       />
     </Stack.Navigator>
   );

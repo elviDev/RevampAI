@@ -47,11 +47,25 @@ export const TaskFilterModal: React.FC<TaskFilterModalProps> = ({
 
   const statusOptions: TaskStatus[] = [
     'pending',
-    'in-progress',
+    'in_progress',
+    'review',
     'completed',
-    'on-hold',
+    'cancelled',
+    'on_hold',
   ];
-  const priorityOptions: TaskPriority[] = ['low', 'medium', 'high', 'urgent'];
+  const priorityOptions: TaskPriority[] = ['low', 'medium', 'high', 'urgent', 'critical'];
+
+  // Helper function to get user-friendly status labels
+  const getStatusLabel = (status: TaskStatus): string => {
+    switch (status) {
+      case 'in_progress':
+        return 'IN PROGRESS';
+      case 'on_hold':
+        return 'ON HOLD';
+      default:
+        return status.toUpperCase();
+    }
+  };
 
   return (
     <Modal
@@ -96,7 +110,7 @@ export const TaskFilterModal: React.FC<TaskFilterModalProps> = ({
                           : 'text-gray-700'
                       }`}
                     >
-                      {status.replace('-', ' ').toUpperCase()}
+                      {getStatusLabel(status)}
                     </Text>
                   </TouchableOpacity>
                 ))}

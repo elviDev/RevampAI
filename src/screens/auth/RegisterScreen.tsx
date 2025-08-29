@@ -6,7 +6,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -20,6 +19,7 @@ import { Button } from '../../components/common/Botton';
 import { CustomPicker } from '../../components/common/CustomPicker';
 import { Colors } from '../../utils/colors';
 import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../contexts/ToastContext';
 import type { RegisterCredentials } from '../../types/auth';
 
 interface RegisterScreenProps {
@@ -35,6 +35,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   }, [navigation]);
 
   const { register, isLoading, error, clearAuthError } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [credentials, setCredentials] = useState<RegisterCredentials>({
     name: '',
     email: '',
@@ -113,24 +114,15 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     try {
       const result = await register(credentials);
       if (result.type === 'auth/register/fulfilled') {
-        Alert.alert(
-          'Registration Successful',
-          'Please check your email to verify your account before logging in.',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('Login'),
-            },
-          ],
-        );
+        showSuccess('Registration successful! Please check your email to verify your account before logging in.');
+        setTimeout(() => navigation.navigate('Login'), 2000); // Navigate after toast shows
       } else {
         const errorMessage = result.payload as string;
-        Alert.alert('Registration Failed', errorMessage);
+        showError(`Registration Failed: ${errorMessage}`);
       }
     } catch (error: any) {
-      Alert.alert(
-        'Registration Failed',
-        error.message || 'An unexpected error occurred',
+      showError(
+        error.message || 'An unexpected error occurred'
       );
     }
   };
@@ -307,7 +299,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   setCredentials(prev => ({ ...prev, password }))
                 }
                 error={errors.password}
-                secureTextEntry
+                isPassword
                 autoCapitalize="none"
               />
 
@@ -317,7 +309,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 error={errors.confirmPassword}
-                secureTextEntry
+                isPassword
                 autoCapitalize="none"
               />
             </View>

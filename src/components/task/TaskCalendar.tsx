@@ -56,9 +56,10 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
         daysFromPreviousMonth.push({
           date,
           isCurrentMonth: false,
-          tasks: tasks.filter(task => 
-            task.dueDate.toDateString() === date.toDateString()
-          ),
+          tasks: tasks.filter(task => {
+            const dueDate = task.due_date || task.dueDate;
+            return dueDate && new Date(dueDate).toDateString() === date.toDateString();
+          }),
           isToday: date.toDateString() === today.toDateString(),
           isPast: date < today && date.toDateString() !== today.toDateString(),
         });
@@ -72,9 +73,10 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
       daysOfCurrentMonth.push({
         date,
         isCurrentMonth: true,
-        tasks: tasks.filter(task => 
-          task.dueDate.toDateString() === date.toDateString()
-        ),
+        tasks: tasks.filter(task => {
+          const dueDate = task.due_date || task.dueDate;
+          return dueDate && new Date(dueDate).toDateString() === date.toDateString();
+        }),
         isToday: date.toDateString() === today.toDateString(),
         isPast: date < today && date.toDateString() !== today.toDateString(),
       });
@@ -90,9 +92,10 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
       daysFromNextMonth.push({
         date,
         isCurrentMonth: false,
-        tasks: tasks.filter(task => 
-          task.dueDate.toDateString() === date.toDateString()
-        ),
+        tasks: tasks.filter(task => {
+          const dueDate = task.due_date || task.dueDate;
+          return dueDate && new Date(dueDate).toDateString() === date.toDateString();
+        }),
         isToday: date.toDateString() === today.toDateString(),
         isPast: date < today && date.toDateString() !== today.toDateString(),
       });
@@ -173,9 +176,10 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
           const hasHighPriorityTask = calendarDay.tasks.some(
             task => task.priority === 'urgent' || task.priority === 'high'
           );
-          const hasOverdueTasks = calendarDay.tasks.some(
-            task => task.dueDate < today && task.status !== 'completed'
-          );
+          const hasOverdueTasks = calendarDay.tasks.some(task => {
+            const dueDate = task.due_date || task.dueDate;
+            return dueDate && new Date(dueDate) < today && task.status !== 'completed';
+          });
 
           return (
             <Animated.View

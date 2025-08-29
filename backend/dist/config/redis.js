@@ -65,7 +65,7 @@ class RedisManager {
             ]);
             this.isConnected = true;
             this.reconnectAttempts = 0;
-            logger_1.logger.info('Redis connections initialized successfully');
+            logger_1.logger.info('Redis initialized');
             // Start metrics collection
             this.startMetricsCollection();
         }

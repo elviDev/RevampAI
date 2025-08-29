@@ -39,16 +39,8 @@ export interface AccessTokenData {
  */
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   ceo: [
-    // All permissions - CEO has access to everything
-    'channels:create', 'channels:read', 'channels:update', 'channels:delete',
-    'channels:manage_members', 'channels:archive',
-    'tasks:create', 'tasks:read', 'tasks:update', 'tasks:delete',
-    'tasks:assign', 'tasks:manage_dependencies',
-    'users:create', 'users:read', 'users:update', 'users:delete',
-    'users:manage_roles', 'users:unlock_accounts',
-    'voice:commands', 'voice:transcribe', 'voice:process',
-    'analytics:read', 'analytics:export',
-    'system:admin', 'system:monitor', 'system:configure'
+    // Wildcard permission - CEO has access to everything
+    '*'
   ],
   manager: [
     // Channel management within scope
@@ -299,6 +291,10 @@ class JWTService {
    * Check if user has required permission
    */
   hasPermission(payload: TokenPayload, requiredPermission: string): boolean {
+    // Check for wildcard permission first (CEO has all permissions)
+    if (payload.permissions.includes('*')) {
+      return true;
+    }
     return payload.permissions.includes(requiredPermission);
   }
 
@@ -306,6 +302,10 @@ class JWTService {
    * Check if user has any of the required permissions
    */
   hasAnyPermission(payload: TokenPayload, requiredPermissions: string[]): boolean {
+    // Check for wildcard permission first (CEO has all permissions)
+    if (payload.permissions.includes('*')) {
+      return true;
+    }
     return requiredPermissions.some(permission => 
       payload.permissions.includes(permission)
     );
@@ -315,6 +315,10 @@ class JWTService {
    * Check if user has all required permissions
    */
   hasAllPermissions(payload: TokenPayload, requiredPermissions: string[]): boolean {
+    // Check for wildcard permission first (CEO has all permissions)
+    if (payload.permissions.includes('*')) {
+      return true;
+    }
     return requiredPermissions.every(permission => 
       payload.permissions.includes(permission)
     );

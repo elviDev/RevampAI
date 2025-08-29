@@ -305,7 +305,10 @@ const requireChannelAccess = async (request, reply) => {
     if (!request.user || !request.user.isAuthenticated) {
         throw new errors_1.AuthenticationError('Authentication required');
     }
-    const channelId = request.params.channelId || request.body?.channelId;
+    // Check for channel ID in different parameter names used in routes
+    const channelId = request.params.channelId ||
+        request.params.id ||
+        request.body?.channelId;
     if (!channelId) {
         throw new errors_1.AuthorizationError('Channel ID not specified');
     }

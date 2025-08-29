@@ -101,7 +101,7 @@ class SocketManager implements ISocketManager {
       // Start metrics collection
       this.startMetricsCollection();
 
-      logger.info('WebSocket server initialized successfully');
+      logger.info('WebSocket server initialized');
     } catch (error) {
       logger.error({ error }, 'Failed to initialize WebSocket server');
       throw new WebSocketError('WebSocket initialization failed');

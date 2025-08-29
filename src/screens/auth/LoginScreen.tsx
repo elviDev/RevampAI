@@ -6,7 +6,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -19,6 +18,8 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Botton';
 import { Colors } from '../../utils/colors';
 import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../contexts/ToastContext';
+import { AuthError } from '../../services/api/authService';
 import type { LoginCredentials } from '../../types/auth';
 
 interface LoginScreenProps {
@@ -27,6 +28,7 @@ interface LoginScreenProps {
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const { login, isLoading, error, clearAuthError } = useAuth();
+  const { showSuccess, showError, showInfo, showToast } = useToast();
   const [credentials, setCredentials] = useState<LoginCredentials>({
     email: '',
     password: '',
@@ -71,17 +73,34 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     try {
       const result = await login(credentials);
       if (result.type === 'auth/login/fulfilled') {
+        showSuccess('Welcome back! Login successful.');
         // Navigation will be handled by the AuthNavigator based on auth state
-        console.log('Login successful');
       } else {
         const errorMessage = result.payload as string;
-        Alert.alert('Login Failed', errorMessage);
+        // Handle specific error cases with actionable messages
+        if (errorMessage.includes('verify your email')) {
+          showToast(errorMessage, 'error', {
+            duration: 0,
+            action: {
+              text: 'Resend',
+              onPress: () => {
+                navigation.navigate('EmailVerification', {
+                  email: credentials.email,
+                  fromRegistration: false,
+                });
+              },
+            },
+          });
+        } else {
+          showError(errorMessage || 'Login failed. Please check your credentials.');
+        }
       }
     } catch (error: any) {
-      Alert.alert(
-        'Login Failed',
-        error.message || 'An unexpected error occurred',
-      );
+      if (error instanceof AuthError) {
+        showError(error.message);
+      } else {
+        showError('Something went wrong. Please try again.');
+      }
     }
   };
 
@@ -135,7 +154,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   setCredentials(prev => ({ ...prev, password }))
                 }
                 error={errors.password}
-                secureTextEntry
+                isPassword
                 autoCapitalize="none"
               />
 

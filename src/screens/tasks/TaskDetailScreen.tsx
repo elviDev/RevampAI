@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, withSpring } from 'react-native-reanimated';
@@ -12,7 +13,10 @@ import {
   TaskStatus,
   TaskPriority,
   TaskComment,
+  TaskAssignee,
 } from '../../types/task.types';
+import { taskService } from '../../services/api/taskService';
+import { useAuth } from '../../hooks/useAuth';
 
 // Import existing components
 import { TaskDetailHeader } from '../../components/task/TaskDetailHeader';
@@ -45,11 +49,16 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
   // State
   const [task, setTask] = useState<Task | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showPriorityModal, setShowPriorityModal] = useState(false);
   const [_showAssigneeModal, _setShowAssigneeModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Get current user from auth context
+  const { user } = useAuth();
 
   // Animation values
   const commentInputScale = useSharedValue(1);
@@ -60,110 +69,113 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     loadTaskDetails();
   }, [taskId]);
 
-  const loadTaskDetails = () => {
-    // Mock task data - in real app this would come from API/database
-    const mockTask: Task = {
-      id: taskId,
-      title: 'Implement Advanced Search Functionality',
-      description:
-        'Create a comprehensive search system with filters, sorting, and real-time results. The search should be fast, accurate, and provide intelligent suggestions to improve user experience.',
-      status: 'in-progress',
-      priority: 'high',
-      category: 'development',
-      assignees: [
-        {
-          id: '1',
-          name: 'John Smith',
-          avatar: 'JS',
-          role: 'Frontend Developer',
-          email: 'john.smith@company.com',
-        },
-        {
-          id: '2',
-          name: 'Sarah Wilson',
-          avatar: 'SW',
-          role: 'UX Designer',
-          email: 'sarah.wilson@company.com',
-        },
-      ],
-      reporter: {
-        id: '3',
-        name: 'Mike Johnson',
-        avatar: 'MJ',
-        role: 'Product Manager',
-        email: 'mike.johnson@company.com',
-      },
-      channelId: '1',
-      channelName: 'Frontend Team',
-      tags: ['search', 'frontend', 'performance', 'ux'],
-      dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-      createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-      updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      estimatedHours: 32,
-      actualHours: 18,
-      progress: 60,
-      subtasks: [
-        {
-          id: 's1',
-          title: 'Design search UI components',
-          completed: true,
-        },
-        {
-          id: 's2',
-          title: 'Implement search API integration',
-          completed: true,
-        },
-        { id: 's3', title: 'Add advanced filter functionality', completed: false },
-        { id: 's4', title: 'Performance optimization and caching', completed: false },
-        { id: 's5', title: 'User testing and feedback collection', completed: false },
-      ],
-      comments: [
-        {
-          id: 'c1',
-          content:
-            'Great progress on the UI components! The search interface looks clean and intuitive. Ready for backend integration.',
-          author: {
-            id: '3',
-            name: 'Mike Johnson',
-            avatar: 'MJ',
-            role: 'Product Manager',
-            email: 'mike.johnson@company.com',
+  const loadTaskDetails = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const response = await taskService.getTask(taskId);
+      if (response.success && response.data) {
+        const taskData = response.data;
+        
+        // Transform backend data to match component expectations
+        const transformedTask: Task = {
+          ...taskData,
+          // Map backend fields to legacy component fields for compatibility
+          assignees: taskData.assigned_to.map(userId => {
+            // In a real app, you'd fetch user details or have them cached
+            return {
+              id: userId,
+              name: `User ${userId.substring(0, 8)}`,
+              avatar: userId.substring(0, 2).toUpperCase(),
+              role: 'Team Member',
+              email: `${userId}@company.com`,
+            } as TaskAssignee;
+          }),
+          reporter: {
+            id: taskData.created_by,
+            name: `User ${taskData.created_by.substring(0, 8)}`,
+            avatar: taskData.created_by.substring(0, 2).toUpperCase(),
+            role: 'Task Creator',
+            email: `${taskData.created_by}@company.com`,
           },
-          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
-        },
-        {
-          id: 'c2',
-          content:
-            "Successfully completed the API integration. The response time is under 200ms for most queries. Moving on to advanced filters next.",
-          author: {
-            id: '1',
-            name: 'John Smith',
-            avatar: 'JS',
-            role: 'Frontend Developer',
-            email: 'john.smith@company.com',
-          },
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        },
-      ],
-      attachments: [],
-      dependencies: [],
-      watchers: [],
-    };
-    setTask(mockTask);
-  };
-
-  // Action handlers
-  const updateTaskStatus = (newStatus: TaskStatus) => {
-    if (task) {
-      setTask({ ...task, status: newStatus, updatedAt: new Date() });
-      setShowStatusModal(false);
+          channelId: taskData.channel_id,
+          channelName: taskData.channel_name || 'General',
+          dueDate: taskData.due_date ? new Date(taskData.due_date) : undefined,
+          createdAt: new Date(taskData.created_at),
+          updatedAt: new Date(taskData.updated_at),
+          completedAt: taskData.completed_at ? new Date(taskData.completed_at) : undefined,
+          estimatedHours: taskData.estimated_hours || 0,
+          actualHours: taskData.actual_hours || 0,
+          progress: taskData.progress_percentage || 0,
+          category: taskData.task_type || 'general',
+          subtasks: [], // TODO: Implement subtasks from backend
+          comments: [], // TODO: Implement comments from backend
+          attachments: [], // TODO: Implement attachments from backend
+          dependencies: [], // TODO: Implement dependencies from backend
+          watchers: taskData.watchers || [],
+        };
+        
+        setTask(transformedTask);
+      } else {
+        setError('Failed to load task details');
+      }
+    } catch (err) {
+      console.error('Error loading task:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load task');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const updateTaskPriority = (newPriority: TaskPriority) => {
-    if (task) {
-      setTask({ ...task, priority: newPriority, updatedAt: new Date() });
-      setShowPriorityModal(false);
+  // Action handlers
+  const updateTaskStatus = async (newStatus: TaskStatus) => {
+    if (!task) return;
+    
+    try {
+      const response = await taskService.updateTaskStatus(task.id, newStatus);
+      if (response.success && response.data) {
+        const updatedData = response.data;
+        setTask({
+          ...task,
+          status: updatedData.status,
+          updatedAt: new Date(updatedData.updated_at),
+          completed_at: updatedData.completed_at,
+          progress: updatedData.progress_percentage,
+        });
+        setShowStatusModal(false);
+        
+        Alert.alert('Success', `Task status updated to ${newStatus}`);
+      } else {
+        Alert.alert('Error', 'Failed to update task status');
+      }
+    } catch (err) {
+      console.error('Error updating task status:', err);
+      Alert.alert('Error', 'Failed to update task status');
+    }
+  };
+
+  const updateTaskPriority = async (newPriority: TaskPriority) => {
+    if (!task) return;
+    
+    try {
+      const response = await taskService.updateTask(task.id, { priority: newPriority });
+      if (response.success && response.data) {
+        const updatedData = response.data;
+        setTask({
+          ...task,
+          priority: updatedData.priority,
+          updatedAt: new Date(updatedData.updated_at),
+        });
+        setShowPriorityModal(false);
+        
+        Alert.alert('Success', `Task priority updated to ${newPriority}`);
+      } else {
+        Alert.alert('Error', 'Failed to update task priority');
+      }
+    } catch (err) {
+      console.error('Error updating task priority:', err);
+      Alert.alert('Error', 'Failed to update task priority');
     }
   };
 
@@ -218,12 +230,28 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   };
 
   const handleEditPress = () => {
-    setIsEditing(!isEditing);
+    if (task) {
+      navigation.navigate('TaskCreateScreen', { 
+        taskId: task.id,
+        channelId: task.channel_id 
+      });
+    }
   };
 
   const handleCompletePress = () => {
     if (task?.status !== 'completed') {
-      updateTaskStatus('completed');
+      Alert.alert(
+        'Complete Task',
+        'Are you sure you want to mark this task as completed?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Complete', 
+            style: 'default',
+            onPress: () => updateTaskStatus('completed')
+          },
+        ]
+      );
     }
   };
 
@@ -232,7 +260,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     console.log('Add assignee');
   };
 
-  if (!task) {
+  if (isLoading) {
     return (
       <View
         className="flex-1 bg-gray-50 items-center justify-center"
@@ -244,6 +272,23 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           </View>
           <Text className="text-gray-600 text-lg font-medium">Loading task...</Text>
           <Text className="text-gray-400 text-sm mt-1">Please wait a moment</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error || !task) {
+    return (
+      <View
+        className="flex-1 bg-gray-50 items-center justify-center"
+        style={{ paddingTop: insets.top }}
+      >
+        <View className="items-center">
+          <View className="w-16 h-16 bg-red-100 rounded-full items-center justify-center mb-4">
+            <Text className="text-red-600 text-lg font-bold">⚠️</Text>
+          </View>
+          <Text className="text-gray-600 text-lg font-medium">{error || 'Task not found'}</Text>
+          <Text className="text-gray-400 text-sm mt-1">Please check the task ID</Text>
         </View>
       </View>
     );
@@ -284,6 +329,9 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         <TaskAssigneesCard
           assignees={task.assignees}
           onAddAssignee={handleAddAssignee}
+          onAssigneePress={(assigneeId) => {
+            navigation.navigate('UserProfile', { userId: assigneeId });
+          }}
         />
 
         {/* Subtasks Card */}
@@ -304,6 +352,9 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           onAddComment={addComment}
           formatTimeAgo={TaskUtils.formatTimeAgo}
           commentInputScale={commentInputScale}
+          onAuthorPress={(authorId) => {
+            navigation.navigate('UserProfile', { userId: authorId });
+          }}
         />
 
         {/* Tags Card */}

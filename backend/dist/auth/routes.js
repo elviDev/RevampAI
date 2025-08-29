@@ -142,7 +142,7 @@ const registerAuthRoutes = async (fastify) => {
                 ip: request.ip,
                 userAgent: request.headers['user-agent'] ?? '',
             });
-            reply.code(200).send({
+            const responseData = {
                 success: true,
                 data: {
                     ...tokens,
@@ -155,7 +155,13 @@ const registerAuthRoutes = async (fastify) => {
                         permissions: jwt_1.jwtService.decodeToken(tokens.accessToken)?.permissions || [],
                     },
                 },
-            });
+            };
+            logger_1.logger.info({
+                responseData: JSON.stringify(responseData).substring(0, 200) + '...',
+                contentLength: JSON.stringify(responseData).length,
+                userId: user.id
+            }, 'Sending login response');
+            reply.code(200).send(responseData);
         }
         catch (error) {
             logger_1.logger.error({ error, context }, 'Login failed');
@@ -548,6 +554,7 @@ const registerAuthRoutes = async (fastify) => {
                             avatar_url: typebox_1.Type.Union([typebox_1.Type.String({ format: 'uri' }), typebox_1.Type.Null()]),
                             department: typebox_1.Type.Union([typebox_1.Type.String(), typebox_1.Type.Null()]),
                             job_title: typebox_1.Type.Union([typebox_1.Type.String(), typebox_1.Type.Null()]),
+                            phone: typebox_1.Type.Union([typebox_1.Type.String(), typebox_1.Type.Null()]),
                             language_preference: typebox_1.Type.Union([typebox_1.Type.String(), typebox_1.Type.Null()]),
                             timezone: typebox_1.Type.Union([typebox_1.Type.String(), typebox_1.Type.Null()]),
                             notification_settings: typebox_1.Type.Any(),
@@ -555,6 +562,7 @@ const registerAuthRoutes = async (fastify) => {
                             email_verified: typebox_1.Type.Boolean(),
                             last_active: typebox_1.Type.Union([typebox_1.Type.String({ format: 'date-time' }), typebox_1.Type.Null()]),
                             created_at: typebox_1.Type.String({ format: 'date-time' }),
+                            updated_at: typebox_1.Type.Union([typebox_1.Type.String({ format: 'date-time' }), typebox_1.Type.Null()]),
                             permissions: typebox_1.Type.Array(typebox_1.Type.String()),
                         }),
                     }),
@@ -587,6 +595,7 @@ const registerAuthRoutes = async (fastify) => {
                         avatar_url: user.avatar_url,
                         department: user.department,
                         job_title: user.job_title,
+                        phone: user.phone,
                         language_preference: user.language_preference,
                         timezone: user.timezone,
                         notification_settings: user.notification_settings,
@@ -594,6 +603,7 @@ const registerAuthRoutes = async (fastify) => {
                         email_verified: user.email_verified,
                         last_active: user.last_active,
                         created_at: user.created_at,
+                        updated_at: user.updated_at,
                         permissions: request.user.permissions,
                     },
                 },
@@ -612,6 +622,91 @@ const registerAuthRoutes = async (fastify) => {
                     },
                 });
             }
+        }
+    });
+    /**
+     * POST /auth/resend-verification - Resend email verification
+     */
+    fastify.post('/auth/resend-verification', {
+        preHandler: [middleware_1.authRateLimit],
+        schema: {
+            tags: ['Authentication'],
+            summary: 'Resend Email Verification',
+            description: 'Resend email verification link to the specified email address',
+            body: typebox_1.Type.Object({
+                email: typebox_1.Type.String({ format: 'email' }),
+            }),
+            response: {
+                200: typebox_1.Type.Object({
+                    success: typebox_1.Type.Boolean(),
+                    message: typebox_1.Type.String(),
+                }),
+                400: typebox_1.Type.Object({
+                    error: typebox_1.Type.Object({
+                        message: typebox_1.Type.String(),
+                        code: typebox_1.Type.String(),
+                    }),
+                }),
+            },
+        },
+    }, async (request, reply) => {
+        const { email } = request.body;
+        const context = (0, errors_1.createErrorContext)({
+            ip: request.ip,
+            method: request.method,
+            url: request.url,
+            headers: request.headers,
+        });
+        try {
+            // Check if user exists with this email
+            const user = await index_1.userRepository.findByEmail(email);
+            if (!user) {
+                // Don't reveal that the email doesn't exist for security reasons
+                reply.code(200).send({
+                    success: true,
+                    message: 'If the email address exists, a new verification email will be sent.',
+                });
+                return;
+            }
+            // Check if user is already verified
+            if (user.email_verified) {
+                reply.code(200).send({
+                    success: true,
+                    message: 'Email address is already verified.',
+                });
+                return;
+            }
+            // Generate new email verification token
+            const verificationToken = jwt_1.jwtService.generateEmailVerificationToken(user.id, user.email);
+            await index_1.userRepository.setEmailVerificationToken(user.id, verificationToken);
+            // Send verification email
+            const emailSent = await EmailService_1.emailService.sendEmailVerification({
+                userEmail: user.email,
+                userName: user.name,
+                verificationToken,
+            });
+            if (!emailSent) {
+                logger_1.logger.warn({ userId: user.id, email: user.email }, 'Failed to send verification email');
+            }
+            logger_1.securityLogger.logAuthEvent('email_verification_resent', {
+                userId: user.id,
+                email: user.email,
+                ip: request.ip,
+                emailSent,
+            });
+            reply.code(200).send({
+                success: true,
+                message: 'Verification email sent successfully. Please check your inbox and spam folder.',
+            });
+        }
+        catch (error) {
+            logger_1.logger.error({ error, context, email }, 'Resend verification failed');
+            reply.code(500).send({
+                error: {
+                    message: 'Failed to resend verification email',
+                    code: 'SERVER_ERROR',
+                },
+            });
         }
     });
 };

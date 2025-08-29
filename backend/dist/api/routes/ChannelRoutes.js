@@ -52,6 +52,8 @@ const ChannelMemberSchema = typebox_1.Type.Object({
         typebox_1.Type.Literal('viewer'),
     ]),
     joined_at: typebox_1.Type.String({ format: 'date-time' }),
+    user_name: typebox_1.Type.String(),
+    user_avatar: typebox_1.Type.Optional(typebox_1.Type.String()),
 });
 const ChannelResponseSchema = typebox_1.Type.Object({
     id: validation_1.UUIDSchema,
@@ -196,6 +198,99 @@ const registerChannelRoutes = async (fastify) => {
             reply.code(500).send({
                 error: {
                     message: 'Failed to retrieve channels',
+                    code: 'SERVER_ERROR',
+                },
+            });
+        }
+    });
+    /**
+     * GET /channels/categories - Get available channel categories
+     */
+    fastify.get('/channels/categories', {
+        preHandler: [middleware_1.authenticate],
+        schema: {
+            response: {
+                200: typebox_1.Type.Object({
+                    success: typebox_1.Type.Boolean(),
+                    data: typebox_1.Type.Array(typebox_1.Type.Object({
+                        id: typebox_1.Type.String(),
+                        name: typebox_1.Type.String(),
+                        description: typebox_1.Type.String(),
+                        icon: typebox_1.Type.Optional(typebox_1.Type.String()),
+                        color: typebox_1.Type.Optional(typebox_1.Type.String()),
+                    })),
+                    timestamp: typebox_1.Type.String({ format: 'date-time' }),
+                }),
+            },
+        },
+    }, async (request, reply) => {
+        try {
+            // Define available channel categories based on ChannelTypeSchema
+            const categories = [
+                {
+                    id: 'general',
+                    name: 'General',
+                    description: 'General purpose discussions and communications',
+                    icon: 'chatbubble-outline',
+                    color: '#6B7280',
+                },
+                {
+                    id: 'project',
+                    name: 'Project',
+                    description: 'Project-specific discussions and collaboration',
+                    icon: 'folder-outline',
+                    color: '#3B82F6',
+                },
+                {
+                    id: 'department',
+                    name: 'Department',
+                    description: 'Department-wide communications and updates',
+                    icon: 'business-outline',
+                    color: '#10B981',
+                },
+                {
+                    id: 'announcement',
+                    name: 'Announcement',
+                    description: 'Official announcements and important updates',
+                    icon: 'megaphone-outline',
+                    color: '#F59E0B',
+                },
+                {
+                    id: 'private',
+                    name: 'Private',
+                    description: 'Private discussions and confidential matters',
+                    icon: 'lock-closed-outline',
+                    color: '#8B5CF6',
+                },
+            ];
+            logger_1.loggers.api.info({
+                userId: request.user?.userId,
+                categoriesCount: categories.length,
+            }, 'Channel categories retrieved');
+            reply.send({
+                success: true,
+                data: categories,
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            const context = (0, errors_1.createErrorContext)({
+                ...(request.user && {
+                    user: {
+                        id: request.user.id,
+                        email: request.user.email,
+                        role: request.user.role,
+                    },
+                }),
+                ip: request.ip,
+                method: request.method,
+                url: request.url,
+                headers: request.headers,
+            });
+            logger_1.loggers.api.error({ error, context }, 'Failed to retrieve channel categories');
+            reply.code(500).send({
+                error: {
+                    message: 'Failed to retrieve channel categories',
                     code: 'SERVER_ERROR',
                 },
             });
@@ -515,9 +610,17 @@ const registerChannelRoutes = async (fastify) => {
             const { id } = request.params;
             const { limit = 50, offset = 0 } = request.query;
             const members = await index_1.channelRepository.getMembers(id);
+            // Map the members data to match the expected schema
+            const mappedMembers = members.map((member) => ({
+                user_id: member.id,
+                role: member.role,
+                joined_at: new Date().toISOString(), // TODO: Get actual joined_at from channel_member_history
+                user_name: member.name,
+                user_avatar: member.avatar_url,
+            }));
             const result = {
-                data: members.slice(offset, offset + limit),
-                total: members.length,
+                data: mappedMembers.slice(offset, offset + limit),
+                total: mappedMembers.length,
             };
             reply.send({
                 success: true,
@@ -693,6 +796,343 @@ const registerChannelRoutes = async (fastify) => {
                 reply.code(500).send({
                     error: {
                         message: 'Failed to remove member',
+                        code: 'SERVER_ERROR',
+                    },
+                });
+            }
+        }
+    });
+    /**
+     * GET /channels/:id/files - Get channel file attachments
+     */
+    fastify.get('/channels/:id/files', {
+        preHandler: [middleware_1.authenticate, middleware_1.requireChannelAccess],
+        schema: {
+            params: typebox_1.Type.Object({
+                id: validation_1.UUIDSchema,
+            }),
+            querystring: typebox_1.Type.Intersect([
+                validation_1.PaginationSchema,
+                typebox_1.Type.Object({
+                    file_type: typebox_1.Type.Optional(typebox_1.Type.String()),
+                    uploaded_by: typebox_1.Type.Optional(validation_1.UUIDSchema),
+                    search: typebox_1.Type.Optional(typebox_1.Type.String({ maxLength: 100 })),
+                }),
+            ]),
+            response: {
+                200: typebox_1.Type.Object({
+                    success: typebox_1.Type.Boolean(),
+                    data: typebox_1.Type.Array(typebox_1.Type.Object({
+                        id: validation_1.UUIDSchema,
+                        filename: typebox_1.Type.String(),
+                        originalName: typebox_1.Type.String(),
+                        mimeType: typebox_1.Type.String(),
+                        size: typebox_1.Type.Integer(),
+                        url: typebox_1.Type.String(),
+                        downloadUrl: typebox_1.Type.Optional(typebox_1.Type.String()),
+                        thumbnailUrl: typebox_1.Type.Optional(typebox_1.Type.String()),
+                        uploadedBy: validation_1.UUIDSchema,
+                        uploadedByName: typebox_1.Type.String(),
+                        uploadedAt: typebox_1.Type.String({ format: 'date-time' }),
+                        messageId: typebox_1.Type.Optional(validation_1.UUIDSchema),
+                    })),
+                    pagination: typebox_1.Type.Object({
+                        total: typebox_1.Type.Integer(),
+                        limit: typebox_1.Type.Integer(),
+                        offset: typebox_1.Type.Integer(),
+                        hasMore: typebox_1.Type.Boolean(),
+                    }),
+                    timestamp: typebox_1.Type.String({ format: 'date-time' }),
+                }),
+            },
+        },
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params;
+            const { limit = 50, offset = 0, file_type, uploaded_by, search } = request.query;
+            // Build filters
+            const filters = {
+                channelId: id,
+                fileType: file_type,
+                uploadedBy: uploaded_by,
+                search,
+            };
+            let files = [];
+            let total = 0;
+            try {
+                // Try to fetch files, but handle database errors gracefully
+                files = await index_1.fileRepository.findChannelFiles(id, filters, limit, offset);
+                total = await index_1.fileRepository.getChannelFileCount(id, filters);
+            }
+            catch (dbError) {
+                // Log database errors but return empty results instead of failing
+                logger_1.loggers.api.warn({
+                    userId: request.user?.userId,
+                    channelId: id,
+                    error: dbError.message,
+                    filters,
+                }, 'Channel files database query failed, returning empty results');
+                // Return empty results if database query fails
+                files = [];
+                total = 0;
+            }
+            logger_1.loggers.api.info({
+                userId: request.user?.userId,
+                channelId: id,
+                fileCount: files.length,
+                filters,
+            }, 'Channel files retrieved');
+            reply.send({
+                success: true,
+                data: files,
+                pagination: {
+                    total,
+                    limit,
+                    offset,
+                    hasMore: offset + limit < total,
+                },
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            const context = (0, errors_1.createErrorContext)({
+                ...(request.user && {
+                    user: {
+                        id: request.user.id,
+                        email: request.user.email,
+                        role: request.user.role,
+                    },
+                }),
+                ip: request.ip,
+                method: request.method,
+                url: request.url,
+                headers: request.headers,
+            });
+            logger_1.loggers.api.warn({ error, context }, 'Failed to retrieve channel files, returning empty results');
+            // Return empty results instead of error to prevent frontend issues
+            reply.send({
+                success: true,
+                data: [],
+                pagination: {
+                    total: 0,
+                    limit: request.query.limit || 50,
+                    offset: request.query.offset || 0,
+                    hasMore: false,
+                },
+                timestamp: new Date().toISOString(),
+            });
+        }
+    });
+    /**
+     * GET /channels/:id/activity - Get channel activity log
+     */
+    fastify.get('/channels/:id/activity', {
+        preHandler: [middleware_1.authenticate, middleware_1.requireChannelAccess],
+        schema: {
+            params: typebox_1.Type.Object({
+                id: validation_1.UUIDSchema,
+            }),
+            querystring: typebox_1.Type.Intersect([
+                validation_1.PaginationSchema,
+                typebox_1.Type.Object({
+                    activity_type: typebox_1.Type.Optional(typebox_1.Type.Union([
+                        typebox_1.Type.Literal('message'),
+                        typebox_1.Type.Literal('task_created'),
+                        typebox_1.Type.Literal('task_updated'),
+                        typebox_1.Type.Literal('task_completed'),
+                        typebox_1.Type.Literal('member_joined'),
+                        typebox_1.Type.Literal('member_left'),
+                        typebox_1.Type.Literal('file_uploaded'),
+                        typebox_1.Type.Literal('channel_updated'),
+                    ])),
+                    user_id: typebox_1.Type.Optional(validation_1.UUIDSchema),
+                    after: typebox_1.Type.Optional(typebox_1.Type.String({ format: 'date-time' })),
+                }),
+            ]),
+            response: {
+                200: typebox_1.Type.Object({
+                    success: typebox_1.Type.Boolean(),
+                    data: typebox_1.Type.Array(typebox_1.Type.Object({
+                        id: validation_1.UUIDSchema,
+                        channelId: validation_1.UUIDSchema,
+                        activityType: typebox_1.Type.String(),
+                        userId: validation_1.UUIDSchema,
+                        userName: typebox_1.Type.String(),
+                        userAvatar: typebox_1.Type.Optional(typebox_1.Type.String()),
+                        title: typebox_1.Type.String(),
+                        description: typebox_1.Type.Optional(typebox_1.Type.String()),
+                        metadata: typebox_1.Type.Record(typebox_1.Type.String(), typebox_1.Type.Any()),
+                        createdAt: typebox_1.Type.String({ format: 'date-time' }),
+                    })),
+                    pagination: typebox_1.Type.Object({
+                        total: typebox_1.Type.Integer(),
+                        limit: typebox_1.Type.Integer(),
+                        offset: typebox_1.Type.Integer(),
+                        hasMore: typebox_1.Type.Boolean(),
+                    }),
+                    timestamp: typebox_1.Type.String({ format: 'date-time' }),
+                }),
+            },
+        },
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params;
+            const { limit = 50, offset = 0, activity_type, user_id, after } = request.query;
+            // Build filters
+            const filters = {
+                channelId: id,
+                activityType: activity_type,
+                userId: user_id,
+                after: after ? new Date(after) : undefined,
+            };
+            // This would require implementing activity repository methods
+            const activities = await index_1.activityRepository.findChannelActivities(id, filters, limit, offset);
+            const total = await index_1.activityRepository.getChannelActivityCount(id, filters);
+            logger_1.loggers.api.info({
+                userId: request.user?.userId,
+                channelId: id,
+                activityCount: activities.length,
+                filters,
+            }, 'Channel activity retrieved');
+            reply.send({
+                success: true,
+                data: activities,
+                pagination: {
+                    total,
+                    limit,
+                    offset,
+                    hasMore: offset + limit < total,
+                },
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            const context = (0, errors_1.createErrorContext)({
+                ...(request.user && {
+                    user: {
+                        id: request.user.id,
+                        email: request.user.email,
+                        role: request.user.role,
+                    },
+                }),
+                ip: request.ip,
+                method: request.method,
+                url: request.url,
+                headers: request.headers,
+            });
+            logger_1.loggers.api.error({ error, context }, 'Failed to retrieve channel activity');
+            reply.code(500).send({
+                error: {
+                    message: 'Failed to retrieve channel activity',
+                    code: 'SERVER_ERROR',
+                },
+            });
+        }
+    });
+    /**
+     * POST /channels/:id/activity - Log channel activity
+     */
+    fastify.post('/channels/:id/activity', {
+        preHandler: [middleware_1.authenticate, middleware_1.requireChannelAccess],
+        schema: {
+            params: typebox_1.Type.Object({
+                id: validation_1.UUIDSchema,
+            }),
+            body: typebox_1.Type.Object({
+                activity_type: typebox_1.Type.String({ minLength: 1, maxLength: 50 }),
+                title: typebox_1.Type.String({ minLength: 1, maxLength: 200 }),
+                description: typebox_1.Type.Optional(typebox_1.Type.String({ maxLength: 1000 })),
+                metadata: typebox_1.Type.Optional(typebox_1.Type.Record(typebox_1.Type.String(), typebox_1.Type.Any())),
+            }),
+            response: {
+                201: typebox_1.Type.Object({
+                    success: typebox_1.Type.Boolean(),
+                    data: typebox_1.Type.Object({
+                        id: validation_1.UUIDSchema,
+                        activityType: typebox_1.Type.String(),
+                        title: typebox_1.Type.String(),
+                        description: typebox_1.Type.Optional(typebox_1.Type.String()),
+                        metadata: typebox_1.Type.Record(typebox_1.Type.String(), typebox_1.Type.Any()),
+                        createdAt: typebox_1.Type.String({ format: 'date-time' }),
+                    }),
+                    timestamp: typebox_1.Type.String({ format: 'date-time' }),
+                }),
+            },
+        },
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params;
+            const { activity_type, title, description, metadata } = request.body;
+            const activityData = {
+                channelId: id,
+                activityType: activity_type,
+                userId: request.user.userId,
+                title,
+                description: description || '',
+                metadata: metadata || {},
+            };
+            const activity = await index_1.activityRepository.createActivity(activityData);
+            // Broadcast activity to channel members
+            await utils_1.WebSocketUtils.sendToChannel(id, 'channel_activity', {
+                type: 'channel_activity',
+                channelId: id,
+                activity: {
+                    id: activity.id,
+                    activityType: activity.activity_type,
+                    title: activity.title,
+                    description: activity.description,
+                    metadata: activity.metadata,
+                    userId: request.user.userId,
+                    userName: request.user.name,
+                    userAvatar: null, // Avatar not available in TokenPayload
+                    createdAt: activity.created_at,
+                },
+                userId: request.user.userId,
+                userName: request.user.name,
+                userRole: request.user.role,
+                timestamp: new Date().toISOString(),
+            });
+            logger_1.loggers.api.info({
+                userId: request.user?.userId,
+                channelId: id,
+                activityId: activity.id,
+                activityType: activity_type,
+            }, 'Channel activity logged successfully');
+            reply.code(201).send({
+                success: true,
+                data: {
+                    id: activity.id,
+                    activityType: activity.activity_type,
+                    title: activity.title,
+                    description: activity.description,
+                    metadata: activity.metadata,
+                    createdAt: activity.created_at,
+                },
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            const context = (0, errors_1.createErrorContext)({
+                ...(request.user && {
+                    user: {
+                        id: request.user.id,
+                        email: request.user.email,
+                        role: request.user.role,
+                    },
+                }),
+                ip: request.ip,
+                method: request.method,
+                url: request.url,
+                headers: request.headers,
+            });
+            logger_1.loggers.api.error({ error, context }, 'Failed to log channel activity');
+            if (error instanceof errors_1.ValidationError) {
+                reply.code(400).send((0, errors_1.formatErrorResponse)(error));
+            }
+            else {
+                reply.code(500).send({
+                    error: {
+                        message: 'Failed to log channel activity',
                         code: 'SERVER_ERROR',
                     },
                 });

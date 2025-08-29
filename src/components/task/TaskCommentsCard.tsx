@@ -16,6 +16,7 @@ interface TaskCommentsCardProps {
   onAddComment: () => void;
   formatTimeAgo: (date: Date) => string;
   commentInputScale?: any;
+  onAuthorPress?: (authorId: string) => void;
 }
 
 export const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({
@@ -25,6 +26,7 @@ export const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({
   onAddComment,
   formatTimeAgo,
   commentInputScale,
+  onAuthorPress,
 }) => {
   const animatedCommentInputStyle = useAnimatedStyle(() => ({
     transform: commentInputScale ? [{ scale: commentInputScale.value }] : [],
@@ -53,20 +55,30 @@ export const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({
             entering={FadeInUp.delay(index * 150).duration(400)}
             className="flex-row"
           >
-            <LinearGradient
-              colors={['#6366F1', '#8B5CF6']}
-              className="w-10 h-10 rounded-full items-center justify-center mr-3 mt-0.5"
+            <TouchableOpacity
+              onPress={() => onAuthorPress?.(comment.author.id)}
+              activeOpacity={0.7}
             >
-              <Text className="text-white text-sm font-bold">
-                {comment.author.avatar}
-              </Text>
-            </LinearGradient>
+              <LinearGradient
+                colors={['#6366F1', '#8B5CF6']}
+                className="w-10 h-10 rounded-full items-center justify-center mr-3 mt-0.5"
+              >
+                <Text className="text-white text-sm font-bold">
+                  {comment.author.avatar}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
             <View className="flex-1">
               <View className="flex-row items-center mb-1">
-                <Text className="font-semibold text-gray-900 mr-2">
-                  {comment.author.name}
-                </Text>
+                <TouchableOpacity
+                  onPress={() => onAuthorPress?.(comment.author.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text className="font-semibold text-gray-900 mr-2">
+                    {comment.author.name}
+                  </Text>
+                </TouchableOpacity>
                 <Text className="text-xs text-gray-500">
                   {formatTimeAgo(comment.timestamp)}
                 </Text>

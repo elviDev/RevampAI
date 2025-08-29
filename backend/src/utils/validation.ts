@@ -76,7 +76,8 @@ export const ChannelTypeSchema = Type.Union([
   Type.Literal('project'),
   Type.Literal('department'),
   Type.Literal('announcement'),
-  Type.Literal('private')
+  Type.Literal('initiative'),
+  Type.Literal('temporary')
 ]);
 
 export const ChannelPrivacySchema = Type.Union([

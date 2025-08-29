@@ -21,7 +21,14 @@ export const TaskCalendarView: React.FC<TaskCalendarViewProps> = ({
 }) => {
   // Group tasks by due date
   const tasksByDate = filteredTasks.reduce((acc, task) => {
-    const dateKey = task.dueDate.toDateString();
+    // Handle both due_date and dueDate fields, and ensure it's a valid date
+    const dueDate = task.due_date || task.dueDate;
+    if (!dueDate) return acc; // Skip tasks without due dates
+    
+    const dateObj = new Date(dueDate);
+    if (isNaN(dateObj.getTime())) return acc; // Skip invalid dates
+    
+    const dateKey = dateObj.toDateString();
     if (!acc[dateKey]) acc[dateKey] = [];
     acc[dateKey].push(task);
     return acc;
@@ -215,9 +222,11 @@ export const TaskCalendarView: React.FC<TaskCalendarViewProps> = ({
                       {task.status.replace('-', ' ').toUpperCase()}
                     </Text>
                   </View>
-                  {task.assignees.length > 0 && (
+                  {(() => {
+                    const assignees = task.assignees || (task.assigned_to ? task.assigned_to.map(id => ({ id, name: 'User', avatar: id.slice(0, 2).toUpperCase() })) : []);
+                    return assignees.length > 0 && (
                     <View className="flex-row -space-x-1">
-                      {task.assignees.slice(0, 2).map((assignee, index) => (
+                      {assignees.slice(0, 2).map((assignee, index) => (
                         <View
                           key={assignee.id}
                           className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white items-center justify-center"
@@ -228,15 +237,16 @@ export const TaskCalendarView: React.FC<TaskCalendarViewProps> = ({
                           </Text>
                         </View>
                       ))}
-                      {task.assignees.length > 2 && (
+                      {assignees.length > 2 && (
                         <View className="w-6 h-6 bg-gray-400 rounded-full border-2 border-white items-center justify-center">
                           <Text className="text-white text-xs font-bold">
-                            +{task.assignees.length - 2}
+                            +{assignees.length - 2}
                           </Text>
                         </View>
                       )}
                     </View>
-                  )}
+                    );
+                  })()}
                 </View>
               </TouchableOpacity>
             ))}

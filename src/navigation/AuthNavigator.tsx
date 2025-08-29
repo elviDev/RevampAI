@@ -8,6 +8,7 @@ import { ResetPasswordScreen } from '../screens/auth/ResetPasswordScreen';
 import { BasicInfoScreen } from '../screens/auth/onboarding/BasicInfoScreen';
 import { WorkInfoScreen } from '../screens/auth/onboarding/WorkInfoScreen';
 import { OnboardingCompleteScreen } from '../screens/auth/onboarding/OnboardingCompleteScreen';
+import { EmailVerificationScreen } from '../screens/auth/EmailVerificationScreen';
 
 export type AuthStackParamList = {
   Welcome: undefined;
@@ -29,6 +30,11 @@ export type AuthStackParamList = {
   ResetPassword: {
     token: string;
   };
+  EmailVerification: {
+    email: string;
+    fromRegistration?: boolean;
+    verificationToken?: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
@@ -40,8 +46,8 @@ export const AuthNavigator: React.FC = () => {
       screenOptions={{ headerShown: false }}
     >
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
-      {/* <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} /> */}
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="BasicInfoStep" component={BasicInfoScreen} />
       <Stack.Screen name="WorkInfoStep" component={WorkInfoScreen} />
       <Stack.Screen
@@ -54,6 +60,7 @@ export const AuthNavigator: React.FC = () => {
         component={ResetPasswordScreen}
         initialParams={{ token: '' }}
       />
+      <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
     </Stack.Navigator>
   );
 };

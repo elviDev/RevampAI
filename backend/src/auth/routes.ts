@@ -170,7 +170,7 @@ export const registerAuthRoutes = async (fastify: FastifyInstance) => {
           userAgent: request.headers['user-agent'] ?? '',
         });
 
-        reply.code(200).send({
+        const responseData = {
           success: true,
           data: {
             ...tokens,
@@ -183,7 +183,15 @@ export const registerAuthRoutes = async (fastify: FastifyInstance) => {
               permissions: jwtService.decodeToken(tokens.accessToken)?.permissions || [],
             },
           },
-        });
+        };
+        
+        logger.info({ 
+          responseData: JSON.stringify(responseData).substring(0, 200) + '...', 
+          contentLength: JSON.stringify(responseData).length,
+          userId: user.id 
+        }, 'Sending login response');
+        
+        reply.code(200).send(responseData);
       } catch (error) {
         logger.error({ error, context }, 'Login failed');
 
@@ -631,6 +639,7 @@ export const registerAuthRoutes = async (fastify: FastifyInstance) => {
                 avatar_url: Type.Union([Type.String({ format: 'uri' }), Type.Null()]),
                 department: Type.Union([Type.String(), Type.Null()]),
                 job_title: Type.Union([Type.String(), Type.Null()]),
+                phone: Type.Union([Type.String(), Type.Null()]),
                 language_preference: Type.Union([Type.String(), Type.Null()]),
                 timezone: Type.Union([Type.String(), Type.Null()]),
                 notification_settings: Type.Any(),
@@ -638,6 +647,7 @@ export const registerAuthRoutes = async (fastify: FastifyInstance) => {
                 email_verified: Type.Boolean(),
                 last_active: Type.Union([Type.String({ format: 'date-time' }), Type.Null()]),
                 created_at: Type.String({ format: 'date-time' }),
+                updated_at: Type.Union([Type.String({ format: 'date-time' }), Type.Null()]),
                 permissions: Type.Array(Type.String()),
               }),
             }),
@@ -674,6 +684,7 @@ export const registerAuthRoutes = async (fastify: FastifyInstance) => {
               avatar_url: user.avatar_url,
               department: user.department,
               job_title: user.job_title,
+              phone: user.phone,
               language_preference: user.language_preference,
               timezone: user.timezone,
               notification_settings: user.notification_settings,
@@ -681,6 +692,7 @@ export const registerAuthRoutes = async (fastify: FastifyInstance) => {
               email_verified: user.email_verified,
               last_active: user.last_active,
               created_at: user.created_at,
+              updated_at: user.updated_at,
               permissions: request.user.permissions,
             },
           },
@@ -698,6 +710,104 @@ export const registerAuthRoutes = async (fastify: FastifyInstance) => {
             },
           });
         }
+      }
+    }
+  );
+
+  /**
+   * POST /auth/resend-verification - Resend email verification
+   */
+  fastify.post<{ Body: { email: string } }>(
+    '/auth/resend-verification',
+    {
+      preHandler: [authRateLimit],
+      schema: {
+        tags: ['Authentication'],
+        summary: 'Resend Email Verification',
+        description: 'Resend email verification link to the specified email address',
+        body: Type.Object({
+          email: Type.String({ format: 'email' }),
+        }),
+        response: {
+          200: Type.Object({
+            success: Type.Boolean(),
+            message: Type.String(),
+          }),
+          400: Type.Object({
+            error: Type.Object({
+              message: Type.String(),
+              code: Type.String(),
+            }),
+          }),
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Body: { email: string } }>, reply: FastifyReply) => {
+      const { email } = request.body;
+      const context = createErrorContext({
+        ip: request.ip,
+        method: request.method,
+        url: request.url,
+        headers: request.headers as Record<string, string | string[] | undefined>,
+      });
+
+      try {
+        // Check if user exists with this email
+        const user = await userRepository.findByEmail(email);
+        
+        if (!user) {
+          // Don't reveal that the email doesn't exist for security reasons
+          reply.code(200).send({
+            success: true,
+            message: 'If the email address exists, a new verification email will be sent.',
+          });
+          return;
+        }
+
+        // Check if user is already verified
+        if (user.email_verified) {
+          reply.code(200).send({
+            success: true,
+            message: 'Email address is already verified.',
+          });
+          return;
+        }
+
+        // Generate new email verification token
+        const verificationToken = jwtService.generateEmailVerificationToken(user.id, user.email);
+        await userRepository.setEmailVerificationToken(user.id, verificationToken);
+
+        // Send verification email
+        const emailSent = await emailService.sendEmailVerification({
+          userEmail: user.email,
+          userName: user.name,
+          verificationToken,
+        });
+
+        if (!emailSent) {
+          logger.warn({ userId: user.id, email: user.email }, 'Failed to send verification email');
+        }
+
+        securityLogger.logAuthEvent('email_verification_resent', {
+          userId: user.id,
+          email: user.email,
+          ip: request.ip,
+          emailSent,
+        });
+
+        reply.code(200).send({
+          success: true,
+          message: 'Verification email sent successfully. Please check your inbox and spam folder.',
+        });
+      } catch (error) {
+        logger.error({ error, context, email }, 'Resend verification failed');
+
+        reply.code(500).send({
+          error: {
+            message: 'Failed to resend verification email',
+            code: 'SERVER_ERROR',
+          },
+        });
       }
     }
   );

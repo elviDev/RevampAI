@@ -15,7 +15,7 @@ export const TaskBoardView: React.FC<TaskBoardViewProps> = ({
   filteredTasks,
   onTaskPress,
 }) => {
-  const statusColumns: TaskStatus[] = ['pending', 'in-progress', 'completed'];
+  const statusColumns: TaskStatus[] = ['pending', 'in_progress', 'completed'];
 
   return (
     <ScrollView

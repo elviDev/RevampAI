@@ -68,7 +68,8 @@ exports.ChannelTypeSchema = typebox_1.Type.Union([
     typebox_1.Type.Literal('project'),
     typebox_1.Type.Literal('department'),
     typebox_1.Type.Literal('announcement'),
-    typebox_1.Type.Literal('private')
+    typebox_1.Type.Literal('initiative'),
+    typebox_1.Type.Literal('temporary')
 ]);
 exports.ChannelPrivacySchema = typebox_1.Type.Union([
     typebox_1.Type.Literal('public'),

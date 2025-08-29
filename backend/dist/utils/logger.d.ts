@@ -52,5 +52,32 @@ export declare const securityLogger: {
      */
     logSecurityViolation: (violation: string, context: Record<string, unknown>) => void;
 };
+export declare const startupLogger: {
+    /**
+     * Log startup steps with grouped output
+     */
+    logStep: (step: string, status?: "starting" | "completed" | "failed") => void;
+    /**
+     * Log initialization summary
+     */
+    logSummary: (services: Array<{
+        name: string;
+        status: boolean;
+        duration?: number;
+    }>) => void;
+    /**
+     * Create a startup timer
+     */
+    createTimer: (name: string) => {
+        end: () => number;
+        log: (status?: "completed" | "failed") => number;
+    };
+};
+export declare const metricsLogger: {
+    /**
+     * Log metrics only when significant changes occur
+     */
+    logMetricsIfSignificant: (component: string, currentMetrics: Record<string, any>, previousMetrics?: Record<string, any>, threshold?: number) => void;
+};
 export default logger;
 //# sourceMappingURL=logger.d.ts.map

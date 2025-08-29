@@ -17,7 +17,18 @@ export interface Message {
   replies: Reply[];
   mentions: string[];
   isEdited: boolean;
-  connectedTo?: string; // For message threading
+  isOptimistic?: boolean; // Flag for optimistic updates
+  
+  // Delete support
+  deletedBy?: string; // Name of user who deleted the message
+  deletedAt?: Date; // When the message was deleted
+  
+  // Threading support
+  connectedTo?: string; // reply_to - immediate parent message ID
+  threadRoot?: string; // thread_root - root message of the thread
+  replyCount?: number; // Number of replies in this thread
+  lastReplyTimestamp?: Date; // Timestamp of last reply
+  
   aiSummary?: string;
   taskAssignments?: TaskAssignment[];
 }

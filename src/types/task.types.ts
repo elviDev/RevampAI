@@ -1,6 +1,7 @@
-export type TaskStatus = 'pending' | 'in-progress' | 'completed' | 'on-hold' | 'cancelled';
-export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
-export type TaskCategory = 'development' | 'design' | 'research' | 'meeting' | 'documentation' | 'testing' | 'deployment';
+export type TaskStatus = 'pending' | 'in_progress' | 'review' | 'completed' | 'cancelled' | 'on_hold';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent' | 'critical';
+export type TaskType = 'general' | 'project' | 'maintenance' | 'emergency' | 'research' | 'approval';
+export type TaskCategory = 'development' | 'design' | 'marketing' | 'operations' | 'research' | 'general' | 'project' | 'maintenance' | 'emergency' | 'approval';
 
 export interface TaskAssignee {
   id: string;
@@ -39,55 +40,101 @@ export interface TaskSubtask {
 export interface Task {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   status: TaskStatus;
   priority: TaskPriority;
-  category: TaskCategory;
-  assignees: TaskAssignee[];
-  reporter: TaskAssignee;
-  channelId: string;
-  channelName: string;
+  task_type: TaskType;
+  channel_id?: string;
+  channel_name?: string;
+  assigned_to: string[];
+  created_by: string;
+  owned_by?: string;
   tags: string[];
-  dueDate: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  due_date?: Date | string;
+  start_date?: Date | string;
+  created_at: Date | string;
+  updated_at: Date | string;
+  completed_at?: Date | string;
+  estimated_hours?: number;
+  actual_hours: number;
+  progress_percentage: number;
+  complexity: number;
+  watchers: string[];
+  voice_created: boolean;
+  voice_command_id?: string;
+  voice_instructions?: string;
+  business_value: 'low' | 'medium' | 'high' | 'critical';
+  labels: Record<string, any>;
+  custom_fields: Record<string, any>;
+  // Legacy fields for compatibility
+  assignees?: TaskAssignee[];
+  reporter?: TaskAssignee;
+  channelId?: string;
+  channelName?: string;
+  dueDate?: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
   completedAt?: Date;
-  estimatedHours: number;
+  estimatedHours?: number;
   actualHours?: number;
-  progress: number; // 0-100
-  subtasks: TaskSubtask[];
-  comments: TaskComment[];
-  attachments: TaskAttachment[];
-  dependencies: string[]; // Task IDs that this task depends on
-  watchers: TaskAssignee[]; // People watching this task for updates
+  progress?: number;
+  category?: string;
 }
 
 export interface TaskFilter {
   status?: TaskStatus[];
   priority?: TaskPriority[];
-  category?: TaskCategory[];
+  task_type?: TaskType[];
+  assignedTo?: string[];
+  channelId?: string;
+  dueAfter?: Date;
+  dueBefore?: Date;
+  tags?: string[];
+  voiceCreated?: boolean;
+  overdue?: boolean;
+  // Legacy fields for compatibility
+  category?: string[];
   assignee?: string[];
   channel?: string[];
   dueDate?: {
     from?: Date;
     to?: Date;
   };
-  tags?: string[];
 }
 
 export interface TaskSort {
-  field: 'dueDate' | 'priority' | 'status' | 'createdAt' | 'updatedAt' | 'title';
+  field: 'due_date' | 'priority' | 'status' | 'created_at' | 'updated_at' | 'title';
   direction: 'asc' | 'desc';
 }
 
 export interface TaskStats {
-  total: number;
-  pending: number;
-  inProgress: number;
-  completed: number;
-  overdue: number;
-  dueSoon: number; // Due within 24 hours
-  unassigned: number;
+  totalTasks: number;
+  tasksByStatus: {
+    pending: number;
+    in_progress: number;
+    review: number;
+    completed: number;
+    cancelled: number;
+    on_hold: number;
+  };
+  tasksByPriority: {
+    low: number;
+    medium: number;
+    high: number;
+    urgent: number;
+    critical: number;
+  };
+  overdueTasks: number;
+  completedThisWeek: number;
+  averageCompletionTime: number;
+  // Legacy fields for compatibility
+  total?: number;
+  pending?: number;
+  inProgress?: number;
+  completed?: number;
+  overdue?: number;
+  dueSoon?: number;
+  unassigned?: number;
 }
 
 export interface BoardColumn {
@@ -106,4 +153,48 @@ export interface TaskActivity {
   timestamp: Date;
   taskId: string;
   metadata?: any;
+}
+
+export interface CreateTaskData {
+  title: string;
+  description?: string;
+  channel_id?: string;
+  created_by: string;
+  assigned_to?: string[];
+  owned_by?: string;
+  priority?: TaskPriority;
+  task_type?: TaskType;
+  complexity?: number;
+  estimated_hours?: number;
+  due_date?: Date;
+  start_date?: Date;
+  tags?: string[];
+  labels?: Record<string, any>;
+  voice_created?: boolean;
+  voice_command_id?: string;
+  voice_instructions?: string;
+  business_value?: 'low' | 'medium' | 'high' | 'critical';
+  acceptance_criteria?: string;
+  // Legacy fields for compatibility
+  priority_legacy?: TaskPriority;
+  category?: string;
+  assignees?: string[];
+  channelId?: string;
+  dueDate?: Date;
+  estimatedHours?: number;
+}
+
+export interface UpdateTaskData {
+  title?: string;
+  description?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  category?: TaskCategory;
+  assignees?: string[];
+  channelId?: string;
+  tags?: string[];
+  dueDate?: Date;
+  estimatedHours?: number;
+  actualHours?: number;
+  progress?: number;
 }

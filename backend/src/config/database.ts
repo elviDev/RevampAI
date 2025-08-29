@@ -93,7 +93,7 @@ export const initializeDatabase = async (): Promise<void> => {
         currentTime: result.rows[0].current_time,
         postgresVersion: result.rows[0].pg_version,
       },
-      'Database connection pool initialized successfully'
+      'Database initialized'
     );
   } catch (error) {
     logger.error({ error }, 'Failed to initialize database connection pool');

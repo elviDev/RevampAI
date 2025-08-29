@@ -1,1 +1,1 @@
-{"version":3,"file":"TaskRoutes.d.ts","sourceRoot":"","sources":["../../../src/api/routes/TaskRoutes.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,eAAe,EAAgC,MAAM,SAAS,CAAC;AAyJxE;;GAEG;AACH,eAAO,MAAM,kBAAkB,GAAU,SAAS,eAAe,kBA02BhE,CAAC"}
+{"version":3,"file":"TaskRoutes.d.ts","sourceRoot":"","sources":["../../../src/api/routes/TaskRoutes.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,eAAe,EAAgC,MAAM,SAAS,CAAC;AAyJxE;;GAEG;AACH,eAAO,MAAM,kBAAkB,GAAU,SAAS,eAAe,kBA22ChE,CAAC"}

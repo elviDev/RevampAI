@@ -8,11 +8,8 @@ import {
   Platform,
   Alert,
   PermissionsAndroid,
-  Dimensions,
-  Image,
   Modal,
   Pressable,
-  FlatList,
   ScrollView,
 } from 'react-native';
 import Animated, {
@@ -34,13 +31,12 @@ import {
 import {
   pick,
   types,
-  DocumentPickerResponse,
 } from '@react-native-documents/picker';
 import {
-  launchImageLibrary,
-  ImagePickerResponse,
-  MediaType,
-} from 'react-native-image-picker';
+  launchImageLibraryAsync,
+  ImagePickerResult,
+  MediaTypeOptions,
+} from 'expo-image-picker';
 import CustomAudioRecorderPlayer from '../../services/audio/CustomAudioRecorderPlayer';
 import RNFS from 'react-native-fs';
 import Icon from 'react-native-vector-icons/Feather';
@@ -53,9 +49,9 @@ interface PromptInputProps {
   onSendRecording?: (audioUri: string, transcript?: string) => void;
   onAttachFile?: (file: any) => void;
   onAttachImage?: (image: any) => void;
-  onEnhanceText?: (text: string) => void;
+  onStartTyping?: () => void;
+  onStopTyping?: () => void;
   placeholder?: string;
-  maxLines?: number;
   disabled?: boolean;
 }
 
@@ -86,16 +82,15 @@ const DUMMY_USERS: MentionUser[] = [
   { id: '10', name: 'Amy Martinez', username: 'amymartinez' },
 ];
 
-const { width } = Dimensions.get('window');
 
 export const PromptInput: React.FC<PromptInputProps> = ({
   onSendMessage,
   onSendRecording,
   onAttachFile,
   onAttachImage,
-  onEnhanceText,
+  onStartTyping,
+  onStopTyping,
   placeholder = 'Enter a prompt here...',
-  maxLines = 4,
   disabled = false,
 }) => {
   const [text, setText] = useState('');
@@ -107,14 +102,13 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   });
   const [voiceResults, setVoiceResults] = useState<string[]>([]);
   const [isListening, setIsListening] = useState(false);
-  const [attachedFiles, setAttachedFiles] = useState<any[]>([]);
+  const [, setAttachedFiles] = useState<any[]>([]);
   const [showAttachmentModal, setShowAttachmentModal] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [voiceAvailable, setVoiceAvailable] = useState(false);
   const [selectionStart, setSelectionStart] = useState(0);
-  const [isEnhancing, setIsEnhancing] = useState(false);
 
   const audioRecorderPlayer = useRef(new CustomAudioRecorderPlayer()).current;
   const recordingTimer = useRef<NodeJS.Timeout | null>(null);
@@ -128,20 +122,25 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const sendButtonScale = useSharedValue(1);
 
   // Helper functions
-  const getWordCount = (text: string): number => {
-    return text
-      .trim()
-      .split(/\s+/)
-      .filter(word => word.length > 0).length;
-  };
 
-  const shouldShowEnhanceButton = (): boolean => {
-    const wordCount = getWordCount(text);
-    return wordCount > 0 && wordCount <= 100;
-  };
 
   const handleTextChange = (newText: string) => {
     setText(newText);
+
+    // Handle typing indicators
+    const wasEmpty = text.trim() === '';
+    const isEmpty = newText.trim() === '';
+    
+    if (!wasEmpty && isEmpty) {
+      // User cleared input - stop typing
+      onStopTyping?.();
+    } else if (wasEmpty && !isEmpty) {
+      // User started typing - start typing indicator
+      onStartTyping?.();
+    } else if (!isEmpty) {
+      // User is continuing to type - refresh typing indicator
+      onStartTyping?.();
+    }
 
     // Clear existing debounce timer
     if (debounceTimer.current) {
@@ -220,26 +219,6 @@ export const PromptInput: React.FC<PromptInputProps> = ({
     }, 50);
   };
 
-  const renderStyledText = (text: string) => {
-    const parts = text.split(/(@\w+)/g);
-    return parts.map((part, index) => {
-      if (part.match(/^@\w+$/)) {
-        return (
-          <Text
-            key={index}
-            style={{
-              fontStyle: 'italic',
-              color: '#7C3AED',
-              fontWeight: '600',
-            }}
-          >
-            {part}
-          </Text>
-        );
-      }
-      return part;
-    });
-  };
 
   const filteredMentionUsers = DUMMY_USERS.filter(
     user =>
@@ -416,7 +395,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
 
   const stopRecording = async () => {
     try {
-      const result = await audioRecorderPlayer.stopRecorder();
+      await audioRecorderPlayer.stopRecorder();
 
       if (recordingTimer.current) {
         clearInterval(recordingTimer.current);
@@ -580,21 +559,25 @@ export const PromptInput: React.FC<PromptInputProps> = ({
     }
   };
 
-  const handleImagePicker = () => {
+  const handleImagePicker = async () => {
     const options = {
-      mediaType: 'mixed' as MediaType,
-      includeBase64: false,
-      maxHeight: 2000,
-      maxWidth: 2000,
+      mediaTypes: MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3] as [number, number],
+      quality: 0.8,
     };
 
-    launchImageLibrary(options, (response: ImagePickerResponse) => {
-      if (response.assets && response.assets.length > 0) {
+    try {
+      const response: ImagePickerResult = await launchImageLibraryAsync(options);
+      if (!response.canceled && response.assets && response.assets.length > 0) {
         const image = response.assets[0];
         setAttachedFiles(prev => [...prev, image]);
         onAttachImage?.(image);
       }
-    });
+    } catch (error) {
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
   };
 
   const handleSend = () => {
@@ -610,34 +593,6 @@ export const PromptInput: React.FC<PromptInputProps> = ({
     }
   };
 
-  const handleEnhance = async () => {
-    if (!text.trim() || !shouldShowEnhanceButton() || isEnhancing) {
-      return;
-    }
-
-    setIsEnhancing(true);
-    console.log('🔄 Starting text enhancement...');
-
-    try {
-      const enhancedText = await openAIService.enhanceText(text.trim());
-      setText(enhancedText);
-      console.log('✅ Text enhanced successfully');
-
-      // Optionally call the callback if provided
-      onEnhanceText?.(enhancedText);
-    } catch (error) {
-      console.error('❌ Enhancement failed:', error);
-      Alert.alert(
-        'Enhancement Failed',
-        error instanceof Error
-          ? error.message
-          : 'Unable to enhance text. Please try again.',
-        [{ text: 'OK' }],
-      );
-    } finally {
-      setIsEnhancing(false);
-    }
-  };
 
   const handleFocus = () => {
     // Remove animations to prevent flickering
@@ -653,9 +608,6 @@ export const PromptInput: React.FC<PromptInputProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const removeAttachment = (index: number) => {
-    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
-  };
 
   const recordingAnimatedStyle = useAnimatedStyle(() => {
     const pulseScale = interpolate(pulseAnimation.value, [0, 1], [1, 1.1]);
@@ -666,9 +618,6 @@ export const PromptInput: React.FC<PromptInputProps> = ({
     };
   });
 
-  const sendButtonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: sendButtonScale.value }],
-  }));
 
   if (disabled) {
     return (

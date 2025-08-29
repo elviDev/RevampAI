@@ -16,10 +16,18 @@ const loggerConfig = {
             colorize: true,
             translateTime: 'HH:MM:ss Z',
             ignore: 'pid,hostname',
+            messageFormat: '{time} [{level}] {component}: {msg}',
+            hideObject: false,
+            singleLine: false,
           },
         },
       }
     : {}),
+  // Reduce noise from frequent operations
+  redact: {
+    paths: ['password', 'token', 'secret', 'key'],
+    censor: '[REDACTED]'
+  },
 };
 
 // Create base logger
@@ -85,11 +93,20 @@ export const performanceLogger = {
     const operationLogger = logger.withContext({ operation: operationName, ...context });
     
     try {
-      operationLogger.info('Operation started');
+      // Only log start for critical operations or when debug level is enabled
+      if (config.logging.level === 'debug' || operationName.includes('migration') || operationName.includes('startup')) {
+        operationLogger.debug('Operation started');
+      }
+      
       const result = await operation();
       const duration = Date.now() - startTime;
       
-      operationLogger.info({ duration }, 'Operation completed successfully');
+      // Only log completion for operations that take > 500ms or are critical
+      if (duration > 500 || operationName.includes('migration') || operationName.includes('startup')) {
+        operationLogger.info({ duration }, 'Operation completed');
+      } else if (config.logging.level === 'debug') {
+        operationLogger.debug({ duration }, 'Operation completed');
+      }
       
       // Log performance warning if operation takes too long
       if (duration > 1000) {
@@ -170,6 +187,87 @@ export const securityLogger = {
   logSecurityViolation: (violation: string, context: Record<string, unknown>) => {
     loggers.security.error({ violation, ...context }, 'Security violation detected');
   },
+};
+
+// Startup logging utilities to reduce verbosity during initialization
+export const startupLogger = {
+  /**
+   * Log startup steps with grouped output
+   */
+  logStep: (step: string, status: 'starting' | 'completed' | 'failed' = 'starting') => {
+    switch (status) {
+      case 'starting':
+        logger.info(`📋 ${step}...`);
+        break;
+      case 'completed':
+        logger.info(`✅ ${step}`);
+        break;
+      case 'failed':
+        logger.error(`❌ ${step}`);
+        break;
+    }
+  },
+
+  /**
+   * Log initialization summary
+   */
+  logSummary: (services: Array<{ name: string; status: boolean; duration?: number }>) => {
+    logger.info('\n🚀 Server Initialization Summary:');
+    services.forEach(service => {
+      const status = service.status ? '✅' : '❌';
+      const duration = service.duration ? ` (${service.duration}ms)` : '';
+      logger.info(`   ${status} ${service.name}${duration}`);
+    });
+  },
+
+  /**
+   * Create a startup timer
+   */
+  createTimer: (name: string) => {
+    const start = Date.now();
+    return {
+      end: () => Date.now() - start,
+      log: (status: 'completed' | 'failed' = 'completed') => {
+        const duration = Date.now() - start;
+        startupLogger.logStep(`${name} (${duration}ms)`, status);
+        return duration;
+      }
+    };
+  }
+};
+
+// Utility to reduce metrics logging noise
+export const metricsLogger = {
+  /**
+   * Log metrics only when significant changes occur
+   */
+  logMetricsIfSignificant: (
+    component: string,
+    currentMetrics: Record<string, any>,
+    previousMetrics?: Record<string, any>,
+    threshold = 0.1
+  ) => {
+    if (!previousMetrics) {
+      loggers[component as keyof typeof loggers]?.info({ metrics: currentMetrics }, `${component} metrics`);
+      return;
+    }
+
+    // Check if metrics have changed significantly
+    let hasSignificantChange = false;
+    for (const [key, value] of Object.entries(currentMetrics)) {
+      if (typeof value === 'number' && typeof previousMetrics[key] === 'number') {
+        const change = Math.abs(value - previousMetrics[key]) / (previousMetrics[key] || 1);
+        if (change > threshold) {
+          hasSignificantChange = true;
+          break;
+        }
+      }
+    }
+
+    if (hasSignificantChange) {
+      loggers[component as keyof typeof loggers]?.info({ metrics: currentMetrics }, `${component} metrics`);
+    }
+  }
 };
 
 // Export default logger

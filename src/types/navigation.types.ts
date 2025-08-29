@@ -16,10 +16,28 @@ export type MainStackParamList = {
     channelName: string;
     members: any[];
   };
+  ThreadScreen: {
+    parentMessage: any;
+    channelId: string;
+    channelName: string;
+    members: any[];
+    onUpdateMessage: (messageId: string, replies: any[]) => void;
+  };
   TaskDetailScreen: {
     taskId: string;
   };
-  TaskCreateScreen: undefined;
+  TaskDetail: {
+    taskId: string;
+  };
+  TaskCreateScreen: {
+    taskId?: string;
+    channelId?: string;
+  };
+  TasksScreen: undefined;
+  UserProfile: {
+    userId?: string;
+  };
+  AdminDashboard: undefined;
 };
 
 // Auth Navigator Types

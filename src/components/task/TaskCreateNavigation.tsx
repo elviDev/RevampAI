@@ -13,6 +13,7 @@ interface TaskCreateNavigationProps {
   isLoading?: boolean;
   canGoBack?: boolean;
   buttonScale: any;
+  completeText?: string;
 }
 
 export const TaskCreateNavigation: React.FC<TaskCreateNavigationProps> = ({
@@ -24,6 +25,7 @@ export const TaskCreateNavigation: React.FC<TaskCreateNavigationProps> = ({
   isLoading = false,
   canGoBack = true,
   buttonScale,
+  completeText = 'Create Task',
 }) => {
   const animatedButtonStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
@@ -72,7 +74,7 @@ export const TaskCreateNavigation: React.FC<TaskCreateNavigationProps> = ({
                   <MaterialIcon name="check-circle" size={22} color="white" />
                 )}
                 <Text className="text-white font-bold text-base ml-2">
-                  {isLoading ? 'Creating...' : 'Create Task'}
+                  {isLoading ? (completeText === 'Update Task' ? 'Updating...' : 'Creating...') : completeText}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>

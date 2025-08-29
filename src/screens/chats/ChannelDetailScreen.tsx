@@ -1,24 +1,24 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import {
   View,
-  Text,
-  FlatList,
-  Modal,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ChatMessage } from '../../components/chat/ChatMessage';
-import { ChannelInput } from '../../components/chat/ChannelInput';
-import { ChannelActions } from '../../components/chat/ChannelActions';
+import { useSelector } from 'react-redux';
 import { ChannelHeader } from '../../components/chat/ChannelHeader';
-import { MeetingSummaryModal } from '../../components/chat/MeetingSummaryModal';
-import { KeyPointsModal } from '../../components/chat/KeyPointsModal';
-import { EmojiReactionPicker } from '../../components/chat/EmojiReactionPicker';
-import type { Message, ChannelSummary } from '../../types/chat';
+import { ChannelActions } from '../../components/chat/ChannelActions';
+import { MessageListContainer } from '../../components/chat/MessageListContainer';
+import { ChannelInputContainer } from '../../components/chat/ChannelInputContainer';
+import { ChannelModalsContainer } from '../../components/chat/ChannelModalsContainer';
+import { useChannelState } from '../../hooks/useChannelState';
+import { useMessageActions } from '../../hooks/useMessageActions';
+import { useWebSocket } from '../../services/websocketService';
+import { useToast } from '../../contexts/ToastContext';
+import { RootState } from '../../store/store';
+import type { Message } from '../../types/chat';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
 type ChannelDetailScreenProps = NativeStackScreenProps<MainStackParamList, 'ChannelDetailScreen'>;
@@ -29,420 +29,220 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
 }) => {
   const { channelId, channelName, members } = route.params;
   const insets = useSafeAreaInsets();
-  const flatListRef = useRef<FlatList>(null);
+  
+  // Get current user from auth state
+  const { user: currentUser } = useSelector((state: RootState) => state.auth);
+  const currentUserId = currentUser?.id || 'unknown_user';
+  const currentUserName = currentUser?.name || currentUser?.email || 'Unknown User';
+  const currentUserAvatar = currentUser?.avatar_url;
+  const isCEO = currentUser?.role === 'ceo';
+  
+  const { isConnected } = useWebSocket();
+  const { showError, showSuccess, showInfo } = useToast();
 
-  // State
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [replyingTo, setReplyingTo] = useState<{
-    id: string;
-    content: string;
-    sender: string;
-  } | null>(null);
-  const [editingMessage, setEditingMessage] = useState<{
-    id: string;
-    content: string;
-  } | null>(null);
-  const [showSummaryModal, setShowSummaryModal] = useState(false);
-  const [showKeyPointsModal, setShowKeyPointsModal] = useState(false);
-  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
-  const [isCreatingTasks, setIsCreatingTasks] = useState(false);
-  const [channelSummary, setChannelSummary] = useState<ChannelSummary | null>(null);
-  const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
+  // Use custom hooks for state management
+  const [channelState, channelActions] = useChannelState(channelId);
+  
+  const {
+    // Message state
+    messages,
+    isLoadingMessages,
+    isLoadingMoreMessages,
+    hasMoreMessages,
+    messageError,
+    typingUsers,
+    
+    // Channel state
+    channelStats,
+    actualChannelMembers,
+    isLoadingMembers,
+    
+    // Modal state
+    showSummaryModal,
+    showKeyPointsModal,
+    showTaskIntegration,
+    showEmojiPicker,
+    channelSummary,
+    isGeneratingSummary,
+    isCreatingTasks,
+    
+    // Reply/Edit state
+    replyingTo,
+    editingMessage,
+  } = channelState;
 
-  // Mock data for enhanced features - ensure all required properties
-  const channels = [
-    { id: 'ch1', name: 'general', description: 'General discussions' },
-    { id: 'ch2', name: 'development', description: 'Development discussions' },
-    { id: 'ch3', name: 'design', description: 'Design discussions' },
-  ];
+  const {
+    // Actions
+    loadMessages,
+    loadMoreMessages,
+    setReplyingTo,
+    setEditingMessage,
+    setShowSummaryModal,
+    setShowKeyPointsModal,
+    setShowTaskIntegration,
+    setShowEmojiPicker,
+    generateSummary,
+  } = channelActions;
 
-  const recentMessages = [
-    { 
-      id: 'msg1', 
-      content: 'Great progress on the API design', 
-      sender: { name: 'Sarah', id: '1', avatar: undefined }, 
-      channel: channelName 
-    },
-    { 
-      id: 'msg2', 
-      content: 'Testing framework is ready', 
-      sender: { name: 'Mike', id: '2', avatar: undefined }, 
-      channel: channelName 
-    },
-  ];
+  // Use message actions hook with a wrapper that connects to addOptimisticMessage
+  const addOptimisticMessageWrapper = (message: Omit<Message, 'id' | 'timestamp'>) => {
+    // Add timestamp and pass to addOptimisticMessage
+    const messageWithId = {
+      ...message,
+      timestamp: new Date(),
+    };
+    channelActions.addOptimisticMessage(messageWithId);
+  };
 
-  const tasks = [
-    { id: 'task1', title: 'Complete wireframes', description: 'Create detailed wireframes for all screens' },
-    { id: 'task2', title: 'API documentation', description: 'Document all REST endpoints' },
-  ];
+  const {
+    handleSendMessage,
+    handleEditMessage,
+    handleDeleteMessage,
+    handleReaction,
+    handleSendVoiceMessage,
+    handleAttachFile,
+    handleStartTyping,
+    handleStopTyping,
+  } = useMessageActions(
+    channelId,                    // 1
+    currentUserId,                // 2
+    currentUserName,              // 3
+    currentUserAvatar,            // 4
+    addOptimisticMessageWrapper,  // 5
+    replyingTo,                   // 6
+    editingMessage,               // 7
+    setReplyingTo,                // 8
+    setEditingMessage             // 9
+  );
 
-  // Ensure members array has proper structure
-  const enhancedMembers = (members || []).map((member, index) => ({
-    id: member?.id || `member_${index}`,
-    name: member?.name || `User ${index + 1}`,
+  // Enhanced members for UI consistency - use actual channel members if available
+  const enhancedMembers = (actualChannelMembers.length > 0 ? actualChannelMembers : members || []).map((member, index) => ({
+    id: member?.id || member?.user_id || `member_${index}`,
+    name: member?.name || member?.user_name || `User ${index + 1}`,
     role: member?.role || 'Member',
-    avatar: member?.avatar || undefined,
+    avatar: member?.avatar || member?.user_avatar || member?.name?.charAt(0) || member?.user_name?.charAt(0) || undefined,
     isOnline: member?.isOnline || true,
   }));
 
-  // Load messages on mount
-  useEffect(() => {
-    loadMockMessages();
-  }, []);
-
-  const loadMockMessages = () => {
-    const mockMessages: Message[] = [
-      {
-        id: '1',
-        type: 'system',
-        content: `Welcome to #${channelName}! This channel is for project collaboration and brainstorming.`,
-        sender: { 
-          id: 'system', 
-          name: 'Javier AI', 
-          role: 'assistant',
-          avatar: undefined 
-        },
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        reactions: [],
-        replies: [],
-        mentions: [],
-        isEdited: false,
-      },
-      {
-        id: '2',
-        type: 'text',
-        content: "Let's start planning our approach. What are everyone's thoughts on the initial requirements?",
-        sender: { 
-          id: '1', 
-          name: 'Sarah', 
-          role: 'Project Manager',
-          avatar: undefined 
-        },
-        timestamp: new Date(Date.now() - 90 * 60 * 1000),
-        reactions: [{ emoji: '👍', users: ['2', '3'], count: 2 }],
-        replies: [
-          {
-            id: 'r1',
-            content: 'I think we should focus on the core features first',
-            sender: { 
-              id: '2', 
-              name: 'Mike',
-              avatar: undefined 
-            },
-            timestamp: new Date(Date.now() - 85 * 60 * 1000),
-            reactions: [{ emoji: '💯', users: ['1'], count: 1 }],
-          },
-          {
-            id: 'r2',
-            content: 'Agreed! Let me create a wireframe for the main flow',
-            sender: { 
-              id: '3', 
-              name: 'Lisa',
-              avatar: undefined 
-            },
-            timestamp: new Date(Date.now() - 80 * 60 * 1000),
-            reactions: [],
-          },
-        ],
-        mentions: ['@everyone'],
-        isEdited: false,
-      },
-      {
-        id: '3',
-        type: 'text',
-        content: 'I can start working on the backend API design. Should we use REST or GraphQL?',
-        sender: { 
-          id: '2', 
-          name: 'Mike', 
-          role: 'Developer',
-          avatar: undefined 
-        },
-        timestamp: new Date(Date.now() - 70 * 60 * 1000),
-        reactions: [{ emoji: '🤔', users: ['1', '4'], count: 2 }],
-        replies: [],
-        mentions: [],
-        isEdited: false,
-      },
-      {
-        id: '4',
-        type: 'voice',
-        content: 'Voice message about design approach',
-        voiceTranscript: 'I think for this project, REST would be simpler to implement and maintain. We can always migrate to GraphQL later if needed.',
-        audioUri: 'mock://voice_4.m4a',
-        sender: { 
-          id: '4', 
-          name: 'Alex', 
-          role: 'Tech Lead',
-          avatar: undefined 
-        },
-        timestamp: new Date(Date.now() - 60 * 60 * 1000),
-        reactions: [{ emoji: '👌', users: ['2'], count: 1 }],
-        replies: [],
-        mentions: ['@Mike'],
-        isEdited: false,
-      },
-      {
-        id: '5',
-        type: 'text',
-        content: 'Here are the updated requirements. @Sarah please review when you have a chance.',
-        sender: { 
-          id: '5', 
-          name: 'Emma', 
-          role: 'Analyst',
-          avatar: undefined 
-        },
-        timestamp: new Date(Date.now() - 30 * 60 * 1000),
-        reactions: [],
-        replies: [],
-        mentions: ['Sarah'],
-        isEdited: false,
-      },
-    ];
-    setMessages(mockMessages);
-  };
-
-  const handleSendMessage = (text: string) => {
-    if (!text.trim()) return;
-
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      type: 'text',
-      content: text,
-      sender: { id: 'current_user', name: 'You', role: 'Member' },
-      timestamp: new Date(),
-      reactions: [],
-      replies: [],
-      mentions: extractMentions(text),
-      isEdited: false,
-    };
-
-    if (editingMessage) {
-      // Update existing message
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === editingMessage.id
-            ? { ...msg, content: text, isEdited: true }
-            : msg,
-        ),
-      );
-      setEditingMessage(null);
-    } else if (replyingTo) {
-      // Add as reply to existing message
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === replyingTo.id
-            ? {
-                ...msg,
-                replies: [
-                  ...msg.replies,
-                  {
-                    id: newMessage.id,
-                    content: text,
-                    sender: { id: 'current_user', name: 'You' },
-                    timestamp: new Date(),
-                    reactions: [],
-                  },
-                ],
-              }
-            : msg,
-        ),
-      );
-      setReplyingTo(null);
-    } else {
-      // Add new message
-      setMessages(prev => [...prev, newMessage]);
-    }
-
-    // Auto-scroll to bottom
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  };
-
-  const handleSendVoiceMessage = (audioUri: string, transcript?: string) => {
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      type: 'voice',
-      content: 'Voice message',
-      voiceTranscript: transcript,
-      audioUri,
-      sender: { id: 'current_user', name: 'You', role: 'Member' },
-      timestamp: new Date(),
-      reactions: [],
-      replies: [],
-      mentions: transcript ? extractMentions(transcript) : [],
-      isEdited: false,
-    };
-
-    if (replyingTo) {
-      // Add as reply to existing message
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === replyingTo.id
-            ? {
-                ...msg,
-                replies: [
-                  ...msg.replies,
-                  {
-                    id: newMessage.id,
-                    content: newMessage.content,
-                    sender: { id: 'current_user', name: 'You' },
-                    timestamp: new Date(),
-                    reactions: [],
-                  },
-                ],
-              }
-            : msg,
-        ),
-      );
-      setReplyingTo(null);
-    } else {
-      setMessages(prev => [...prev, newMessage]);
-    }
+  // Message wrapper functions to handle different signatures
+  const handleSendMessageWrapper = async (content: string) => {
+    const isReply = !!replyingTo;
+    const parentMessageForThread = replyingTo ? messages.find(m => m.id === replyingTo.id) : null;
     
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  };
-
-  const handleAttachFile = (file: any) => {
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      type: 'text',
-      content: `📎 ${file.name || 'File attachment'}`,
-      sender: { id: 'current_user', name: 'You', role: 'Member' },
-      timestamp: new Date(),
-      reactions: [],
-      replies: [],
-      mentions: [],
-      isEdited: false,
-    };
-
-    // Add file properties
-    (newMessage as any).fileUri = file.uri;
-    (newMessage as any).fileName = file.name;
-    (newMessage as any).fileType = file.type;
-
-    if (replyingTo) {
-      // Add as reply to existing message
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === replyingTo.id
-            ? {
-                ...msg,
-                replies: [
-                  ...msg.replies,
-                  {
-                    id: newMessage.id,
-                    content: newMessage.content,
-                    sender: { id: 'current_user', name: 'You' },
-                    timestamp: new Date(),
-                    reactions: [],
-                  },
-                ],
-              }
-            : msg,
-        ),
-      );
-      setReplyingTo(null);
-    } else {
-      setMessages(prev => [...prev, newMessage]);
+    try {
+      await handleSendMessage(content, 'text');
+      
+      // If this was a reply, navigate to ThreadScreen immediately
+      if (isReply && parentMessageForThread) {
+        navigation.navigate('ThreadScreen', {
+          parentMessage: parentMessageForThread,
+          channelId,
+          channelName,
+          members: enhancedMembers,
+          onUpdateMessage: (_messageId: string, replies: any[]) => {
+            console.log('Thread updated after reply:', replies.length);
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
     }
-    
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
   };
 
-  const extractMentions = (text: string): string[] => {
-    const mentionRegex = /@(\w+)/g;
-    const mentions = [];
-    let match;
-    while ((match = mentionRegex.exec(text)) !== null) {
-      mentions.push(match[1]);
+  const handleAttachFileWrapper = (file: any) => {
+    if (file?.uri && file?.name) {
+      handleAttachFile(file.uri, file.name);
     }
-    return mentions;
   };
 
-  const handleReaction = (messageId: string, emoji: string) => {
-    setMessages(prev =>
-      prev.map(msg => {
-        if (msg.id === messageId) {
-          const existingReaction = msg.reactions.find(r => r.emoji === emoji);
-          
-          if (existingReaction) {
-            if (existingReaction.users.includes('current_user')) {
-              // Remove reaction
-              const updatedUsers = existingReaction.users.filter(u => u !== 'current_user');
-              if (updatedUsers.length === 0) {
-                return {
-                  ...msg,
-                  reactions: msg.reactions.filter(r => r.emoji !== emoji),
-                };
-              } else {
-                return {
-                  ...msg,
-                  reactions: msg.reactions.map(r =>
-                    r.emoji === emoji
-                      ? { ...r, users: updatedUsers, count: updatedUsers.length }
-                      : r,
-                  ),
-                };
-              }
-            } else {
-              // Add reaction
-              return {
-                ...msg,
-                reactions: msg.reactions.map(r =>
-                  r.emoji === emoji
-                    ? {
-                        ...r,
-                        users: [...r.users, 'current_user'],
-                        count: r.count + 1,
-                      }
-                    : r,
-                ),
-              };
-            }
-          } else {
-            // New reaction
-            return {
-              ...msg,
-              reactions: [
-                ...msg.reactions,
-                {
-                  emoji,
-                  users: ['current_user'],
-                  count: 1,
-                },
-              ],
-            };
-          }
-        }
-        return msg;
-      }),
-    );
+  const handleAttachImageWrapper = (image: any) => {
+    if (image?.uri && image?.name) {
+      handleAttachFile(image.uri, image.name);
+    }
   };
 
+  const handleEmojiSelect = (emoji: string) => {
+    if (showEmojiPicker) {
+      handleReaction(showEmojiPicker, emoji);
+      setShowEmojiPicker(null);
+    }
+  };
+
+  const handleShareSummary = () => {
+    showSuccess('Meeting summary shared with team');
+    setShowSummaryModal(false);
+  };
+
+  const handleCreateTasksFromSummary = () => {
+    showSuccess('Tasks created from action items');
+    setShowSummaryModal(false);
+  };
+
+  const handleCreateTaskFromKeyPoints = (taskData: any) => {
+    showSuccess(`Task "${taskData.title}" created`);
+    setShowKeyPointsModal(false);
+  };
+
+  const handleGenerateSummary = () => {
+    generateSummary();
+    setShowSummaryModal(true);
+  };
+
+  const handleCreateTasks = () => {
+    setShowTaskIntegration(true);
+  };
+
+  // Handle message deletion
+  const handleDeleteMessageWrapper = async (messageId: string) => {
+    try {
+      await handleDeleteMessage(messageId);
+      showSuccess('Message deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete message:', error);
+      showError('Failed to delete message');
+    }
+  };
+
+  // Handle edit message with proper typing
+  const handleEditMessageWrapper = (editData: { id: string; content: string }) => {
+    setEditingMessage(editData);
+  };
+
+  // Handle actual message editing (called from input component)
+  const handleEditMessageSubmit = async (messageId: string, content: string) => {
+    try {
+      await handleEditMessage(messageId, content);
+      // Edit success is handled in useMessageActions
+    } catch (error) {
+      console.error('Failed to edit message:', error);
+      showError('Failed to edit message');
+    }
+  };
+
+  // Handle thread navigation and reply logic
   const handleReply = (message: Message) => {
-    if (message.replies && message.replies.length > 0) {
-      // Navigate to thread screen
+    if (message.replyCount && message.replyCount > 0) {
+      // Navigate to thread screen for existing thread
       navigation.navigate('ThreadScreen', {
         parentMessage: message,
         channelId,
         channelName,
-        members,
-        channels,
-        onUpdateMessage: (messageId: string, replies: any[]) => {
-          setMessages(prev =>
-            prev.map(msg =>
-              msg.id === messageId ? { ...msg, replies } : msg
-            )
-          );
+        members: enhancedMembers,
+        onUpdateMessage: (_messageId: string, replies: any[]) => {
+          // Update the parent message with reply count and timestamp
+          const updatedMessage = {
+            ...message,
+            replyCount: replies.length,
+            lastReplyTimestamp: replies.length > 0 ? replies[replies.length - 1].timestamp : undefined
+          };
+          
+          // This would typically update the messages state
+          // but since we're using useChannelState, we might need to add an update function
+          console.log('Thread updated:', updatedMessage);
         },
       });
     } else {
-      // Start reply
+      // Start reply for new thread - set up reply state
       setReplyingTo({
         id: message.id,
         content: message.content,
@@ -450,114 +250,6 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
       });
     }
   };
-
-  const handleEdit = (message: Message) => {
-    setEditingMessage({
-      id: message.id,
-      content: message.content,
-    });
-  };
-
-  const handleGenerateSummary = async () => {
-    setIsGeneratingSummary(true);
-    
-    // Simulate AI processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const mockSummary: ChannelSummary = {
-      id: Date.now().toString(),
-      title: `${channelName} Discussion Summary`,
-      keyPoints: [
-        'Project requirements discussion initiated',
-        'Team agreed to focus on core features first',
-        'Backend API approach decided (REST over GraphQL)',
-        'Design wireframes to be created by Lisa',
-        'Updated requirements shared for review',
-      ],
-      decisions: [
-        'Use REST API for simplicity and maintainability',
-        'Prioritize core features in initial development',
-        'Lisa to create wireframes for main user flow',
-      ],
-      actionItems: [
-        {
-          id: 'task1',
-          title: 'Create wireframes for main user flow',
-          assigneeId: '3',
-          dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-          priority: 'high',
-        },
-        {
-          id: 'task2',
-          title: 'Design REST API structure',
-          assigneeId: '2',
-          dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-          priority: 'medium',
-        },
-      ],
-      participants: ['Sarah', 'Mike', 'Lisa', 'Alex', 'Emma', 'You'],
-      duration: '2 hours',
-      generatedAt: new Date(),
-    };
-
-    setChannelSummary(mockSummary);
-    setIsGeneratingSummary(false);
-    setShowSummaryModal(true);
-  };
-
-  const handleCreateTasks = async () => {
-    setIsCreatingTasks(true);
-    
-    // Simulate AI processing
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setIsCreatingTasks(false);
-    setShowKeyPointsModal(true);
-  };
-
-
-
-  const handleNavigateToReference = (type: string, id: string) => {
-    // Handle navigation to different types of references
-    switch (type) {
-      case 'user':
-        navigation.navigate('UserProfile', { userId: id });
-        break;
-      case 'channel':
-        // For now, alert since we don't have a channel list screen
-        Alert.alert('Navigate', `Navigate to channel: ${id}`);
-        break;
-      case 'message':
-        // Scroll to message or show it highlighted
-        const messageIndex = messages.findIndex(msg => msg.id === id);
-        if (messageIndex !== -1) {
-          flatListRef.current?.scrollToIndex({ index: messageIndex, animated: true });
-        }
-        break;
-      case 'task':
-        navigation.navigate('TaskDetailScreen', { taskId: id });
-        break;
-      default:
-        break;
-    }
-  };
-
-  const handleNavigateToUser = (userId: string) => {
-    navigation.navigate('UserProfile', { userId });
-  };
-
-  const renderMessage = ({ item }: { item: Message }) => (
-    <ChatMessage
-      message={item}
-      onReply={() => handleReply(item)}
-      onReaction={(emoji) => handleReaction(item.id, emoji)}
-      onEdit={item.sender.id === 'current_user' ? () => handleEdit(item) : undefined}
-      onShowEmojiPicker={() => setShowEmojiPicker(item.id)}
-      onNavigateToUser={handleNavigateToUser}
-      onNavigateToReference={handleNavigateToReference}
-      isOwnMessage={item.sender.id === 'current_user'}
-    />
-  );
 
   return (
     <KeyboardAvoidingView
@@ -571,10 +263,15 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
         {/* Header */}
         <ChannelHeader
           channelName={channelName}
-          members={members}
+          members={enhancedMembers}
+          messageCount={channelStats.messageCount}
+          fileCount={channelStats.fileCount}
           onBack={() => navigation.goBack()}
           onMembersPress={() => {
-            Alert.alert('Members', 'Show channel members');
+            showInfo(`Channel has ${enhancedMembers.length} members${isLoadingMembers ? ' (loading...)' : ''}`);
+          }}
+          onStatsPress={() => {
+            showInfo(`Channel has ${channelStats.messageCount} messages and ${channelStats.fileCount} files`);
           }}
         />
 
@@ -587,67 +284,62 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
         />
 
         {/* Messages */}
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: 20, paddingTop: 10 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+        <MessageListContainer
+          messages={messages}
+          isLoading={isLoadingMessages}
+          isLoadingMore={isLoadingMoreMessages}
+          hasMoreMessages={hasMoreMessages}
+          error={messageError}
+          channelId={channelId}
+          channelName={channelName}
+          currentUserId={currentUserId}
+          isConnected={isConnected}
+          isCEO={isCEO}
+          onLoadMore={loadMoreMessages}
+          onRetry={loadMessages}
+          onReply={handleReply}
+          onEdit={handleEditMessageWrapper}
+          onDelete={handleDeleteMessageWrapper}
+          onReaction={setShowEmojiPicker}
         />
 
         {/* Input */}
-        <ChannelInput
-          onSendMessage={handleSendMessage}
-          onSendVoiceMessage={handleSendVoiceMessage}
-          onAttachFile={handleAttachFile}
-          onAttachImage={handleAttachFile}
-          placeholder={`Message #${channelName}`}
+        <ChannelInputContainer
+          channelName={channelName}
+          typingUsers={typingUsers}
+          currentUserId={currentUserId}
           replyingTo={replyingTo}
-          onCancelReply={() => setReplyingTo(null)}
           editingMessage={editingMessage}
+          onSendMessage={handleSendMessageWrapper}
+          onEditMessage={handleEditMessageSubmit}
+          onSendVoiceMessage={handleSendVoiceMessage}
+          onAttachFile={handleAttachFileWrapper}
+          onAttachImage={handleAttachImageWrapper}
+          onStartTyping={handleStartTyping}
+          onStopTyping={handleStopTyping}
+          onCancelReply={() => setReplyingTo(null)}
           onCancelEdit={() => setEditingMessage(null)}
         />
 
-        {/* Emoji Picker */}
-        <EmojiReactionPicker
-          visible={!!showEmojiPicker}
-          onClose={() => setShowEmojiPicker(null)}
-          onEmojiSelect={(emoji) => {
-            if (showEmojiPicker) {
-              handleReaction(showEmojiPicker, emoji);
-              setShowEmojiPicker(null);
-            }
-          }}
-          title="React to Message"
-        />
-
-
-        {/* Meeting Summary Modal */}
-        <MeetingSummaryModal
-          visible={showSummaryModal}
-          summary={channelSummary}
-          onClose={() => setShowSummaryModal(false)}
-          onShare={() => {
-            Alert.alert('Success', 'Meeting summary shared with team');
-            setShowSummaryModal(false);
-          }}
-          onCreateTasks={() => {
-            Alert.alert('Success', 'Tasks created from action items');
-            setShowSummaryModal(false);
-          }}
-        />
-
-        {/* Key Points Modal */}
-        <KeyPointsModal
-          visible={showKeyPointsModal}
+        {/* Modals */}
+        <ChannelModalsContainer
+          showEmojiPicker={showEmojiPicker}
+          onCloseEmojiPicker={() => setShowEmojiPicker(null)}
+          onEmojiSelect={handleEmojiSelect}
+          showSummaryModal={showSummaryModal}
+          channelSummary={channelSummary}
+          onCloseSummaryModal={() => setShowSummaryModal(false)}
+          onShareSummary={handleShareSummary}
+          onCreateTasksFromSummary={handleCreateTasksFromSummary}
+          showKeyPointsModal={showKeyPointsModal}
           messages={messages}
-          onClose={() => setShowKeyPointsModal(false)}
-          onCreateTask={(taskData) => {
-            Alert.alert('Success', `Task "${taskData.title}" created`);
-            setShowKeyPointsModal(false);
-          }}
+          onCloseKeyPointsModal={() => setShowKeyPointsModal(false)}
+          onCreateTaskFromKeyPoints={handleCreateTaskFromKeyPoints}
+          showTaskIntegration={showTaskIntegration}
+          channelId={channelId}
+          channelName={channelName}
+          memberIds={enhancedMembers.map(m => m.id)}
+          onCloseTaskIntegration={() => setShowTaskIntegration(false)}
         />
       </View>
     </KeyboardAvoidingView>

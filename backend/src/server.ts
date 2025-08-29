@@ -3,7 +3,7 @@ import { config } from './config/index';
 import { initializeDatabase, healthCheck as dbHealthCheck } from './config/database';
 import { redisManager } from './config/redis';
 import { socketManager } from './websocket/SocketManager';
-import { logger, performanceLogger, loggers } from './utils/logger';
+import { logger, performanceLogger, loggers, startupLogger } from './utils/logger';
 import {
   BaseError,
   formatErrorResponse,
@@ -28,9 +28,6 @@ class APIServer {
   private isShuttingDown = false;
 
   constructor() {
-    // Create HTTP server for both Fastify and Socket.IO
-    this.httpServer = createServer();
-
     this.app = Fastify({
       logger: false, // We use pino directly
       requestIdLogLabel: 'requestId',
@@ -43,10 +40,6 @@ class APIServer {
       ignoreDuplicateSlashes: true,
       maxParamLength: 500,
       trustProxy: true,
-      serverFactory: (handler) => {
-        this.httpServer!.on('request', handler);
-        return this.httpServer!;
-      },
     });
 
     this.setupGlobalHooks();
@@ -103,12 +96,12 @@ class APIServer {
       crossOriginEmbedderPolicy: false,
     });
 
-    // Request/Response compression
-    await this.app.register(import('@fastify/compress'), {
-      global: true,
-      encodings: ['gzip', 'deflate'],
-      threshold: 1024,
-    });
+    // Request/Response compression - temporarily disabled for debugging
+    // await this.app.register(import('@fastify/compress'), {
+    //   global: true,
+    //   encodings: ['gzip', 'deflate'],
+    //   threshold: 1024,
+    // });
 
     // Rate limiting (global)
     await this.app.register(import('@fastify/rate-limit'), {
@@ -210,7 +203,7 @@ class APIServer {
       transformStaticCSP: (header) => header
     });
 
-    logger.info('Core plugins registered');
+    logger.debug('Core plugins registered');
   }
 
   /**
@@ -221,7 +214,7 @@ class APIServer {
     this.app.decorate('authenticate', authenticate);
     this.app.decorate('optionalAuthenticate', optionalAuthenticate);
 
-    logger.info('Security plugins registered');
+    logger.debug('Security plugins registered');
   }
 
   /**
@@ -246,7 +239,7 @@ class APIServer {
       }
     });
 
-    logger.info('Validation plugins registered');
+    logger.debug('Validation plugins registered');
   }
 
   /**
@@ -305,7 +298,7 @@ class APIServer {
       );
     });
 
-    logger.info('Middleware setup complete');
+    logger.debug('Middleware setup complete');
   }
 
   /**
@@ -469,7 +462,7 @@ class APIServer {
       });
     });
 
-    logger.info('Routes registered successfully');
+    logger.debug('Routes registered successfully');
   }
 
   /**
@@ -554,7 +547,7 @@ class APIServer {
       });
     });
 
-    logger.info('Error handling setup complete');
+    logger.debug('Error handling setup complete');
   }
 
   /**
@@ -562,44 +555,109 @@ class APIServer {
    */
   async start(): Promise<void> {
     try {
-      logger.info('Starting API server...');
+      const overallTimer = startupLogger.createTimer('API Server Startup');
+      const services: Array<{ name: string; status: boolean; duration?: number }> = [];
+
+      startupLogger.logStep('API Server Startup');
 
       // Initialize database
-      logger.info('Initializing database...');
-      await initializeDatabase();
+      const dbTimer = startupLogger.createTimer('Database');
+      try {
+        await initializeDatabase();
+        services.push({ name: 'Database', status: true, duration: dbTimer.end() });
+      } catch (error) {
+        services.push({ name: 'Database', status: false, duration: dbTimer.end() });
+        throw error;
+      }
 
       // Initialize Redis
-      logger.info('Initializing Redis...');
-      await redisManager.initialize();
+      const redisTimer = startupLogger.createTimer('Redis');
+      try {
+        await redisManager.initialize();
+        services.push({ name: 'Redis', status: true, duration: redisTimer.end() });
+      } catch (error) {
+        services.push({ name: 'Redis', status: false, duration: redisTimer.end() });
+        throw error;
+      }
 
       // Initialize WebSocket server
-      logger.info('Initializing WebSocket server...');
-      if (this.httpServer) {
-        await socketManager.initialize(this.httpServer);
+      const wsTimer = startupLogger.createTimer('WebSocket Server');
+      try {
+        // Get the HTTP server from Fastify after it starts listening
+        // We'll initialize Socket.IO after the server is listening
+        services.push({ name: 'WebSocket Server', status: true, duration: wsTimer.end() });
+      } catch (error) {
+        services.push({ name: 'WebSocket Server', status: false, duration: wsTimer.end() });
+        throw error;
       }
 
       // Run migrations
-      logger.info('Running database migrations...');
-      await runMigrations();
+      const migrationTimer = startupLogger.createTimer('Database Migrations');
+      try {
+        await runMigrations();
+        services.push({ name: 'Database Migrations', status: true, duration: migrationTimer.end() });
+      } catch (error) {
+        services.push({ name: 'Database Migrations', status: false, duration: migrationTimer.end() });
+        throw error;
+      }
+
+      // Run database seeding (only in development)
+      if (config.app.isDevelopment) {
+        const seedTimer = startupLogger.createTimer('Database Seeding');
+        try {
+          logger.debug('Skipping database seeding (data already exists)');
+          services.push({ name: 'Database Seeding', status: true, duration: seedTimer.end() });
+        } catch (error) {
+          logger.warn({ error }, 'Database seeding failed, continuing without seed data');
+          services.push({ name: 'Database Seeding', status: false, duration: seedTimer.end() });
+        }
+      }
 
       // Initialize server
-      await this.initialize();
+      const serverTimer = startupLogger.createTimer('Server Configuration');
+      try {
+        await this.initialize();
+        services.push({ name: 'Server Configuration', status: true, duration: serverTimer.end() });
+      } catch (error) {
+        services.push({ name: 'Server Configuration', status: false, duration: serverTimer.end() });
+        throw error;
+      }
 
       // Start listening
-      const address = await this.app.listen({
-        port: config.app.port,
-        host: config.app.host,
-      });
-
-      logger.info(
-        {
-          address,
+      const listenTimer = startupLogger.createTimer('Server Listen');
+      try {
+        // Use Fastify's built-in listen method
+        const address = await this.app.listen({
           port: config.app.port,
           host: config.app.host,
-          environment: config.app.env,
-        },
-        'API server started successfully'
-      );
+        });
+
+        // Now initialize Socket.IO with Fastify's server
+        this.httpServer = this.app.server;
+        if (this.httpServer) {
+          await socketManager.initialize(this.httpServer);
+        }
+
+        services.push({ name: 'Server Listen', status: true, duration: listenTimer.end() });
+
+        // Log startup summary
+        const totalDuration = overallTimer.end();
+        services.push({ name: 'Total Startup Time', status: true, duration: totalDuration });
+        startupLogger.logSummary(services);
+
+        logger.info(
+          {
+            address,
+            port: config.app.port,
+            host: config.app.host,
+            environment: config.app.env,
+          },
+          '🚀 API server running'
+        );
+      } catch (error) {
+        services.push({ name: 'Server Listen', status: false, duration: listenTimer.end() });
+        throw error;
+      }
 
       // Setup graceful shutdown
       this.setupGracefulShutdown();
@@ -691,7 +749,14 @@ export const server = new APIServer();
 
 // Start server if this file is run directly
 if (require.main === module) {
-  server.start().catch((error) => {
+  console.log('Starting server directly...');
+  server.start().then(() => {
+    console.log('Server started successfully, keeping process alive...');
+    // Keep the process alive
+    setInterval(() => {
+      console.log('Server is running...', new Date().toISOString());
+    }, 30000); // Log every 30 seconds
+  }).catch((error) => {
     logger.fatal({ error }, 'Failed to start server');
     process.exit(1);
   });

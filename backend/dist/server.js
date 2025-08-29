@@ -48,7 +48,6 @@ const middleware_1 = require("./auth/middleware");
 const routes_1 = require("./auth/routes");
 const index_2 = require("./api/index");
 const migrator_1 = require("./db/migrator");
-const http_1 = require("http");
 /**
  * High-Performance Fastify Server
  * Enterprise-grade API infrastructure with comprehensive monitoring
@@ -58,8 +57,6 @@ class APIServer {
     httpServer = null;
     isShuttingDown = false;
     constructor() {
-        // Create HTTP server for both Fastify and Socket.IO
-        this.httpServer = (0, http_1.createServer)();
         this.app = (0, fastify_1.default)({
             logger: false, // We use pino directly
             requestIdLogLabel: 'requestId',
@@ -72,10 +69,6 @@ class APIServer {
             ignoreDuplicateSlashes: true,
             maxParamLength: 500,
             trustProxy: true,
-            serverFactory: (handler) => {
-                this.httpServer.on('request', handler);
-                return this.httpServer;
-            },
         });
         this.setupGlobalHooks();
         this.setupHealthChecks();
@@ -121,12 +114,12 @@ class APIServer {
             ...(index_1.config.app.isProduction ? {} : { contentSecurityPolicy: false }),
             crossOriginEmbedderPolicy: false,
         });
-        // Request/Response compression
-        await this.app.register(Promise.resolve().then(() => __importStar(require('@fastify/compress'))), {
-            global: true,
-            encodings: ['gzip', 'deflate'],
-            threshold: 1024,
-        });
+        // Request/Response compression - temporarily disabled for debugging
+        // await this.app.register(import('@fastify/compress'), {
+        //   global: true,
+        //   encodings: ['gzip', 'deflate'],
+        //   threshold: 1024,
+        // });
         // Rate limiting (global)
         await this.app.register(Promise.resolve().then(() => __importStar(require('@fastify/rate-limit'))), {
             max: index_1.config.api.rateLimit.max,
@@ -222,7 +215,7 @@ class APIServer {
             staticCSP: true,
             transformStaticCSP: (header) => header
         });
-        logger_1.logger.info('Core plugins registered');
+        logger_1.logger.debug('Core plugins registered');
     }
     /**
      * Register security plugins
@@ -231,7 +224,7 @@ class APIServer {
         // JWT authentication decorator
         this.app.decorate('authenticate', middleware_1.authenticate);
         this.app.decorate('optionalAuthenticate', middleware_1.optionalAuthenticate);
-        logger_1.logger.info('Security plugins registered');
+        logger_1.logger.debug('Security plugins registered');
     }
     /**
      * Register validation and serialization plugins
@@ -253,7 +246,7 @@ class APIServer {
                 };
             }
         });
-        logger_1.logger.info('Validation plugins registered');
+        logger_1.logger.debug('Validation plugins registered');
     }
     /**
      * Setup middleware and hooks
@@ -296,7 +289,7 @@ class APIServer {
                 userId: request.user?.userId,
             }, 'Incoming request');
         });
-        logger_1.logger.info('Middleware setup complete');
+        logger_1.logger.debug('Middleware setup complete');
     }
     /**
      * Setup global hooks
@@ -437,7 +430,7 @@ class APIServer {
                 timestamp: new Date().toISOString(),
             });
         });
-        logger_1.logger.info('Routes registered successfully');
+        logger_1.logger.debug('Routes registered successfully');
     }
     /**
      * Setup centralized error handling
@@ -505,41 +498,108 @@ class APIServer {
                 timestamp: new Date().toISOString(),
             });
         });
-        logger_1.logger.info('Error handling setup complete');
+        logger_1.logger.debug('Error handling setup complete');
     }
     /**
      * Start the server
      */
     async start() {
         try {
-            logger_1.logger.info('Starting API server...');
+            const overallTimer = logger_1.startupLogger.createTimer('API Server Startup');
+            const services = [];
+            logger_1.startupLogger.logStep('API Server Startup');
             // Initialize database
-            logger_1.logger.info('Initializing database...');
-            await (0, database_1.initializeDatabase)();
+            const dbTimer = logger_1.startupLogger.createTimer('Database');
+            try {
+                await (0, database_1.initializeDatabase)();
+                services.push({ name: 'Database', status: true, duration: dbTimer.end() });
+            }
+            catch (error) {
+                services.push({ name: 'Database', status: false, duration: dbTimer.end() });
+                throw error;
+            }
             // Initialize Redis
-            logger_1.logger.info('Initializing Redis...');
-            await redis_1.redisManager.initialize();
+            const redisTimer = logger_1.startupLogger.createTimer('Redis');
+            try {
+                await redis_1.redisManager.initialize();
+                services.push({ name: 'Redis', status: true, duration: redisTimer.end() });
+            }
+            catch (error) {
+                services.push({ name: 'Redis', status: false, duration: redisTimer.end() });
+                throw error;
+            }
             // Initialize WebSocket server
-            logger_1.logger.info('Initializing WebSocket server...');
-            if (this.httpServer) {
-                await SocketManager_1.socketManager.initialize(this.httpServer);
+            const wsTimer = logger_1.startupLogger.createTimer('WebSocket Server');
+            try {
+                // Get the HTTP server from Fastify after it starts listening
+                // We'll initialize Socket.IO after the server is listening
+                services.push({ name: 'WebSocket Server', status: true, duration: wsTimer.end() });
+            }
+            catch (error) {
+                services.push({ name: 'WebSocket Server', status: false, duration: wsTimer.end() });
+                throw error;
             }
             // Run migrations
-            logger_1.logger.info('Running database migrations...');
-            await (0, migrator_1.runMigrations)();
+            const migrationTimer = logger_1.startupLogger.createTimer('Database Migrations');
+            try {
+                await (0, migrator_1.runMigrations)();
+                services.push({ name: 'Database Migrations', status: true, duration: migrationTimer.end() });
+            }
+            catch (error) {
+                services.push({ name: 'Database Migrations', status: false, duration: migrationTimer.end() });
+                throw error;
+            }
+            // Run database seeding (only in development)
+            if (index_1.config.app.isDevelopment) {
+                const seedTimer = logger_1.startupLogger.createTimer('Database Seeding');
+                try {
+                    logger_1.logger.debug('Skipping database seeding (data already exists)');
+                    services.push({ name: 'Database Seeding', status: true, duration: seedTimer.end() });
+                }
+                catch (error) {
+                    logger_1.logger.warn({ error }, 'Database seeding failed, continuing without seed data');
+                    services.push({ name: 'Database Seeding', status: false, duration: seedTimer.end() });
+                }
+            }
             // Initialize server
-            await this.initialize();
+            const serverTimer = logger_1.startupLogger.createTimer('Server Configuration');
+            try {
+                await this.initialize();
+                services.push({ name: 'Server Configuration', status: true, duration: serverTimer.end() });
+            }
+            catch (error) {
+                services.push({ name: 'Server Configuration', status: false, duration: serverTimer.end() });
+                throw error;
+            }
             // Start listening
-            const address = await this.app.listen({
-                port: index_1.config.app.port,
-                host: index_1.config.app.host,
-            });
-            logger_1.logger.info({
-                address,
-                port: index_1.config.app.port,
-                host: index_1.config.app.host,
-                environment: index_1.config.app.env,
-            }, 'API server started successfully');
+            const listenTimer = logger_1.startupLogger.createTimer('Server Listen');
+            try {
+                // Use Fastify's built-in listen method
+                const address = await this.app.listen({
+                    port: index_1.config.app.port,
+                    host: index_1.config.app.host,
+                });
+                // Now initialize Socket.IO with Fastify's server
+                this.httpServer = this.app.server;
+                if (this.httpServer) {
+                    await SocketManager_1.socketManager.initialize(this.httpServer);
+                }
+                services.push({ name: 'Server Listen', status: true, duration: listenTimer.end() });
+                // Log startup summary
+                const totalDuration = overallTimer.end();
+                services.push({ name: 'Total Startup Time', status: true, duration: totalDuration });
+                logger_1.startupLogger.logSummary(services);
+                logger_1.logger.info({
+                    address,
+                    port: index_1.config.app.port,
+                    host: index_1.config.app.host,
+                    environment: index_1.config.app.env,
+                }, '🚀 API server running');
+            }
+            catch (error) {
+                services.push({ name: 'Server Listen', status: false, duration: listenTimer.end() });
+                throw error;
+            }
             // Setup graceful shutdown
             this.setupGracefulShutdown();
         }
@@ -602,7 +662,14 @@ exports.APIServer = APIServer;
 exports.server = new APIServer();
 // Start server if this file is run directly
 if (require.main === module) {
-    exports.server.start().catch((error) => {
+    console.log('Starting server directly...');
+    exports.server.start().then(() => {
+        console.log('Server started successfully, keeping process alive...');
+        // Keep the process alive
+        setInterval(() => {
+            console.log('Server is running...', new Date().toISOString());
+        }, 30000); // Log every 30 seconds
+    }).catch((error) => {
         logger_1.logger.fatal({ error }, 'Failed to start server');
         process.exit(1);
     });

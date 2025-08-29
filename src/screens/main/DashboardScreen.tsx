@@ -1,12 +1,29 @@
 import React from 'react';
-import { View, Text, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, Alert, TouchableOpacity, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { PromptInput } from '../../components/voice/PromptInput';
+import { useAuth } from '../../hooks/useAuth';
 
 const DashboardScreen = () => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
+  const { user } = useAuth();
+
+  const getUserInitials = (name?: string) => {
+    if (!name) return 'U';
+    return name.split(' ')
+      .map(word => word.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join('');
+  };
+
+  const handleProfilePress = () => {
+    // Navigate to own profile - don't pass userId so UserProfileScreen knows it's own profile
+    navigation.navigate('UserProfile', {});
+  };
 
   const handleSendMessage = (text: string) => {
     console.log('Sending text message:', text);
@@ -37,8 +54,7 @@ const DashboardScreen = () => {
         style={{ top: insets.top + 16 }}
       >
         <TouchableOpacity
-          onPress={() => console.log('User profile')}
-          className="w-10 h-10 bg-blue-500 rounded-full items-center justify-center"
+          onPress={handleProfilePress}
           style={{
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 2 },
@@ -47,11 +63,33 @@ const DashboardScreen = () => {
             elevation: 3,
           }}
         >
-          <Text className="text-white font-semibold text-sm">IE</Text>
+          <LinearGradient
+            colors={['#8B5CF6', '#3B82F6']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Text className="text-white font-bold text-sm">
+              {getUserInitials(user?.name)}
+            </Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
-      <View className="flex-1 justify-center items-center px-6">
+      <ScrollView 
+        className="flex-1"
+        contentContainerStyle={{ flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View className="flex-1 justify-center items-center px-6">
         <View style={{ marginBottom: 64 }}>
           <MaskedView
             style={{ height: 80, width: 350 }}
@@ -73,7 +111,7 @@ const DashboardScreen = () => {
                     color: 'black',
                   }}
                 >
-                  Hello, Ifeanyi Elvis
+                  Hello, {user?.name || 'User'}
                 </Text>
               </View>
             }
@@ -86,9 +124,9 @@ const DashboardScreen = () => {
             />
           </MaskedView>
         </View>
-      </View>
+        </View>
 
-      <View className="px-4 pb-4">
+        <View className="px-4 pb-4">
         {/* Quick Action Buttons */}
         <View className="flex-row justify-center mb-2 gap-2">
           <TouchableOpacity
@@ -125,7 +163,8 @@ const DashboardScreen = () => {
           maxLines={6}
           disabled={false}
         />
-      </View>
+        </View>
+      </ScrollView>
     </View>
   );
 };

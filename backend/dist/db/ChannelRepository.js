@@ -430,7 +430,7 @@ class ChannelRepository extends BaseRepository_1.default {
      */
     async getMembers(channelId, client) {
         const sql = `
-      SELECT u.id, u.name, u.email, u.role
+      SELECT u.id, u.name, u.email, u.role, u.avatar_url
       FROM users u
       JOIN ${this.tableName} c ON u.id = ANY(c.members)
       WHERE c.id = $1 AND c.deleted_at IS NULL

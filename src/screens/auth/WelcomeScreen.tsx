@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -8,9 +8,12 @@ import Animated, {
   withSequence,
   withDelay,
 } from 'react-native-reanimated';
+import { useDispatch } from 'react-redux';
 import { CurvedBackground } from '../../components/common/CurvedBackground/CurvedBackground';
 import { Button } from '../../components/common/Botton';
 import { Colors } from '../../utils/colors';
+import { setAuthenticated } from '../../store/slices/authSlice';
+import type { AppDispatch } from '../../store/store';
 
 interface WelcomeScreenProps {
   navigation: any;
@@ -18,6 +21,7 @@ interface WelcomeScreenProps {
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const dispatch = useDispatch<AppDispatch>();
 
   const logoScale = useSharedValue(0);
   const textOpacity = useSharedValue(0);
@@ -61,9 +65,36 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
   }));
 
   const handleGoogleSignIn = async () => {
-    // For now, redirect to login screen
-    // TODO: Implement Google Sign-In integration with backend
-    navigation.navigate('Login');
+    try {
+      setIsLoading(true);
+      
+      // TODO: Implement actual Google Sign-In integration
+      // For now, simulate authentication by setting fake user data
+      const mockUser = {
+        id: '1',
+        name: 'Google User',
+        email: 'user@gmail.com',
+        role: 'user',
+        permissions: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      const mockTokens = {
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
+      };
+      
+      // Dispatch authentication action to bypass login
+      dispatch(setAuthenticated({ user: mockUser, tokens: mockTokens }));
+      
+      // Navigation will happen automatically via AppNavigator when isAuthenticated becomes true
+    } catch (error) {
+      console.error('Google Sign-In error:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleVoiceCommand = () => {
@@ -73,13 +104,16 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
 
   return (
     <CurvedBackground customColor={Colors.primary} opacity={0.4}>
-      <View
-        style={{
-          flex: 1,
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          flexGrow: 1,
           paddingHorizontal: 24,
           justifyContent: 'center',
           alignItems: 'center',
         }}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
       >
         {/* Logo */}
         <Animated.View style={[logoAnimatedStyle]}>
@@ -176,7 +210,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
         </Animated.View>
-      </View>
+      </ScrollView>
     </CurvedBackground>
   );
 };

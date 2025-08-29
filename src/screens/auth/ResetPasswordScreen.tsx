@@ -6,7 +6,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -19,6 +18,7 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Botton';
 import { Colors } from '../../utils/colors';
 import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../contexts/ToastContext';
 
 interface ResetPasswordScreenProps {
   navigation: any;
@@ -34,6 +34,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
   route,
 }) => {
   const { confirmReset, isLoading, error, clearAuthError } = useAuth();
+  const { showSuccess, showError } = useToast();
   const { token } = route.params;
 
   const [passwords, setPasswords] = useState({
@@ -88,24 +89,15 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
     try {
       const result = await confirmReset(token, passwords.newPassword);
       if (result.type === 'auth/confirmReset/fulfilled') {
-        Alert.alert(
-          'Password Reset Successful',
-          'Your password has been successfully reset. You can now log in with your new password.',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('Login'),
-            },
-          ],
-        );
+        showSuccess('Your password has been successfully reset. You can now log in with your new password.');
+        setTimeout(() => navigation.navigate('Login'), 2000); // Navigate after toast shows
       } else {
         const errorMessage = result.payload as string;
-        Alert.alert('Reset Failed', errorMessage);
+        showError(`Reset Failed: ${errorMessage}`);
       }
     } catch (error: any) {
-      Alert.alert(
-        'Reset Failed',
-        error.message || 'An unexpected error occurred',
+      showError(
+        error.message || 'An unexpected error occurred'
       );
     }
   };
@@ -170,7 +162,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                   setPasswords(prev => ({ ...prev, newPassword }))
                 }
                 error={errors.newPassword}
-                secureTextEntry
+                isPassword
                 autoCapitalize="none"
               />
 
@@ -183,7 +175,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
                   setPasswords(prev => ({ ...prev, confirmPassword }))
                 }
                 error={errors.confirmPassword}
-                secureTextEntry
+                isPassword
                 autoCapitalize="none"
               />
 

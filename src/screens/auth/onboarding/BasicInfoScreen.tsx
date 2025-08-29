@@ -200,7 +200,7 @@ export const BasicInfoScreen: React.FC<BasicInfoScreenProps> = ({
                     setCredentials(prev => ({ ...prev, password }))
                   }
                   error={errors.password}
-                  secureTextEntry
+                  isPassword
                   autoCapitalize="none"
                 />
 
@@ -210,7 +210,7 @@ export const BasicInfoScreen: React.FC<BasicInfoScreenProps> = ({
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   error={errors.confirmPassword}
-                  secureTextEntry
+                  isPassword
                   autoCapitalize="none"
                 />
               </View>

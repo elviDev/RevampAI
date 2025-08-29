@@ -41,7 +41,8 @@
       "Bash(tsx:*)",
       "Bash(npx tsx:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(chmod:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

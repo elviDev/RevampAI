@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import type { AuthState, User, AuthTokens, LoginCredentials, RegisterCredentials } from '../../types/auth';
 import { authService } from '../../services/api/authService';
+import { tokenManager } from '../../services/tokenManager';
 
 const initialState: AuthState = {
   user: null,
@@ -86,8 +87,22 @@ export const refreshToken = createAsyncThunk(
   'auth/refreshToken',
   async (_, { rejectWithValue }) => {
     try {
-      const tokens = await authService.refreshToken();
-      return tokens;
+      // Use centralized token manager for refresh
+      const newToken = await tokenManager.refreshAccessToken();
+      if (newToken) {
+        // Get updated token info from token manager
+        const tokenInfo = await tokenManager.getTokenInfo();
+        const refreshToken = await tokenManager.getRefreshToken();
+        
+        return {
+          accessToken: newToken,
+          refreshToken: refreshToken || '',
+          expiresIn: tokenInfo.expiresAt ? Math.floor((new Date(tokenInfo.expiresAt).getTime() - Date.now()) / 1000) : 900,
+          user: null // User info will be fetched separately
+        };
+      } else {
+        throw new Error('Token refresh failed');
+      }
     } catch (error: any) {
       return rejectWithValue(error.message || 'Token refresh failed');
     }
@@ -114,6 +129,13 @@ export const authSlice = createSlice({
       state.isAuthenticated = false;
       state.error = null;
       state.isLoading = false;
+    },
+    updateTokensFromManager: (state, action: PayloadAction<{ accessToken: string; refreshToken: string; expiresAt: number }>) => {
+      if (state.tokens) {
+        state.tokens.accessToken = action.payload.accessToken;
+        state.tokens.refreshToken = action.payload.refreshToken;
+        state.tokens.expiresIn = action.payload.expiresAt;
+      }
     },
   },
   extraReducers: (builder) => {
@@ -240,6 +262,6 @@ export const authSlice = createSlice({
   },
 });
 
-export const { clearError, setAuthenticated, clearAuth } = authSlice.actions;
+export const { clearError, setAuthenticated, clearAuth, updateTokensFromManager } = authSlice.actions;
 
 export default authSlice.reducer;

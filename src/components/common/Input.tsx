@@ -6,6 +6,7 @@ import {
   TextInputProps,
   ViewStyle,
   TextStyle,
+  TouchableOpacity,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -21,6 +22,7 @@ interface InputProps extends TextInputProps {
   containerStyle?: ViewStyle;
   inputStyle?: TextStyle;
   labelStyle?: TextStyle;
+  isPassword?: boolean;
 }
 
 export const Input: React.FC<InputProps> = ({
@@ -31,10 +33,16 @@ export const Input: React.FC<InputProps> = ({
   labelStyle,
   onFocus,
   onBlur,
+  isPassword = false,
+  secureTextEntry,
   ...props
 }) => {
   const [isFocused, setIsFocused] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const focusAnimation = useSharedValue(0);
+
+  // Determine if this is a password field
+  const isPasswordField = isPassword || secureTextEntry;
 
   const animatedBorderStyle = useAnimatedStyle(() => {
     const borderColor = interpolateColor(
@@ -61,6 +69,14 @@ export const Input: React.FC<InputProps> = ({
     onBlur?.(e);
   };
 
+  const togglePasswordVisibility = () => {
+    setIsPasswordVisible(!isPasswordVisible);
+  };
+
+  const getEyeIcon = () => {
+    return isPasswordVisible ? '🙈' : '👁️';
+  };
+
   return (
     <View style={[{ marginBottom: 16 }, containerStyle]}>
       {label && (
@@ -84,6 +100,8 @@ export const Input: React.FC<InputProps> = ({
             borderRadius: 24,
             backgroundColor: Colors.gray[100],
             overflow: 'hidden',
+            flexDirection: 'row',
+            alignItems: 'center',
           },
           animatedBorderStyle,
         ]}
@@ -91,6 +109,7 @@ export const Input: React.FC<InputProps> = ({
         <TextInput
           style={[
             {
+              flex: 1,
               paddingHorizontal: 20,
               paddingVertical: 16,
               fontSize: 16,
@@ -102,8 +121,34 @@ export const Input: React.FC<InputProps> = ({
           placeholderTextColor={Colors.text.tertiary}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          secureTextEntry={isPasswordField ? !isPasswordVisible : false}
           {...props}
         />
+        {isPasswordField && (
+          <TouchableOpacity
+            onPress={togglePasswordVisibility}
+            style={{
+              padding: 16,
+              justifyContent: 'center',
+              alignItems: 'center',
+              minWidth: 48,
+            }}
+            activeOpacity={0.7}
+            accessibilityLabel={
+              isPasswordVisible ? 'Hide password' : 'Show password'
+            }
+            accessibilityRole="button"
+          >
+            <Text
+              style={{
+                fontSize: 20,
+                color: Colors.text.secondary,
+              }}
+            >
+              {getEyeIcon()}
+            </Text>
+          </TouchableOpacity>
+        )}
       </Animated.View>
       {error && (
         <Text

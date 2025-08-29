@@ -1,9 +1,10 @@
-import { TaskPriority, TaskStatus, TaskCategory } from '../../types/task.types';
+import { TaskPriority, TaskStatus, TaskType } from '../../types/task.types';
 
 export const TaskUtils = {
   getPriorityColor: (priority: TaskPriority): string => {
     const colors: Record<TaskPriority, string> = {
-      urgent: '#DC2626',
+      critical: '#DC2626',
+      urgent: '#EF4444',
       high: '#EA580C',
       medium: '#CA8A04',
       low: '#16A34A',
@@ -14,25 +15,39 @@ export const TaskUtils = {
   getStatusColor: (status: TaskStatus): string => {
     const colors: Record<TaskStatus, string> = {
       pending: '#6B7280',
-      'in-progress': '#2563EB',
+      in_progress: '#2563EB',
+      review: '#8B5CF6',
       completed: '#16A34A',
-      'on-hold': '#D97706',
+      on_hold: '#D97706',
       cancelled: '#DC2626',
     };
     return colors[status] || colors.pending;
   },
 
-  getCategoryIcon: (category: TaskCategory): string => {
-    const icons: Record<TaskCategory, string> = {
+  getTaskTypeIcon: (taskType: TaskType): string => {
+    const icons: Record<TaskType, string> = {
+      general: 'clipboard',
+      project: 'briefcase',
+      maintenance: 'tool',
+      emergency: 'alert-circle',
+      research: 'search',
+      approval: 'check-circle',
+    };
+    return icons[taskType] || 'clipboard';
+  },
+
+  getCategoryIcon: (category: string): string => {
+    const icons: Record<string, string> = {
       development: 'code',
       design: 'palette',
       research: 'search',
       meeting: 'people',
-      documentation: 'article',
-      testing: 'bug-report',
-      deployment: 'rocket-launch',
+      documentation: 'file-text',
+      testing: 'bug',
+      deployment: 'upload',
+      general: 'clipboard',
     };
-    return icons[category] || 'work';
+    return icons[category] || 'clipboard';
   },
 
   formatDueDate: (dueDate: Date): string => {

@@ -10,6 +10,8 @@ interface ChannelInputProps {
   onSendVoiceMessage: (audioUri: string, transcript?: string) => void;
   onAttachFile: (file: any) => void;
   onAttachImage: (image: any) => void;
+  onStartTyping?: () => void;
+  onStopTyping?: () => void;
   placeholder?: string;
   replyingTo?: {
     id: string;
@@ -29,6 +31,8 @@ export const ChannelInput: React.FC<ChannelInputProps> = ({
   onSendVoiceMessage,
   onAttachFile,
   onAttachImage,
+  onStartTyping,
+  onStopTyping,
   placeholder = 'Message #channel',
   replyingTo,
   onCancelReply,
@@ -76,6 +80,8 @@ export const ChannelInput: React.FC<ChannelInputProps> = ({
           onSendRecording={onSendVoiceMessage}
           onAttachFile={onAttachFile}
           onAttachImage={onAttachImage}
+          onStartTyping={onStartTyping}
+          onStopTyping={onStopTyping}
           placeholder={
             editingMessage
               ? 'Edit your message...'

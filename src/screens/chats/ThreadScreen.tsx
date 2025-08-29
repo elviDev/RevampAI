@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,15 +7,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
-import { Avatar } from '../../components/common/Avatar';
-import { PromptInput } from '../../components/voice/PromptInput';
-import { EmojiReactionPicker } from '../../components/chat/EmojiReactionPicker';
-import type { Message, Reply, Reaction } from '../../types/chat';
+import { ChatMessage } from '../../components/chat/ChatMessage';
+import { EnhancedChannelInput } from '../../components/chat/EnhancedChannelInput';
+import { SimpleTypingIndicators } from '../../components/chat/SimpleTypingIndicators';
+import { useWebSocket, webSocketService } from '../../services/websocketService';
+import { useToast } from '../../contexts/ToastContext';
+import { messageService } from '../../services/api/messageService';
+import type { Message } from '../../types/chat';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
 type ThreadScreenProps = NativeStackScreenProps<
@@ -27,493 +29,240 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({
   navigation,
   route,
 }) => {
-  const {
-    parentMessage,
-    channelId,
-    channelName,
-    members,
-    channels,
-    onUpdateMessage,
-  } = route.params;
+  const { parentMessage, channelId, channelName, members, onUpdateMessage } = route.params;
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList>(null);
+  const { isConnected, joinChannel, leaveChannel } = useWebSocket();
+  const { showError, showSuccess } = useToast();
 
   // State
-  const [replies, setReplies] = useState<Reply[]>(parentMessage.replies || []);
-  const [currentParentMessage, setCurrentParentMessage] =
-    useState(parentMessage);
-  const [replyingTo, setReplyingTo] = useState<Reply | null>(null);
-  const [editingReply, setEditingReply] = useState<Reply | null>(null);
-  const [showEmojiPicker, setShowEmojiPicker] = useState<{
-    replyId: string;
-    type: 'message' | 'reply';
-  } | null>(null);
+  const [threadMessages, setThreadMessages] = useState<Message[]>([]);
+  const [currentUserId] = useState('current_user');
+  const [typingUsers, setTypingUsers] = useState<Array<{
+    userId: string;
+    userName: string;
+    isTyping: boolean;
+  }>>([]);
+  
+  // Loading states
+  const [isLoadingThread, setIsLoadingThread] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [threadError, setThreadError] = useState<string | null>(null);
+  
+  // Pagination
+  const [pagination, setPagination] = useState({
+    total: 0,
+    limit: 50,
+    offset: 0,
+  });
 
-  // Mock data for mentions
-  const recentMessages = [
-    {
-      id: 'msg1',
-      content: 'Great progress on the API design',
-      sender: { name: 'Sarah' },
-      channel: channelName,
-    },
-    {
-      id: 'msg2',
-      content: 'Testing framework is ready',
-      sender: { name: 'Mike' },
-      channel: channelName,
-    },
-  ];
-
-  const tasks = [
-    {
-      id: 'task1',
-      title: 'Complete wireframes',
-      description: 'Create detailed wireframes for all screens',
-    },
-    {
-      id: 'task2',
-      title: 'API documentation',
-      description: 'Document all REST endpoints',
-    },
-  ];
-
+  // Load thread messages on mount
   useEffect(() => {
-    // Update parent when replies change
-    onUpdateMessage(parentMessage.id, replies);
-  }, [replies]);
-
-  const formatTime = (timestamp: Date) => {
-    return timestamp.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const handleSendReply = (text: string) => {
-    if (!text.trim()) return;
-
-    const newReply: Reply = {
-      id: Date.now().toString(),
-      content: text,
-      sender: { id: 'current_user', name: 'You' },
-      timestamp: new Date(),
-      reactions: [],
-    };
-
-    if (editingReply) {
-      // Update existing reply
-      setReplies(prev =>
-        prev.map(reply =>
-          reply.id === editingReply.id ? { ...reply, content: text } : reply,
-        ),
-      );
-      setEditingReply(null);
-    } else {
-      // Add new reply
-      setReplies(prev => [...prev, newReply]);
+    loadThreadMessages();
+    
+    // Join channel for real-time updates
+    if (isConnected) {
+      joinChannel(channelId);
     }
 
-    // Auto-scroll to bottom
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  };
-
-  const handleSendVoiceReply = (audioUri: string, transcript?: string) => {
-    const newReply: Reply = {
-      id: Date.now().toString(),
-      content: transcript || 'Voice message',
-      sender: { id: 'current_user', name: 'You' },
-      timestamp: new Date(),
-      reactions: [],
-    };
-
-    // Add voice properties
-    (newReply as any).audioUri = audioUri;
-    (newReply as any).voiceTranscript = transcript;
-
-    setReplies(prev => [...prev, newReply]);
-
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  };
-
-  const handleAttachFile = (file: any) => {
-    const newReply: Reply = {
-      id: Date.now().toString(),
-      content: `📎 ${file.name || 'File attachment'}`,
-      sender: { id: 'current_user', name: 'You' },
-      timestamp: new Date(),
-      reactions: [],
-    };
-
-    // Add file properties
-    (newReply as any).fileUri = file.uri;
-    (newReply as any).fileName = file.name;
-    (newReply as any).fileType = file.type;
-
-    setReplies(prev => [...prev, newReply]);
-
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  };
-
-  const handleReaction = (
-    replyId: string,
-    emoji: string,
-    isParentMessage = false,
-  ) => {
-    if (isParentMessage) {
-      // Handle parent message reaction by updating parent message locally
-      interface ParentMessage {
-        id: string;
-        content: string;
-        sender: {
-          id: string;
-          name: string;
-          avatar?: string;
-          role?: string;
-          isOnline?: boolean;
-        };
-        timestamp: Date;
-        reactions?: Reaction[];
-        isEdited?: boolean;
-        voiceTranscript?: string;
-        replies?: Reply[];
+    return () => {
+      if (isConnected) {
+        leaveChannel(channelId);
       }
+    };
+  }, [channelId, parentMessage.id, isConnected]);
 
-      interface Reaction {
-        emoji: string;
-        users: string[];
-        count: number;
-      }
+  // WebSocket event listeners for real-time thread updates
+  useEffect(() => {
+    const handleMessageSent = (event: any) => {
+      if (event.channelId === channelId && event.message) {
+        // Check if this is a reply to our thread
+        const threadRoot = parentMessage.threadRoot || parentMessage.id;
+        if (event.message.thread_root === threadRoot || event.message.reply_to === parentMessage.id) {
+          console.log('📨 New thread reply received:', event);
+          
+          const newMessage: Message = {
+            id: event.message.id,
+            type: 'text',
+            content: event.message.content,
+            sender: {
+              id: event.message.user_id,
+              name: event.message.user_name || 'Unknown User',
+              avatar: event.message.user_avatar,
+              role: event.message.user_role || 'staff',
+            },
+            timestamp: new Date(event.message.created_at),
+            reactions: [],
+            replies: [],
+            mentions: event.message.mentions || [],
+            isEdited: event.message.is_edited || false,
+            connectedTo: event.message.reply_to,
+            threadRoot: event.message.thread_root,
+          };
 
-      setCurrentParentMessage((prev: ParentMessage): ParentMessage => {
-        const updatedParentMessage: ParentMessage = { ...prev };
-        const reactions: Reaction[] = updatedParentMessage.reactions || [];
-        const existingReaction: Reaction | undefined = reactions.find(
-          (r: Reaction) => r.emoji === emoji,
-        );
-
-        if (existingReaction) {
-          if (existingReaction.users.includes('current_user')) {
-            // Remove reaction
-            const updatedUsers: string[] = existingReaction.users.filter(
-              (u: string) => u !== 'current_user',
-            );
-            if (updatedUsers.length === 0) {
-              updatedParentMessage.reactions = reactions.filter(
-                (r: Reaction) => r.emoji !== emoji,
-              );
-            } else {
-              updatedParentMessage.reactions = reactions.map((r: Reaction) =>
-                r.emoji === emoji
-                  ? { ...r, users: updatedUsers, count: updatedUsers.length }
-                  : r,
-              );
+          setThreadMessages(prev => {
+            if (prev.some(msg => msg.id === newMessage.id)) {
+              return prev;
             }
-          } else {
-            // Add reaction
-            updatedParentMessage.reactions = reactions.map((r: Reaction) =>
-              r.emoji === emoji
-                ? {
-                    ...r,
-                    users: [...r.users, 'current_user'],
-                    count: r.count + 1,
-                  }
-                : r,
+            const updated = [...prev, newMessage];
+            return updated.sort((a, b) => 
+              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
             );
-          }
-        } else {
-          // New reaction
-          updatedParentMessage.reactions = [
-            ...reactions,
-            { emoji, users: ['current_user'], count: 1 },
-          ];
+          });
+
+          // Auto-scroll to bottom for new replies
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+          }, 100);
         }
+      }
+    };
 
-        return updatedParentMessage;
-      });
+    // Add event listeners
+    webSocketService.on('message_sent', handleMessageSent);
 
-      setShowEmojiPicker(null);
+    return () => {
+      webSocketService.off('message_sent', handleMessageSent);
+    };
+  }, [channelId, parentMessage.id, parentMessage.threadRoot]);
+
+  const loadThreadMessages = async (loadMore: boolean = false) => {
+    if (loadMore && (!hasMoreMessages || isLoadingMore)) {
       return;
     }
 
-    setReplies(prev =>
-      prev.map(reply => {
-        if (reply.id === replyId) {
-          const reactions = reply.reactions || [];
-          const existingReaction = reactions.find(r => r.emoji === emoji);
+    try {
+      if (loadMore) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoadingThread(true);
+        setThreadError(null);
+      }
+      
+      const currentOffset = loadMore ? pagination.offset + pagination.limit : 0;
+      console.log('🧵 Loading thread messages:', { 
+        parentMessageId: parentMessage.id,
+        currentOffset,
+        loadMore
+      });
+      
+      const response = await messageService.getThreadMessages(channelId, parentMessage.id, {
+        limit: pagination.limit,
+        offset: currentOffset,
+      });
 
-          if (existingReaction) {
-            if (existingReaction.users.includes('current_user')) {
-              // Remove reaction
-              const updatedUsers = existingReaction.users.filter(
-                u => u !== 'current_user',
-              );
-              if (updatedUsers.length === 0) {
-                return {
-                  ...reply,
-                  reactions: reactions.filter(r => r.emoji !== emoji),
-                };
-              } else {
-                return {
-                  ...reply,
-                  reactions: reactions.map(r =>
-                    r.emoji === emoji
-                      ? {
-                          ...r,
-                          users: updatedUsers,
-                          count: updatedUsers.length,
-                        }
-                      : r,
-                  ),
-                };
-              }
-            } else {
-              // Add reaction
-              return {
-                ...reply,
-                reactions: reactions.map(r =>
-                  r.emoji === emoji
-                    ? {
-                        ...r,
-                        users: [...r.users, 'current_user'],
-                        count: r.count + 1,
-                      }
-                    : r,
-                ),
-              };
-            }
-          } else {
-            // New reaction
-            return {
-              ...reply,
-              reactions: [
-                ...reactions,
-                {
-                  emoji,
-                  users: ['current_user'],
-                  count: 1,
-                },
-              ],
-            };
-          }
+      if (response.success) {
+        const replies = response.data.replies;
+        
+        // Sort replies chronologically (oldest first)
+        const sortedReplies = replies.sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+
+        if (loadMore) {
+          setThreadMessages(prev => {
+            const combined = [...prev, ...sortedReplies];
+            // Remove duplicates
+            const unique = combined.filter((msg, index, arr) => 
+              arr.findIndex(m => m.id === msg.id) === index
+            );
+            return unique.sort((a, b) => 
+              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            );
+          });
+        } else {
+          setThreadMessages(sortedReplies);
         }
-        return reply;
-      }),
-    );
-  };
 
-
-  const handleNavigateToReference = (type: string, id: string) => {
-    // Handle navigation to different types of references
-    switch (type) {
-      case 'user':
-        navigation.navigate('UserProfile', { userId: id });
-        break;
-      case 'channel':
-        // For now, alert since we don't have a channel list screen
-        Alert.alert('Navigate', `Navigate to channel: ${id}`);
-        break;
-      case 'message':
-        Alert.alert('Navigate', `Navigate to message: ${id}`);
-        break;
-      case 'task':
-        navigation.navigate('TaskDetailScreen', { taskId: id });
-        break;
-      default:
-        break;
+        setPagination(prev => ({
+          ...prev,
+          total: response.data.pagination.total,
+          offset: currentOffset,
+        }));
+        
+        setHasMoreMessages(response.data.pagination.hasMore);
+        
+        // Auto-scroll to bottom on initial load
+        if (!loadMore) {
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: false });
+          }, 100);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error loading thread messages:', error);
+      setThreadError('Failed to load thread messages');
+    } finally {
+      setIsLoadingThread(false);
+      setIsLoadingMore(false);
     }
   };
 
-  const renderParentMessage = () => (
-    <View className="bg-gray-50 p-4 border-b border-gray-200">
-      <View className="flex-row items-start space-x-3">
-        <Avatar
-          user={{
-            id: currentParentMessage.sender.id,
-            name: currentParentMessage.sender.name,
-            avatar: currentParentMessage.sender.avatar,
-            role: currentParentMessage.sender.role,
-            isOnline: true,
-          }}
-          size="md"
-          showOnlineStatus
-          onPress={() =>
-            handleNavigateToReference('user', currentParentMessage.sender.id)
-          }
-        />
+  const handleSendReply = async (text: string) => {
+    if (!text.trim()) return;
 
-        <View className="flex-1">
-          <View className="flex-row items-center space-x-2 mb-1">
-            <Text className="font-semibold text-gray-900">
-              {currentParentMessage.sender.name}
-            </Text>
-            <Text className="text-xs text-gray-500">
-              {formatTime(currentParentMessage.timestamp)}
-            </Text>
-            {currentParentMessage.isEdited && (
-              <Text className="text-xs text-gray-400">(edited)</Text>
-            )}
-          </View>
+    try {
+      console.log('💬 Sending thread reply:', { text, parentMessage: parentMessage.id });
+      
+      const response = await messageService.sendReply(channelId, parentMessage.id, {
+        content: text,
+        message_type: 'text',
+        mentions: extractMentions(text),
+      });
 
-          <Text className="text-gray-700 leading-5">
-            {currentParentMessage.content}
-          </Text>
+      if (response.success) {
+        console.log('✅ Thread reply sent successfully');
+        // WebSocket will handle adding the message to UI
+        
+        // Update parent message reply count
+        if (onUpdateMessage) {
+          onUpdateMessage(parentMessage.id, threadMessages);
+        }
+        
+        // Auto-scroll to bottom after sending
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    } catch (error) {
+      console.error('❌ Error sending thread reply:', error);
+      showError('Failed to send reply. Please try again.');
+    }
+  };
 
-          {/* Voice Transcript */}
-          {currentParentMessage.voiceTranscript && (
-            <View className="mt-2 p-2 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-              <View className="flex-row items-center mb-1">
-                <MaterialIcon name="mic" size={16} color="#3B82F6" />
-                <Text className="text-blue-600 text-xs font-medium ml-1">
-                  Voice Message
-                </Text>
-              </View>
-              <Text className="text-gray-700 text-sm">
-                {currentParentMessage.voiceTranscript}
-              </Text>
-            </View>
-          )}
+  const extractMentions = (text: string): string[] => {
+    const mentionRegex = /@(\w+)/g;
+    const mentions = [];
+    let match;
+    while ((match = mentionRegex.exec(text)) !== null) {
+      mentions.push(match[1]);
+    }
+    return mentions;
+  };
 
-          {/* Reactions */}
-          {currentParentMessage.reactions &&
-            currentParentMessage.reactions.length > 0 && (
-              <View className="flex-row flex-wrap mt-2">
-                {currentParentMessage.reactions.map(
-                  (reaction: any, idx: number) => (
-                    <TouchableOpacity
-                      key={idx}
-                      onPress={() =>
-                        handleReaction(
-                          currentParentMessage.id,
-                          reaction.emoji,
-                          true,
-                        )
-                      }
-                      className="bg-white rounded-full px-2 py-1 mr-1 mb-1 border border-gray-200"
-                    >
-                      <Text className="text-sm">
-                        {reaction.emoji} {reaction.count}
-                      </Text>
-                    </TouchableOpacity>
-                  ),
-                )}
-              </View>
-            )}
-        </View>
+  const handleTypingChange = useCallback((users: Array<{
+    userId: string;
+    userName: string;
+    isTyping: boolean;
+  }>) => {
+    setTypingUsers(users);
+  }, []);
 
-        <TouchableOpacity
-          onPress={() =>
-            setShowEmojiPicker({
-              replyId: currentParentMessage.id,
-              type: 'message',
-            })
-          }
-          className="bg-gray-100 rounded-full p-2"
-        >
-          <Text className="text-lg">😊</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  const renderReply = ({ item }: { item: Reply }) => (
-    <View className="flex-row items-start space-x-3 px-4 py-3 border-b border-gray-50">
-      <Avatar
-        user={{
-          id: item.sender.id,
-          name: item.sender.name,
-          avatar: item.sender.avatar,
-          isOnline: true,
-        }}
-        size="sm"
-        onPress={() => handleNavigateToReference('user', item.sender.id)}
-      />
-
-      <View className="flex-1">
-        <View className="flex-row items-center space-x-2 mb-1">
-          <Text className="font-medium text-gray-900">{item.sender.name}</Text>
-          <Text className="text-xs text-gray-500">
-            {formatTime(item.timestamp)}
-          </Text>
-        </View>
-
-        <Text className="text-gray-700">{item.content}</Text>
-
-        {/* Voice Transcript for replies */}
-        {(item as any).voiceTranscript && (
-          <View className="mt-2 p-2 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-            <View className="flex-row items-center mb-1">
-              <MaterialIcon name="mic" size={14} color="#3B82F6" />
-              <Text className="text-blue-600 text-xs font-medium ml-1">
-                Voice Reply
-              </Text>
-            </View>
-            <Text className="text-gray-700 text-sm">
-              {(item as any).voiceTranscript}
-            </Text>
-          </View>
-        )}
-
-        {/* File Attachments for replies */}
-        {(item as any).fileUri && (
-          <View className="mt-2 p-2 bg-gray-50 rounded-lg border">
-            <View className="flex-row items-center">
-              <MaterialIcon name="attach-file" size={14} color="#6B7280" />
-              <Text className="text-gray-700 text-sm font-medium ml-1">
-                {(item as any).fileName || 'File attachment'}
-              </Text>
-            </View>
-            <Text className="text-gray-500 text-xs mt-1">
-              {(item as any).fileType || 'Unknown type'}
-            </Text>
-          </View>
-        )}
-
-        {/* Reply Reactions */}
-        {item.reactions && item.reactions.length > 0 && (
-          <View className="flex-row flex-wrap mt-2">
-            {item.reactions.map((reaction, idx) => (
-              <TouchableOpacity
-                key={idx}
-                onPress={() => handleReaction(item.id, reaction.emoji)}
-                className="bg-gray-100 rounded-full px-2 py-1 mr-1 mb-1"
-              >
-                <Text className="text-xs">
-                  {reaction.emoji} {reaction.count}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </View>
-
-      {/* Quick Actions */}
-      <View className="flex-row space-x-1">
-        <TouchableOpacity
-          onPress={() =>
-            setShowEmojiPicker({ replyId: item.id, type: 'reply' })
-          }
-          className="bg-gray-50 rounded-full p-1"
-        >
-          <Text className="text-sm">😊</Text>
-        </TouchableOpacity>
-
-        {item.sender.id === 'current_user' && (
-          <TouchableOpacity
-            onPress={() => setEditingReply(item)}
-            className="bg-gray-50 rounded-full p-1"
-          >
-            <MaterialIcon name="edit" size={14} color="#6B7280" />
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
+  const renderThreadMessage = ({ item }: { item: Message }) => (
+    <ChatMessage
+      message={item}
+      onReply={() => {}} // No nested threading for now
+      onReaction={(emoji) => {
+        // Handle reactions in thread
+        console.log('Thread message reaction:', item.id, emoji);
+      }}
+      onEdit={item.sender.id === currentUserId ? () => {} : undefined}
+      onShowEmojiPicker={() => {}}
+      onNavigateToUser={() => {}}
+      onNavigateToReference={() => {}}
+      isOwnMessage={item.sender.id === currentUserId}
+    />
   );
 
   return (
@@ -524,101 +273,106 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({
       <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
         <StatusBar barStyle="dark-content" backgroundColor="white" />
 
-        {/* Header */}
+        {/* Thread Header */}
         <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-200">
-          <View className="flex-row items-center">
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              className="mr-3 p-1"
-            >
+          <View className="flex-row items-center flex-1">
+            <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3">
               <MaterialIcon name="arrow-back" size={24} color="#374151" />
             </TouchableOpacity>
-            <MaterialIcon name="forum" size={20} color="#8B5CF6" />
-            <Text className="text-lg font-semibold ml-2">Thread</Text>
-          </View>
-
-          <View className="flex-row items-center space-x-2">
-            <Text className="text-sm text-gray-500">in #{channelName}</Text>
+            <View className="flex-1">
+              <Text className="text-lg font-semibold text-gray-900">Thread</Text>
+              <Text className="text-sm text-gray-500">#{channelName}</Text>
+            </View>
           </View>
         </View>
 
-        {/* Content */}
-        <FlatList
-          ref={flatListRef}
-          data={[]}
-          renderItem={() => null}
-          ListHeaderComponent={renderParentMessage}
-          ListFooterComponent={() => (
-            <View>
-              <View className="px-4 py-2">
-                <Text className="text-sm text-gray-500 font-medium">
-                  {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
-                </Text>
-              </View>
+        {/* Parent Message */}
+        <View className="border-b border-gray-100 bg-gray-50">
+          <ChatMessage
+            message={parentMessage}
+            onReply={() => {}} // Disabled in thread view
+            onReaction={() => {}}
+            onShowEmojiPicker={() => {}}
+            onNavigateToUser={() => {}}
+            onNavigateToReference={() => {}}
+            isOwnMessage={parentMessage.sender.id === currentUserId}
+          />
+        </View>
 
-              <FlatList
-                data={replies}
-                renderItem={renderReply}
-                keyExtractor={item => item.id}
-                scrollEnabled={false}
-              />
+        {/* Thread Messages */}
+        <View className="flex-1">
+          {isLoadingThread ? (
+            <View className="flex-1 items-center justify-center">
+              <Text className="text-gray-500">Loading thread...</Text>
             </View>
-          )}
-          keyExtractor={() => 'thread'}
-          contentContainerStyle={{ paddingBottom: 20 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        />
-
-        {/* Reply Input */}
-        <View className="border-t border-gray-200">
-          {editingReply && (
-            <View className="flex-row items-center px-4 py-2 bg-orange-50 border-b border-orange-200">
-              <MaterialIcon name="edit" size={16} color="#F97316" />
-              <Text className="text-orange-600 text-sm font-medium ml-2 flex-1">
-                Editing reply
-              </Text>
-              <TouchableOpacity onPress={() => setEditingReply(null)}>
-                <MaterialIcon name="close" size={18} color="#F97316" />
+          ) : threadError ? (
+            <View className="flex-1 items-center justify-center p-4">
+              <Text className="text-red-500 text-center mb-4">{threadError}</Text>
+              <TouchableOpacity 
+                onPress={() => loadThreadMessages()}
+                className="bg-blue-500 px-4 py-2 rounded-lg"
+              >
+                <Text className="text-white font-medium">Retry</Text>
               </TouchableOpacity>
             </View>
-          )}
-
-          <View className="px-3 py-3">
-            <PromptInput
-              onSendMessage={handleSendReply}
-              onSendRecording={handleSendVoiceReply}
-              onAttachFile={handleAttachFile}
-              onAttachImage={handleAttachFile}
-              placeholder={
-                editingReply ? 'Edit your reply...' : 'Reply to this thread...'
+          ) : (
+            <FlatList
+              ref={flatListRef}
+              data={threadMessages}
+              renderItem={renderThreadMessage}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingBottom: 20, paddingTop: 10 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              onRefresh={() => loadThreadMessages(true)}
+              refreshing={isLoadingMore}
+              ListEmptyComponent={() => (
+                <View className="flex-1 items-center justify-center p-8">
+                  <MaterialIcon name="forum" size={48} color="#D1D5DB" />
+                  <Text className="text-gray-500 text-lg mb-2 mt-4">No replies yet</Text>
+                  <Text className="text-gray-400 text-center">
+                    Be the first to reply to this message
+                  </Text>
+                </View>
+              )}
+              ListHeaderComponent={
+                threadMessages.length > 0 ? (
+                  <View className="px-4 py-2">
+                    <Text className="text-gray-500 text-sm text-center">
+                      {threadMessages.length} {threadMessages.length === 1 ? 'reply' : 'replies'}
+                    </Text>
+                  </View>
+                ) : null
               }
-              maxLines={4}
-              disabled={false}
             />
-          </View>
+          )}
         </View>
 
-        {/* Emoji Picker */}
-        <EmojiReactionPicker
-          visible={!!showEmojiPicker}
-          onClose={() => setShowEmojiPicker(null)}
-          onEmojiSelect={emoji => {
-            if (showEmojiPicker) {
-              handleReaction(
-                showEmojiPicker.replyId,
-                emoji,
-                showEmojiPicker.type === 'message',
-              );
-            }
-          }}
-          title={
-            showEmojiPicker?.type === 'message'
-              ? 'React to Message'
-              : 'React to Reply'
-          }
+        {/* Typing Indicators */}
+        <SimpleTypingIndicators
+          typingUsers={typingUsers}
+          currentUserId={currentUserId}
         />
 
+        {/* Thread Reply Input */}
+        <EnhancedChannelInput
+          onSendMessage={handleSendReply}
+          onSendVoiceMessage={(audioUri, transcript) => {
+            // Handle voice replies
+            console.log('Voice reply:', { audioUri, transcript });
+          }}
+          onAttachFile={() => {
+            // Handle file attachments in thread
+            console.log('Attach file to thread');
+          }}
+          onAttachImage={() => {
+            // Handle image attachments in thread
+            console.log('Attach image to thread');
+          }}
+          placeholder={`Reply to ${parentMessage.sender.name}...`}
+          replyingTo={null}
+          editingMessage={null}
+        />
       </View>
     </KeyboardAvoidingView>
   );

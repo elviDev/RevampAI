@@ -10,11 +10,18 @@ interface ChatMessageProps {
   onReply: () => void;
   onReaction: (emoji: string) => void;
   onEdit?: () => void;
+  onDelete?: () => void;
   onShowEmojiPicker?: () => void;
   onNavigateToUser?: (userId: string) => void;
   onNavigateToReference?: (type: string, id: string) => void;
   showThreadButton?: boolean;
   isOwnMessage?: boolean;
+  currentUserId?: string;
+  isCEO?: boolean;
+  // Threading support
+  isThreadReply?: boolean;
+  hasReplies?: boolean;
+  replyCount?: number;
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -22,13 +29,35 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   onReply,
   onReaction,
   onEdit,
+  onDelete,
   onShowEmojiPicker,
   onNavigateToUser,
   onNavigateToReference,
   showThreadButton = true,
   isOwnMessage = false,
+  currentUserId,
+  isCEO = false,
+  // Threading support
+  isThreadReply = false,
+  hasReplies = false,
+  replyCount = 0,
 }) => {
   const [showActions, setShowActions] = useState(false);
+  
+  // Determine if this is the current user's message for proper styling
+  const isCurrentUserMessage = message.sender.id === currentUserId;
+  
+  // Auto-hide actions after interaction
+  const handleActionClick = (action: () => void) => {
+    action();
+    setShowActions(false);
+  };
+  
+  // Determine if user can delete this message
+  const canDeleteMessage = isCurrentUserMessage || isCEO;
+  
+  // Determine if user can start thread (not on own message unless already has replies)
+  const canStartThread = !isCurrentUserMessage || (message.replyCount && message.replyCount > 0);
 
   const formatTime = (timestamp: Date) => {
     return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -47,57 +76,57 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     const mentionRegex = /(@\w+)|(#\w+)|(msg:\w+)|(task:\w+)/g;
     const parts = text.split(mentionRegex);
     
-    return parts.map((part, index) => {
-      if (!part) return null;
-      
-      if (part.startsWith('@')) {
-        // User mention
+    return parts
+      .filter(part => part && part.trim()) // Remove null, undefined, and empty parts
+      .map((part, index) => {
+        if (part.startsWith('@')) {
+          // User mention
+          return (
+            <TouchableOpacity
+              key={index}
+              onPress={() => onNavigateToReference?.('user', part.slice(1))}
+            >
+              <Text className="text-blue-500 font-medium">{part}</Text>
+            </TouchableOpacity>
+          );
+        } else if (part.startsWith('#')) {
+          // Channel reference
+          return (
+            <TouchableOpacity
+              key={index}
+              onPress={() => onNavigateToReference?.('channel', part.slice(1))}
+            >
+              <Text className="text-green-500 font-medium">{part}</Text>
+            </TouchableOpacity>
+          );
+        } else if (part.startsWith('msg:')) {
+          // Message reference
+          return (
+            <TouchableOpacity
+              key={index}
+              onPress={() => onNavigateToReference?.('message', part.slice(4))}
+            >
+              <Text className="text-purple-500 font-medium underline">{part}</Text>
+            </TouchableOpacity>
+          );
+        } else if (part.startsWith('task:')) {
+          // Task reference
+          return (
+            <TouchableOpacity
+              key={index}
+              onPress={() => onNavigateToReference?.('task', part.slice(5))}
+            >
+              <Text className="text-orange-500 font-medium">{part}</Text>
+            </TouchableOpacity>
+          );
+        }
+        
         return (
-          <TouchableOpacity
-            key={index}
-            onPress={() => onNavigateToReference?.('user', part.slice(1))}
-          >
-            <Text className="text-blue-500 font-medium">{part}</Text>
-          </TouchableOpacity>
+          <Text key={index} className="text-gray-700">
+            {part}
+          </Text>
         );
-      } else if (part.startsWith('#')) {
-        // Channel reference
-        return (
-          <TouchableOpacity
-            key={index}
-            onPress={() => onNavigateToReference?.('channel', part.slice(1))}
-          >
-            <Text className="text-green-500 font-medium">{part}</Text>
-          </TouchableOpacity>
-        );
-      } else if (part.startsWith('msg:')) {
-        // Message reference
-        return (
-          <TouchableOpacity
-            key={index}
-            onPress={() => onNavigateToReference?.('message', part.slice(4))}
-          >
-            <Text className="text-purple-500 font-medium underline">{part}</Text>
-          </TouchableOpacity>
-        );
-      } else if (part.startsWith('task:')) {
-        // Task reference
-        return (
-          <TouchableOpacity
-            key={index}
-            onPress={() => onNavigateToReference?.('task', part.slice(5))}
-          >
-            <Text className="text-orange-500 font-medium">{part}</Text>
-          </TouchableOpacity>
-        );
-      }
-      
-      return (
-        <Text key={index} className="text-gray-700">
-          {part}
-        </Text>
-      );
-    });
+      });
   };
 
   return (
@@ -105,7 +134,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       <TouchableOpacity
         onLongPress={() => setShowActions(!showActions)}
         onPress={() => setShowActions(false)}
-        className="flex-row items-start space-x-3 px-4 py-2"
+        className={`flex-row items-start space-x-3 px-4 py-2 ${isCurrentUserMessage ? 'bg-blue-50' : ''}`}
       >
         {/* Avatar */}
         <Avatar
@@ -125,7 +154,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         <View className="flex-1">
           {/* Header */}
           <View className="flex-row items-center space-x-2 mb-1">
-            <Text className="font-semibold text-gray-900">{message.sender.name}</Text>
+            <Text className={`font-semibold ${isCurrentUserMessage ? 'text-blue-700' : 'text-gray-900'}`}>
+              {message.sender.name}
+              {isCurrentUserMessage && <Text className="text-blue-600 text-xs ml-1">(You)</Text>}
+            </Text>
             <Text className="text-xs text-gray-500">{formatTime(message.timestamp)}</Text>
             {message.isEdited && (
               <Text className="text-xs text-gray-400">(edited)</Text>
@@ -133,9 +165,20 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           </View>
 
           {/* Content with Smart References */}
-          <View className="flex-row flex-wrap">
-            {renderMentionsAndReferences(message.content)}
-          </View>
+          {message.content && !message.deletedBy ? (
+            <View className="flex-row flex-wrap">
+              {renderMentionsAndReferences(message.content)}
+            </View>
+          ) : message.deletedBy ? (
+            <View className="bg-red-50 border border-red-200 rounded-lg p-3 mt-1">
+              <Text className="text-red-600 italic">
+                This message was deleted by {message.deletedBy}
+              </Text>
+              <Text className="text-red-400 text-xs mt-1">
+                {formatTime(message.deletedAt || message.timestamp)}
+              </Text>
+            </View>
+          ) : null}
 
           {/* Voice Transcript */}
           {message.voiceTranscript && (
@@ -191,16 +234,23 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             </View>
           )}
 
-          {/* Thread Info */}
-          {message.replies && Array.isArray(message.replies) && message.replies.length > 0 && (
+          {/* Thread Info - Slack Style */}
+          {(message.replyCount && message.replyCount > 0) && (
             <TouchableOpacity
               onPress={onReply}
-              className="mt-2 flex-row items-center"
+              className="mt-2 flex-row items-center space-x-2 py-1"
             >
-              <MaterialIcon name="forum" size={16} color="#8B5CF6" />
-              <Text className="text-purple-600 text-sm font-medium ml-1">
-                {message.replies.length} {message.replies.length === 1 ? 'reply' : 'replies'}
-              </Text>
+              <View className="flex-row items-center">
+                <MaterialIcon name="forum" size={14} color="#1D4ED8" />
+                <Text className="text-blue-600 text-sm font-medium ml-1">
+                  {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'}
+                </Text>
+              </View>
+              {message.lastReplyTimestamp && (
+                <Text className="text-gray-500 text-xs">
+                  Last reply {formatTime(message.lastReplyTimestamp)}
+                </Text>
+              )}
             </TouchableOpacity>
           )}
         </View>
@@ -216,23 +266,46 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             <Text className="text-lg">👍</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={onShowEmojiPicker}
+            onPress={() => handleActionClick(onShowEmojiPicker || (() => {}))}
             className="bg-gray-100 rounded-full p-2"
           >
             <Text className="text-lg">😊</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onReply}
-            className="bg-gray-100 rounded-full px-3 py-2"
-          >
-            <MaterialIcon name="reply" size={16} color="#6B7280" />
-          </TouchableOpacity>
-          {isOwnMessage && onEdit && (
+          {canStartThread && (
             <TouchableOpacity
-              onPress={onEdit}
+              onPress={() => handleActionClick(onReply)}
+              className="bg-gray-100 rounded-full px-3 py-2"
+            >
+              <MaterialIcon name="reply" size={16} color="#6B7280" />
+            </TouchableOpacity>
+          )}
+          {isCurrentUserMessage && onEdit && !message.deletedBy && (
+            <TouchableOpacity
+              onPress={() => handleActionClick(onEdit)}
               className="bg-gray-100 rounded-full px-3 py-2"
             >
               <MaterialIcon name="edit" size={16} color="#6B7280" />
+            </TouchableOpacity>
+          )}
+          {canDeleteMessage && onDelete && !message.deletedBy && (
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert(
+                  'Delete Message',
+                  'Are you sure you want to delete this message?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { 
+                      text: 'Delete', 
+                      style: 'destructive',
+                      onPress: () => handleActionClick(onDelete)
+                    }
+                  ]
+                );
+              }}
+              className="bg-red-100 rounded-full px-3 py-2"
+            >
+              <MaterialIcon name="delete" size={16} color="#DC2626" />
             </TouchableOpacity>
           )}
         </View>

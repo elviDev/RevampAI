@@ -1,11 +1,12 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
+  Text,
   ScrollView,
-  Alert,
   Platform,
   KeyboardAvoidingView,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSharedValue, withSpring } from 'react-native-reanimated';
@@ -26,11 +27,22 @@ import { TaskBasicInfo } from '../../components/task/TaskBasicInfo';
 import { TaskTimeline } from '../../components/task/TaskTimeline';
 import { TaskRequirements } from '../../components/task/TaskRequirements';
 import { TaskTeamAssignment } from '../../components/task/TaskTeamAssignment';
+import { taskService } from '../../services/api/taskService';
+import { userService } from '../../services/api/userService';
+import { useAuth } from '../../hooks/useAuth';
+import { CreateTaskData } from '../../types/task.types';
 
 type TaskCreateScreenProps = NativeStackScreenProps<
   MainStackParamList,
   'TaskCreateScreen'
->;
+> & {
+  route: {
+    params?: {
+      taskId?: string; // For editing existing tasks
+      channelId?: string; // When creating from a channel
+    };
+  };
+};
 
 interface FormData {
   title: string;
@@ -62,6 +74,9 @@ interface FormData {
     uri: string;
     size?: number;
   }>;
+  // Backend fields
+  channel_id?: string;
+  owned_by?: string;
 }
 
 interface FormErrors {
@@ -75,7 +90,11 @@ interface FormErrors {
 
 export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
   navigation,
+  route,
 }) => {
+  const { user } = useAuth();
+  const isEditMode = !!route.params?.taskId;
+  const channelId = route.params?.channelId;
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Animation values
@@ -97,6 +116,8 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
     successCriteria: [],
     documentLinks: [],
     attachments: [],
+    channel_id: channelId,
+    owned_by: user?.id,
   });
 
   const [formErrors, setFormErrors] = useState<FormErrors>({
@@ -113,64 +134,164 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [availableAssignees, setAvailableAssignees] = useState<TaskAssignee[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(false);
 
-  // Mock assignees data
-  const availableAssignees: TaskAssignee[] = [
-    {
-      id: '1',
-      name: 'John Smith',
-      avatar: 'JS',
-      role: 'Frontend Developer',
-      email: 'john.smith@company.com',
-    },
-    {
-      id: '2',
-      name: 'Sarah Wilson',
-      avatar: 'SW',
-      role: 'UI/UX Designer',
-      email: 'sarah.wilson@company.com',
-    },
-    {
-      id: '3',
-      name: 'Mike Johnson',
-      avatar: 'MJ',
-      role: 'Product Manager',
-      email: 'mike.johnson@company.com',
-    },
-    {
-      id: '4',
-      name: 'Alex Chen',
-      avatar: 'AC',
-      role: 'Backend Developer',
-      email: 'alex.chen@company.com',
-    },
-    {
-      id: '5',
-      name: 'Emily Davis',
-      avatar: 'ED',
-      role: 'DevOps Engineer',
-      email: 'emily.davis@company.com',
-    },
-    {
-      id: '6',
-      name: 'David Kim',
-      avatar: 'DK',
-      role: 'QA Engineer',
-      email: 'david.kim@company.com',
-    },
-  ];
+  // Load initial data
+  useEffect(() => {
+    loadInitialData();
+  }, [isEditMode, route.params?.taskId]);
+
+  const loadInitialData = async () => {
+    setIsLoadingData(true);
+    try {
+      // Load available users for assignment
+      await loadAvailableUsers();
+      
+      // If editing, load existing task data
+      if (isEditMode && route.params?.taskId) {
+        await loadExistingTask(route.params.taskId);
+      } else if (channelId) {
+        // Pre-fill channel if creating from channel
+        setFormData(prev => ({ ...prev, channel_id: channelId }));
+      }
+    } catch (error) {
+      console.error('Error loading initial data:', error);
+      Alert.alert('Error', 'Failed to load data. Please try again.');
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
+  const loadAvailableUsers = async () => {
+    try {
+      // In a real app, you'd fetch users from the API
+      // For now, we'll use mock data but make it look like it came from API
+      const mockUsers: TaskAssignee[] = [
+        {
+          id: user?.id || 'current-user',
+          name: user?.name || 'You',
+          avatar: user?.name ? user.name.split(' ').map(n => n[0]).join('') : 'YU',
+          role: 'Current User',
+          email: user?.email || 'you@company.com',
+        },
+        {
+          id: 'user-1',
+          name: 'John Smith',
+          avatar: 'JS',
+          role: 'Frontend Developer',
+          email: 'john.smith@company.com',
+        },
+        {
+          id: 'user-2',
+          name: 'Sarah Wilson',
+          avatar: 'SW',
+          role: 'UI/UX Designer',
+          email: 'sarah.wilson@company.com',
+        },
+        {
+          id: 'user-3',
+          name: 'Mike Johnson',
+          avatar: 'MJ',
+          role: 'Product Manager',
+          email: 'mike.johnson@company.com',
+        },
+        {
+          id: 'user-4',
+          name: 'Alex Chen',
+          avatar: 'AC',
+          role: 'Backend Developer',
+          email: 'alex.chen@company.com',
+        },
+        {
+          id: 'user-5',
+          name: 'Emily Davis',
+          avatar: 'ED',
+          role: 'DevOps Engineer',
+          email: 'emily.davis@company.com',
+        },
+      ];
+      
+      setAvailableAssignees(mockUsers);
+      
+      // Auto-assign current user if not editing
+      if (!isEditMode && user?.id) {
+        const currentUserAssignee = mockUsers.find(u => u.id === user.id);
+        if (currentUserAssignee) {
+          setFormData(prev => ({ 
+            ...prev, 
+            assignees: [currentUserAssignee],
+            owned_by: user.id 
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading users:', error);
+    }
+  };
+
+  const loadExistingTask = async (taskId: string) => {
+    try {
+      const response = await taskService.getTask(taskId);
+      if (response.success && response.data) {
+        const task = response.data;
+        
+        // Wait a bit to ensure availableAssignees are loaded
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Transform task data to form data
+        const taskAssignees = availableAssignees.filter(user => 
+          task.assigned_to.includes(user.id)
+        );
+        
+        // If no assignees found in current list, create basic assignee objects
+        const finalAssignees = taskAssignees.length > 0 
+          ? taskAssignees 
+          : task.assigned_to.map(userId => ({
+              id: userId,
+              name: `User ${userId.substring(0, 8)}`,
+              avatar: userId.substring(0, 2).toUpperCase(),
+              role: 'Team Member',
+              email: `${userId}@company.com`,
+            }));
+        
+        setFormData({
+          title: task.title,
+          description: task.description || '',
+          priority: task.priority,
+          category: task.task_type as any,
+          startDate: task.start_date ? new Date(task.start_date) : new Date(),
+          endDate: task.due_date ? new Date(task.due_date) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          estimatedHours: task.estimated_hours?.toString() || '',
+          tags: task.tags || [],
+          assignees: finalAssignees,
+          features: [], // TODO: Map from custom_fields if needed
+          deliverables: [], // TODO: Map from subtasks if needed
+          successCriteria: [], // TODO: Map from acceptance_criteria
+          documentLinks: [], // TODO: Map from external_references
+          attachments: [], // TODO: Map from attachments
+          channel_id: task.channel_id,
+          owned_by: task.owned_by,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading task:', error);
+      Alert.alert('Error', 'Failed to load task data');
+    }
+  };
 
   const pageHeaders = [
-    { title: 'Basic Information', subtitle: 'Define your task fundamentals' },
+    { title: isEditMode ? 'Edit Basic Information' : 'Basic Information', subtitle: isEditMode ? 'Update task fundamentals' : 'Define your task fundamentals' },
     {
-      title: 'Timeline & Planning',
-      subtitle: 'Set dates and organize details',
+      title: isEditMode ? 'Edit Timeline & Planning' : 'Timeline & Planning',
+      subtitle: isEditMode ? 'Update dates and details' : 'Set dates and organize details',
     },
     {
-      title: 'Requirements & Assets',
-      subtitle: 'Add features and attachments',
+      title: isEditMode ? 'Edit Requirements & Assets' : 'Requirements & Assets',
+      subtitle: isEditMode ? 'Update features and attachments' : 'Add features and attachments',
     },
-    { title: 'Team Assignment', subtitle: 'Choose your collaborators' },
+    { title: isEditMode ? 'Edit Team Assignment' : 'Team Assignment', subtitle: isEditMode ? 'Update collaborators' : 'Choose your collaborators' },
   ];
 
   // Helper functions
@@ -246,121 +367,132 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
       return;
     }
 
-    setIsLoading(true);
+    if (!user?.id) {
+      Alert.alert('Error', 'User not authenticated');
+      return;
+    }
+
+    setIsSaving(true);
     buttonScale.value = withSpring(0.95);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      const newTask: Partial<Task> = {
-        id: Date.now().toString(),
+      // Prepare task data for API
+      const taskData: CreateTaskData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         priority: formData.priority,
-        category: formData.category,
-        status: 'pending',
-        assignees: formData.assignees,
-        reporter: availableAssignees[2],
-        channelId: '1',
-        channelName: 'Project Tasks',
+        task_type: formData.category as any,
+        assigned_to: formData.assignees.map(a => a.id),
+        owned_by: formData.owned_by || user.id,
+        created_by: user.id,
+        channel_id: formData.channel_id,
+        due_date: formData.endDate,
+        start_date: formData.startDate,
+        estimated_hours: parseInt(formData.estimatedHours) || undefined,
         tags: formData.tags,
-        dueDate: formData.endDate,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        estimatedHours: parseInt(formData.estimatedHours) || 0,
-        progress: 0,
-        subtasks: formData.deliverables.map(d => ({
-          id: d.id,
-          title: d.title,
-          completed: d.completed,
-        })),
-        comments: [],
-        attachments: formData.attachments.map(a => ({
-          id: a.id,
-          name: a.name,
-          type: a.type.startsWith('image')
-            ? ('image' as const)
-            : a.type.startsWith('video')
-              ? ('video' as const)
-              : a.type.startsWith('audio')
-                ? ('audio' as const)
-                : ('document' as const),
-          size: a.size ?? 0,
-          url: a.uri,
-          uploadedBy: availableAssignees[0],
-          uploadedAt: new Date(),
-        })),
-        dependencies: [],
-        watchers: [],
+        labels: {
+          features: formData.features,
+          deliverables: formData.deliverables,
+          success_criteria: formData.successCriteria,
+          document_links: formData.documentLinks,
+        },
+        business_value: 'medium', // Default value
       };
 
-      console.log('Task created successfully:', newTask);
+      let response;
+      if (isEditMode && route.params?.taskId) {
+        // Update existing task
+        response = await taskService.updateTask(route.params.taskId, taskData as any);
+      } else {
+        // Create new task
+        response = await taskService.createTask(taskData);
+      }
 
-      // Success animation
-      buttonScale.value = withSpring(1);
+      if (response.success) {
+        // Success animation
+        buttonScale.value = withSpring(1);
+        
+        const successTitle = isEditMode ? '✅ Task Updated!' : '🎉 Task Created!';
+        const successMessage = isEditMode 
+          ? 'Your task has been successfully updated.'
+          : 'Your task has been successfully created and assigned to the team.';
 
-      Alert.alert(
-        '🎉 Task Created!',
-        'Your task has been successfully created and assigned to the team.',
-        [
-          {
-            text: 'Create Another',
-            onPress: () => {
-              // Reset form
-              setFormData({
-                title: '',
-                description: '',
-                priority: 'medium',
-                category: 'development',
-                startDate: new Date(),
-                endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-                estimatedHours: '',
-                tags: [],
-                assignees: [],
-                features: [],
-                deliverables: [],
-                successCriteria: [],
-                documentLinks: [],
-                attachments: [],
-              });
-              setCurrentPage(1);
-              setFormErrors({
-                title: '',
-                description: '',
-                assignees: '',
-                startDate: '',
-                endDate: '',
-                general: '',
-              });
-              scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        Alert.alert(
+          successTitle,
+          successMessage,
+          [
+            {
+              text: isEditMode ? 'View Task' : 'Create Another',
+              onPress: () => {
+                if (isEditMode) {
+                  navigation.replace('TaskDetail', { taskId: route.params!.taskId });
+                } else {
+                  // Reset form for creating another task
+                  resetForm();
+                }
+              },
             },
-          },
-          {
-            text: 'View Tasks',
-            onPress: () => navigation.goBack(),
-            style: 'cancel',
-          },
-        ],
-      );
+            {
+              text: 'Go to Tasks',
+              onPress: () => navigation.navigate('TasksScreen'),
+              style: 'cancel',
+            },
+          ],
+        );
+      } else {
+        throw new Error(response.message || 'Failed to save task');
+      }
     } catch (error) {
-      console.error('Error creating task:', error);
+      console.error(`Error ${isEditMode ? 'updating' : 'creating'} task:`, error);
       Alert.alert(
-        'Creation Failed',
-        'There was an error creating your task. Please check your connection and try again.',
+        isEditMode ? 'Update Failed' : 'Creation Failed',
+        `There was an error ${isEditMode ? 'updating' : 'creating'} your task. Please check your connection and try again.`,
         [{ text: 'OK' }],
       );
       buttonScale.value = withSpring(1);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   }, [
     formData,
     validateCurrentPage,
     buttonScale,
     navigation,
-    availableAssignees,
+    user,
+    isEditMode,
+    route.params?.taskId,
   ]);
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      priority: 'medium',
+      category: 'development',
+      startDate: new Date(),
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      estimatedHours: '',
+      tags: [],
+      assignees: user?.id ? [availableAssignees.find(u => u.id === user.id)!].filter(Boolean) : [],
+      features: [],
+      deliverables: [],
+      successCriteria: [],
+      documentLinks: [],
+      attachments: [],
+      channel_id: channelId,
+      owned_by: user?.id,
+    });
+    setCurrentPage(1);
+    setFormErrors({
+      title: '',
+      description: '',
+      assignees: '',
+      startDate: '',
+      endDate: '',
+      general: '',
+    });
+    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+  };
 
   // Input handlers with error clearing
   const updateFormData = useCallback(
@@ -621,7 +753,20 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
       <TaskCreateHeader
         title={pageHeaders[currentPage - 1].title}
         subtitle={pageHeaders[currentPage - 1].subtitle}
-        onBack={() => navigation.goBack()}
+        onBack={() => {
+          if (isEditMode) {
+            Alert.alert(
+              'Discard Changes?',
+              'Are you sure you want to go back? Any unsaved changes will be lost.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Discard', style: 'destructive', onPress: () => navigation.goBack() },
+              ]
+            );
+          } else {
+            navigation.goBack();
+          }
+        }}
         currentStep={currentPage}
         totalSteps={pageHeaders.length}
       />
@@ -631,28 +776,37 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 84 : 20}
       >
-        <ScrollView
-          ref={scrollViewRef}
-          className="flex-1 px-6 pt-4"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 100 }} // Added extra padding at bottom
-        >
-          {renderPage()}
-        </ScrollView>
+        {isLoadingData ? (
+          <View className="flex-1 items-center justify-center">
+            <Text className="text-gray-500 text-lg">Loading...</Text>
+          </View>
+        ) : (
+          <>
+            <ScrollView
+              ref={scrollViewRef}
+              className="flex-1 px-6 pt-4"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 100 }}
+            >
+              {renderPage()}
+            </ScrollView>
 
-        {/* Fixed position navigation footer */}
-        <View className="absolute left-0 right-0 bottom-0">
-          <TaskCreateNavigation
-            currentStep={currentPage}
-            totalSteps={pageHeaders.length}
-            onPrevious={handlePrevious}
-            onNext={handleNext}
-            onComplete={handleCreateTask}
-            isLoading={isLoading}
-            canGoBack={currentPage > 1}
-            buttonScale={buttonScale}
-          />
-        </View>
+            {/* Fixed position navigation footer */}
+            <View className="absolute left-0 right-0 bottom-0">
+              <TaskCreateNavigation
+                currentStep={currentPage}
+                totalSteps={pageHeaders.length}
+                onPrevious={handlePrevious}
+                onNext={handleNext}
+                onComplete={handleCreateTask}
+                isLoading={isSaving}
+                canGoBack={currentPage > 1}
+                buttonScale={buttonScale}
+                completeText={isEditMode ? 'Update Task' : 'Create Task'}
+              />
+            </View>
+          </>
+        )}
       </KeyboardAvoidingView>
 
       {/* Date Pickers */}

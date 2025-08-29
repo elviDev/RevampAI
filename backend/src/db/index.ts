@@ -17,21 +17,45 @@ export type { Channel, CreateChannelData, ChannelWithDetails } from './ChannelRe
 export { default as TaskRepository } from './TaskRepository';
 export type { Task, CreateTaskData, TaskWithDetails, TaskFilter } from './TaskRepository';
 
+export { default as MessageRepository } from './MessageRepository';
+export type { Message, CreateMessageData, MessageWithUser } from './MessageRepository';
+
+export { default as ActivityRepository } from './ActivityRepository';
+export type { Activity, CreateActivityData, ActivityWithUser } from './ActivityRepository';
+
+export { default as FileRepository } from './FileRepository';
+export type { FileEntity, CreateFileData, FileWithUploader } from './FileRepository';
+
+export { default as AnnouncementRepository } from './AnnouncementRepository';
+export type { Announcement, CreateAnnouncementData, UpdateAnnouncementData, AnnouncementFilter } from './AnnouncementRepository';
+
 // Repository instances for dependency injection
 import UserRepository from './UserRepository';
 import ChannelRepository from './ChannelRepository';
 import TaskRepository from './TaskRepository';
+import MessageRepository from './MessageRepository';
+import ActivityRepository from './ActivityRepository';
+import FileRepository from './FileRepository';
+import AnnouncementRepository from './AnnouncementRepository';
 
 // Create singleton instances
 export const userRepository = new UserRepository();
 export const channelRepository = new ChannelRepository();
 export const taskRepository = new TaskRepository();
+export const messageRepository = new MessageRepository();
+export const activityRepository = new ActivityRepository();
+export const fileRepository = new FileRepository();
+export const announcementRepository = new AnnouncementRepository();
 
 // Repository collection for easy access
 export const repositories = {
   users: userRepository,
   channels: channelRepository,
   tasks: taskRepository,
+  messages: messageRepository,
+  activities: activityRepository,
+  files: fileRepository,
+  announcements: announcementRepository,
 } as const;
 
 export type Repositories = typeof repositories;

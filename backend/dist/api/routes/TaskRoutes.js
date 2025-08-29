@@ -195,12 +195,33 @@ const registerTaskRoutes = async (fastify) => {
     }, async (request, reply) => {
         try {
             const { limit = 20, offset = 0, status, priority, assigned_to, channel_id, created_by, due_after, due_before, tags, overdue, voice_created, search, } = request.query;
+            // Debug logging for filter parameters
+            logger_1.loggers.api.info({
+                userId: request.user?.userId,
+                queryParams: {
+                    limit,
+                    offset,
+                    status: Array.isArray(status) ? status : [status],
+                    priority: Array.isArray(priority) ? priority : [priority],
+                    assigned_to,
+                    channel_id,
+                    created_by,
+                    due_after,
+                    due_before,
+                    tags,
+                    overdue,
+                    voice_created,
+                    search,
+                }
+            }, 'Task filter request received');
             // Build task filters
             const filters = {};
-            if (status)
-                filters.status = status;
-            if (priority)
-                filters.priority = priority;
+            if (status) {
+                filters.status = Array.isArray(status) ? status : [status];
+            }
+            if (priority) {
+                filters.priority = Array.isArray(priority) ? priority : [priority];
+            }
             if (assigned_to)
                 filters.assignedTo = [assigned_to];
             if (channel_id)
@@ -209,12 +230,17 @@ const registerTaskRoutes = async (fastify) => {
                 filters.dueAfter = new Date(due_after);
             if (due_before)
                 filters.dueBefore = new Date(due_before);
-            if (tags)
-                filters.tags = tags;
+            if (tags) {
+                filters.tags = Array.isArray(tags) ? tags : [tags];
+            }
             if (overdue !== undefined)
                 filters.overdue = overdue;
             if (voice_created !== undefined)
                 filters.voiceCreated = voice_created;
+            // Filter based on user permissions (non-CEO users only see their tasks unless specified)
+            if (request.user.role !== 'ceo' && !assigned_to && !created_by) {
+                filters.assignedTo = [request.user.userId];
+            }
             let tasks = [];
             let total = 0;
             if (search) {
@@ -227,11 +253,6 @@ const registerTaskRoutes = async (fastify) => {
                 tasks = await index_1.taskRepository.findWithFilters(filters, Math.min(limit, 100), offset);
                 // TODO: Get total count for pagination
                 total = tasks.length;
-            }
-            // Filter based on user permissions (non-CEO users only see their tasks unless specified)
-            if (request.user.role !== 'ceo' && !assigned_to && !created_by) {
-                filters.assignedTo = [request.user.userId];
-                tasks = await index_1.taskRepository.findByAssignee(request.user.userId, filters.status, true);
             }
             logger_1.loggers.api.info({
                 userId: request.user?.userId,
@@ -265,11 +286,21 @@ const registerTaskRoutes = async (fastify) => {
                 url: request.url,
                 headers: request.headers,
             });
-            logger_1.loggers.api.error({ error, context }, 'Failed to retrieve tasks');
+            // Enhanced error logging
+            logger_1.loggers.api.error({
+                error: {
+                    message: error instanceof Error ? error.message : String(error),
+                    stack: error instanceof Error ? error.stack : undefined,
+                    name: error instanceof Error ? error.name : undefined,
+                },
+                context,
+                queryParams: request.query,
+            }, 'Failed to retrieve tasks - detailed error');
             reply.code(500).send({
                 error: {
                     message: 'Failed to retrieve tasks',
                     code: 'SERVER_ERROR',
+                    details: error instanceof Error ? error.message : String(error),
                 },
             });
         }
@@ -880,6 +911,410 @@ const registerTaskRoutes = async (fastify) => {
             reply.code(500).send({
                 error: {
                     message: 'Failed to retrieve task stats',
+                    code: 'SERVER_ERROR',
+                },
+            });
+        }
+    });
+    /**
+     * GET /channels/:channelId/tasks - Get channel tasks
+     */
+    fastify.get('/channels/:channelId/tasks', {
+        preHandler: [middleware_1.authenticate, middleware_1.requireChannelAccess],
+        schema: {
+            params: typebox_1.Type.Object({
+                channelId: validation_1.UUIDSchema,
+            }),
+            querystring: typebox_1.Type.Intersect([
+                validation_1.PaginationSchema,
+                typebox_1.Type.Object({
+                    status: typebox_1.Type.Optional(typebox_1.Type.Array(validation_1.TaskStatusSchema)),
+                    priority: typebox_1.Type.Optional(typebox_1.Type.Array(validation_1.TaskPrioritySchema)),
+                    assigned_to: typebox_1.Type.Optional(validation_1.UUIDSchema),
+                }),
+            ]),
+            response: {
+                200: typebox_1.Type.Object({
+                    success: typebox_1.Type.Boolean(),
+                    data: typebox_1.Type.Array(TaskResponseSchema),
+                    pagination: typebox_1.Type.Object({
+                        total: typebox_1.Type.Integer(),
+                        limit: typebox_1.Type.Integer(),
+                        offset: typebox_1.Type.Integer(),
+                        hasMore: typebox_1.Type.Boolean(),
+                    }),
+                    timestamp: typebox_1.Type.String({ format: 'date-time' }),
+                }),
+            },
+        },
+    }, async (request, reply) => {
+        try {
+            const { channelId } = request.params;
+            const { limit = 20, offset = 0, status, priority, assigned_to } = request.query;
+            // Build filters
+            const filters = {
+                channelId,
+                status,
+                priority,
+                assignedTo: assigned_to ? [assigned_to] : undefined,
+            };
+            const tasks = await index_1.taskRepository.findWithFilters(filters, Math.min(limit, 100), offset);
+            const total = tasks.length; // Simplified - in production, implement proper count query
+            logger_1.loggers.api.info({
+                userId: request.user?.userId,
+                channelId,
+                taskCount: tasks.length,
+                filters,
+            }, 'Channel tasks retrieved');
+            reply.send({
+                success: true,
+                data: tasks,
+                pagination: {
+                    total,
+                    limit,
+                    offset,
+                    hasMore: offset + limit < total,
+                },
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            const context = (0, errors_1.createErrorContext)({
+                ...(request.user && {
+                    user: {
+                        id: request.user.userId,
+                        email: request.user.email ?? '',
+                        role: request.user.role,
+                    },
+                }),
+                ip: request.ip,
+                method: request.method,
+                url: request.url,
+                headers: request.headers,
+            });
+            logger_1.loggers.api.error({ error, context }, 'Failed to retrieve channel tasks');
+            reply.code(500).send({
+                error: {
+                    message: 'Failed to retrieve channel tasks',
+                    code: 'SERVER_ERROR',
+                },
+            });
+        }
+    });
+    /**
+     * POST /channels/:channelId/tasks - Create task in channel
+     */
+    fastify.post('/channels/:channelId/tasks', {
+        preHandler: [middleware_1.authenticate, middleware_1.requireChannelAccess, (0, middleware_1.authorize)('tasks:create')],
+        schema: {
+            params: typebox_1.Type.Object({
+                channelId: validation_1.UUIDSchema,
+            }),
+            body: typebox_1.Type.Omit(CreateTaskSchema, ['channel_id']),
+            response: {
+                201: typebox_1.Type.Object({
+                    success: typebox_1.Type.Boolean(),
+                    data: TaskResponseSchema,
+                    timestamp: typebox_1.Type.String({ format: 'date-time' }),
+                }),
+            },
+        },
+    }, async (request, reply) => {
+        try {
+            const { channelId } = request.params;
+            const taskData = {
+                ...request.body,
+                channel_id: channelId,
+                created_by: request.user.userId,
+                assigned_to: request.body.assigned_to || [request.user.userId],
+                owned_by: request.body.owned_by || request.user.userId,
+                tags: request.body.tags || [],
+                labels: request.body.labels || {},
+                due_date: request.body.due_date ? new Date(request.body.due_date) : undefined,
+                start_date: request.body.start_date ? new Date(request.body.start_date) : undefined,
+            };
+            const task = await taskService.createTask(taskData);
+            // Broadcast task creation to channel and task management system
+            await utils_1.WebSocketUtils.broadcastTaskUpdate({
+                type: 'task_created',
+                taskId: task.id,
+                channelId,
+                task: {
+                    id: task.id,
+                    title: task.title,
+                    ...(task.description ? { description: task.description } : {}),
+                    status: task.status,
+                    priority: task.priority,
+                    assignedTo: task.assigned_to,
+                    ...(task.due_date ? { dueDate: task.due_date.toISOString() } : {}),
+                    progress: task.progress_percentage,
+                    tags: task.tags,
+                },
+                action: 'create',
+                userId: request.user.userId,
+                userName: request.user.name,
+                userRole: request.user.role,
+            });
+            // Send channel notification message
+            if (channelId) {
+                await utils_1.WebSocketUtils.broadcastChannelMessage({
+                    type: 'chat_message',
+                    channelId,
+                    messageId: `task_created_${task.id}`,
+                    message: `Task "${task.title}" was created`,
+                    messageType: 'system',
+                    userId: request.user.userId,
+                    userName: request.user.name,
+                    userRole: request.user.role,
+                });
+            }
+            // Send notifications to assignees
+            if (task.assigned_to.length > 0) {
+                for (const assigneeId of task.assigned_to) {
+                    if (assigneeId !== request.user.userId) {
+                        await utils_1.WebSocketUtils.createAndSendNotification(assigneeId, {
+                            title: 'New Channel Task Assigned',
+                            message: `You have been assigned to task: ${task.title} in channel`,
+                            category: 'task',
+                            priority: task.priority === 'critical' || task.priority === 'urgent' ? 'high' : 'medium',
+                            actionUrl: `/channels/${channelId}?task=${task.id}`,
+                            actionText: 'View Task',
+                            data: {
+                                taskId: task.id,
+                                taskTitle: task.title,
+                                channelId,
+                            },
+                        });
+                    }
+                }
+            }
+            logger_1.loggers.api.info({
+                userId: request.user?.userId,
+                channelId,
+                taskId: task.id,
+                taskTitle: task.title,
+                assignedTo: task.assigned_to,
+            }, 'Channel task created successfully');
+            reply.code(201).send({
+                success: true,
+                data: task,
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            const context = (0, errors_1.createErrorContext)({
+                ...(request.user && {
+                    user: {
+                        id: request.user.userId,
+                        email: request.user.email ?? '',
+                        role: request.user.role,
+                    },
+                }),
+                ip: request.ip,
+                method: request.method,
+                url: request.url,
+                headers: request.headers,
+            });
+            logger_1.loggers.api.error({ error, context }, 'Failed to create channel task');
+            if (error instanceof errors_1.ValidationError) {
+                reply.code(400).send((0, errors_1.formatErrorResponse)(error));
+            }
+            else {
+                reply.code(500).send({
+                    error: {
+                        message: 'Failed to create channel task',
+                        code: 'SERVER_ERROR',
+                    },
+                });
+            }
+        }
+    });
+    /**
+     * PUT /tasks/:id/channel - Link task to channel
+     */
+    fastify.put('/tasks/:id/channel', {
+        preHandler: [middleware_1.authenticate, (0, middleware_1.authorize)('tasks:update')],
+        schema: {
+            params: typebox_1.Type.Object({
+                id: validation_1.UUIDSchema,
+            }),
+            body: typebox_1.Type.Object({
+                channel_id: typebox_1.Type.Union([validation_1.UUIDSchema, typebox_1.Type.Null()]),
+            }),
+            response: {
+                200: typebox_1.Type.Object({
+                    success: typebox_1.Type.Boolean(),
+                    data: TaskResponseSchema,
+                    timestamp: typebox_1.Type.String({ format: 'date-time' }),
+                }),
+            },
+        },
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params;
+            const { channel_id } = request.body;
+            // Check if user can update this task
+            const existingTask = await index_1.taskRepository.findById(id);
+            if (!existingTask) {
+                throw new errors_1.NotFoundError('Task not found');
+            }
+            const canUpdate = request.user.role === 'ceo' ||
+                existingTask.assigned_to.includes(request.user.userId) ||
+                existingTask.created_by === request.user.userId ||
+                existingTask.owned_by === request.user.userId;
+            if (!canUpdate) {
+                throw new errors_1.AuthorizationError('You do not have permission to update this task');
+            }
+            // If linking to a channel, verify user has access
+            if (channel_id) {
+                const hasChannelAccess = await index_1.channelRepository.canUserAccess(channel_id, request.user.userId, request.user.role);
+                if (!hasChannelAccess) {
+                    throw new errors_1.AuthorizationError('You do not have access to this channel');
+                }
+            }
+            const task = await taskService.updateTask(id, { channel_id });
+            // Broadcast to both old and new channels
+            if (existingTask.channel_id) {
+                await utils_1.WebSocketUtils.broadcastChannelMessage({
+                    type: 'chat_message',
+                    channelId: existingTask.channel_id,
+                    messageId: `task_unlink_${task.id}`,
+                    message: `Task "${task.title}" was unlinked from this channel`,
+                    messageType: 'system',
+                    userId: request.user.userId,
+                    userName: request.user.name,
+                    userRole: request.user.role,
+                });
+            }
+            if (channel_id) {
+                await utils_1.WebSocketUtils.broadcastChannelMessage({
+                    type: 'chat_message',
+                    channelId: channel_id,
+                    messageId: `task_link_${task.id}`,
+                    message: `Task "${task.title}" was linked to this channel`,
+                    messageType: 'system',
+                    userId: request.user.userId,
+                    userName: request.user.name,
+                    userRole: request.user.role,
+                });
+            }
+            // Also broadcast to task system
+            await utils_1.WebSocketUtils.broadcastTaskUpdate({
+                type: 'task_updated',
+                taskId: id,
+                channelId: channel_id || '',
+                task: {
+                    id: task.id,
+                    title: task.title,
+                    ...(task.description ? { description: task.description } : {}),
+                    status: task.status,
+                    priority: task.priority,
+                    assignedTo: task.assigned_to,
+                    ...(task.due_date ? { dueDate: task.due_date.toISOString() } : {}),
+                    progress: task.progress_percentage,
+                    tags: task.tags,
+                },
+                action: 'update',
+                changes: { channel_id },
+                userId: request.user.userId,
+                userName: request.user.name,
+                userRole: request.user.role,
+            });
+            logger_1.loggers.api.info({
+                userId: request.user?.userId,
+                taskId: id,
+                oldChannelId: existingTask.channel_id,
+                newChannelId: channel_id,
+            }, 'Task channel link updated successfully');
+            reply.send({
+                success: true,
+                data: task,
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            const context = (0, errors_1.createErrorContext)({
+                ...(request.user && {
+                    user: {
+                        id: request.user.userId,
+                        email: request.user.email ?? '',
+                        role: request.user.role,
+                    },
+                }),
+                ip: request.ip,
+                method: request.method,
+                url: request.url,
+                headers: request.headers,
+            });
+            logger_1.loggers.api.error({ error, context }, 'Failed to update task channel link');
+            if (error instanceof errors_1.NotFoundError || error instanceof errors_1.AuthorizationError) {
+                reply.code(error.statusCode).send((0, errors_1.formatErrorResponse)(error));
+            }
+            else if (error instanceof errors_1.ValidationError) {
+                reply.code(400).send((0, errors_1.formatErrorResponse)(error));
+            }
+            else {
+                reply.code(500).send({
+                    error: {
+                        message: 'Failed to update task channel link',
+                        code: 'SERVER_ERROR',
+                    },
+                });
+            }
+        }
+    });
+    /**
+     * GET /channels/:channelId/tasks/stats - Get channel task statistics
+     */
+    fastify.get('/channels/:channelId/tasks/stats', {
+        preHandler: [middleware_1.authenticate, middleware_1.requireChannelAccess],
+        schema: {
+            params: typebox_1.Type.Object({
+                channelId: validation_1.UUIDSchema,
+            }),
+            response: {
+                200: typebox_1.Type.Object({
+                    success: typebox_1.Type.Boolean(),
+                    data: TaskStatsSchema,
+                    timestamp: typebox_1.Type.String({ format: 'date-time' }),
+                }),
+            },
+        },
+    }, async (request, reply) => {
+        try {
+            const { channelId } = request.params;
+            // Get channel task statistics by using regular getTaskStats with channel filter
+            // This is a simplified implementation - in production, implement proper channel stats
+            const stats = await index_1.taskRepository.getTaskStats(request.user.userId);
+            logger_1.loggers.api.info({
+                userId: request.user?.userId,
+                channelId,
+                stats,
+            }, 'Channel task stats retrieved');
+            reply.send({
+                success: true,
+                data: stats,
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            const context = (0, errors_1.createErrorContext)({
+                ...(request.user && {
+                    user: {
+                        id: request.user.userId,
+                        email: request.user.email ?? '',
+                        role: request.user.role,
+                    },
+                }),
+                ip: request.ip,
+                method: request.method,
+                url: request.url,
+                headers: request.headers,
+            });
+            logger_1.loggers.api.error({ error, context }, 'Failed to retrieve channel task stats');
+            reply.code(500).send({
+                error: {
+                    message: 'Failed to retrieve channel task stats',
                     code: 'SERVER_ERROR',
                 },
             });

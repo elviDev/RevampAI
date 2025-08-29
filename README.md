@@ -2,6 +2,21 @@ This is a new [**React Native**](https://reactnative.dev) project, bootstrapped 
 
 # Getting Started
 
+Test User Credentials:
+
+  1. CEO:
+    - Email: ceo@test.com
+    - Password: test123
+    - Role: CEO with full admin permissions
+  2. Manager:
+    - Email: manager@test.com
+    - Password: test123
+    - Role: Manager with read/write permissions
+  3. Staff:
+    - Email: staff@test.com
+    - Password: test123
+    - Role: Staff with read-only permissions
+
 > **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
 
 ## Step 1: Start Metro
