@@ -59,6 +59,10 @@ export const useMessageActions = (
     if (!content.trim() || !channelId) return;
 
     try {
+      // Determine threading context
+      const isReply = !!replyingTo?.id;
+      const threadRoot = replyingTo?.threadRoot || replyingTo?.id;
+
       // Create optimistic message
       const optimisticMessage = {
         type,
@@ -74,32 +78,32 @@ export const useMessageActions = (
         replies: [],
         mentions: [],
         isEdited: false,
-        connectedTo: replyingTo?.id,
-        // For threading: if replying to a message that's already part of a thread, 
-        // use its threadRoot. Otherwise, the message being replied to becomes the threadRoot.
-        threadRoot: replyingTo?.threadRoot || replyingTo?.id,
+        connectedTo: isReply ? replyingTo.id : undefined,
+        threadRoot: isReply ? threadRoot : undefined,
       };
-
-      // Add optimistic message immediately
-      addOptimisticMessage(optimisticMessage);
 
       console.log(`[useMessageActions] Sending message to channel ${channelId}:`, {
         content: content.substring(0, 50) + '...',
         type,
-        replyTo: replyingTo?.id
+        isReply,
+        replyTo: replyingTo?.id,
+        threadRoot,
       });
+
+      // Add optimistic message immediately
+      addOptimisticMessage(optimisticMessage);
 
       // Send to server
       const response = await messageService.sendMessage(channelId, {
         content: content.trim(),
         message_type: type === 'voice' ? 'voice' : 'text',
-        reply_to: replyingTo?.id,
-        thread_root: replyingTo?.threadRoot || replyingTo?.id, // Use proper threadRoot logic
+        reply_to: isReply ? replyingTo.id : undefined,
+        thread_root: isReply ? threadRoot : undefined,
         mentions: [],
       });
 
       if (response.success) {
-        console.log('[useMessageActions] Message sent successfully');
+        console.log('[useMessageActions] Message sent successfully:', response.data);
         
         // Send push notifications to channel members
         try {
@@ -111,19 +115,23 @@ export const useMessageActions = (
             type: 'new_message',
           });
         } catch (notificationError) {
-          // Don't log as error since this is not critical for message sending
           console.debug('[useMessageActions] Notification service unavailable:', notificationError);
         }
         
-        // Clear reply/edit state
+        // Clear reply/edit state only after successful send
         setReplyingTo(null);
         setEditingMessage(null);
+        
+        // The real message will arrive via WebSocket and replace the optimistic one
       } else {
         throw new Error('Failed to send message');
       }
     } catch (error: any) {
       console.error('[useMessageActions] Error sending message:', error);
       showError(error?.message || 'Failed to send message');
+      
+      // TODO: Remove the optimistic message if sending failed
+      // This would require adding a removeOptimisticMessage function to the hook
     }
   }, [
     channelId, 

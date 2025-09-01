@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   StatusBar,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, withSpring } from 'react-native-reanimated';
@@ -17,6 +16,7 @@ import {
 } from '../../types/task.types';
 import { taskService } from '../../services/api/taskService';
 import { useAuth } from '../../hooks/useAuth';
+import { useUI } from '../../components/common/UIProvider';
 
 // Import existing components
 import { TaskDetailHeader } from '../../components/task/TaskDetailHeader';
@@ -59,6 +59,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   
   // Get current user from auth context
   const { user } = useAuth();
+  const { showErrorAlert, showConfirm, showSuccess } = useUI();
 
   // Animation values
   const commentInputScale = useSharedValue(1);
@@ -145,13 +146,13 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         });
         setShowStatusModal(false);
         
-        Alert.alert('Success', `Task status updated to ${newStatus}`);
+        showSuccess(`Task status updated to ${newStatus}`);
       } else {
-        Alert.alert('Error', 'Failed to update task status');
+        showErrorAlert('Error', 'Failed to update task status');
       }
     } catch (err) {
       console.error('Error updating task status:', err);
-      Alert.alert('Error', 'Failed to update task status');
+      showErrorAlert('Error', 'Failed to update task status');
     }
   };
 
@@ -169,13 +170,13 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         });
         setShowPriorityModal(false);
         
-        Alert.alert('Success', `Task priority updated to ${newPriority}`);
+        showSuccess(`Task priority updated to ${newPriority}`);
       } else {
-        Alert.alert('Error', 'Failed to update task priority');
+        showErrorAlert('Error', 'Failed to update task priority');
       }
     } catch (err) {
       console.error('Error updating task priority:', err);
-      Alert.alert('Error', 'Failed to update task priority');
+      showErrorAlert('Error', 'Failed to update task priority');
     }
   };
 
@@ -240,17 +241,15 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
   const handleCompletePress = () => {
     if (task?.status !== 'completed') {
-      Alert.alert(
+      showConfirm(
         'Complete Task',
         'Are you sure you want to mark this task as completed?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Complete', 
-            style: 'default',
-            onPress: () => updateTaskStatus('completed')
-          },
-        ]
+        () => updateTaskStatus('completed'),
+        undefined,
+        {
+          confirmText: 'Complete',
+          cancelText: 'Cancel',
+        }
       );
     }
   };

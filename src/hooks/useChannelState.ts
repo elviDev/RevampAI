@@ -221,12 +221,49 @@ export const useChannelState = (channelId: string): [ChannelState, ChannelAction
   const addOptimisticMessage = useCallback((message: Omit<Message, 'id'>) => {
     const optimisticMessage: Message = {
       ...message,
-      id: `temp_${Date.now()}`,
+      id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       isOptimistic: true,
+      timestamp: new Date(), // Ensure fresh timestamp for optimistic messages
     };
     
-    // Add to the end of the messages array (newest at bottom)
-    setMessages(prev => [...prev, optimisticMessage]);
+    console.log('➕ Adding optimistic message:', {
+      id: optimisticMessage.id,
+      content: optimisticMessage.content.substring(0, 50) + '...',
+      threadRoot: optimisticMessage.threadRoot,
+      connectedTo: optimisticMessage.connectedTo,
+    });
+    
+    setMessages(prev => {
+      // If this is a thread reply, update the parent message's reply count optimistically
+      if (optimisticMessage.threadRoot) {
+        const updatedMessages = prev.map(msg => {
+          if (msg.id === optimisticMessage.threadRoot) {
+            return {
+              ...msg,
+              replyCount: (msg.replyCount || 0) + 1,
+              lastReplyTimestamp: optimisticMessage.timestamp,
+            };
+          }
+          return msg;
+        });
+        
+        // Add optimistic message at the end
+        const finalMessages = [...updatedMessages, optimisticMessage];
+        
+        // Sort to maintain chronological order (oldest to newest)
+        return finalMessages.sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+      }
+      
+      // For non-thread messages, just add and sort
+      const updatedMessages = [...prev, optimisticMessage];
+      
+      // Sort to maintain chronological order (oldest to newest)
+      return updatedMessages.sort((a, b) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+    });
   }, []);
 
   // Load channel stats
@@ -427,6 +464,31 @@ export const useChannelState = (channelId: string): [ChannelState, ChannelAction
       if (event.channelId === channelId && event.message) {
         console.log('📨 New message received via WebSocket:', event);
         
+        // Skip thread replies in main channel - they should only appear in ThreadScreen
+        if (event.isThreadReply || (event.message.thread_root && event.message.reply_to)) {
+          console.log('🧵 Skipping thread reply in main channel:', {
+            messageId: event.message.id,
+            threadRoot: event.message.thread_root,
+            replyTo: event.message.reply_to
+          });
+          
+          // Update parent message reply count if this is a thread reply
+          if (event.message.thread_root) {
+            setMessages(prev => prev.map(msg => {
+              if (msg.id === event.message.thread_root) {
+                return {
+                  ...msg,
+                  replyCount: (msg.replyCount || 0) + 1,
+                  lastReplyTimestamp: new Date(event.message.created_at || event.timestamp),
+                };
+              }
+              return msg;
+            }));
+          }
+          
+          return; // Don't add thread replies to main channel
+        }
+        
         // Transform the message to our format
         const newMessage: Message = {
           id: event.message.id || event.messageId,
@@ -445,30 +507,63 @@ export const useChannelState = (channelId: string): [ChannelState, ChannelAction
           isEdited: event.message.is_edited || false,
           connectedTo: event.message.reply_to,
           threadRoot: event.message.thread_root,
+          replyCount: event.message.reply_count || 0,
+          lastReplyTimestamp: event.message.last_reply_timestamp ? new Date(event.message.last_reply_timestamp) : undefined,
         };
 
         // Add message to state
         setMessages(prev => {
           // Check if message already exists to avoid duplicates
           if (prev.some(msg => msg.id === newMessage.id)) {
+            console.log('⚠️ Message already exists, skipping duplicate:', newMessage.id);
             return prev;
           }
           
-          // Remove optimistic messages that are likely to be replaced by this real message
-          // We'll be more conservative and only remove very recent optimistic messages
+          // Remove optimistic messages that match this real message more precisely
           const now = new Date(newMessage.timestamp).getTime();
           const filteredMessages = prev.filter(msg => {
             if (!msg.isOptimistic) return true; // Keep all non-optimistic messages
             
-            // Keep optimistic messages that are more than 10 seconds old or have very different content
+            // Check if this optimistic message matches the new real message
             const msgTime = new Date(msg.timestamp).getTime();
             const timeDiff = Math.abs(now - msgTime);
             const contentMatch = msg.content.trim().toLowerCase() === newMessage.content.trim().toLowerCase();
+            const senderMatch = msg.sender.id === newMessage.sender.id;
+            const threadMatch = msg.threadRoot === newMessage.threadRoot && msg.connectedTo === newMessage.connectedTo;
             
-            return timeDiff > 10000 || !contentMatch;
+            // Remove if it's likely the same message (content + sender match, within 30 seconds, thread context matches)
+            const isLikelyDuplicate = contentMatch && senderMatch && threadMatch && timeDiff < 30000;
+            
+            if (isLikelyDuplicate) {
+              console.log('🔄 Removing optimistic message replaced by real message:', msg.id, '→', newMessage.id);
+            }
+            
+            return !isLikelyDuplicate;
           });
           
-          // Add new message at the end (newest at bottom)
+          // If this is a thread reply, update the parent message's reply count
+          if (newMessage.threadRoot) {
+            const updatedMessages = filteredMessages.map(msg => {
+              if (msg.id === newMessage.threadRoot) {
+                return {
+                  ...msg,
+                  replyCount: (msg.replyCount || 0) + 1,
+                  lastReplyTimestamp: newMessage.timestamp,
+                };
+              }
+              return msg;
+            });
+            
+            // Add new message at the end
+            const finalMessages = [...updatedMessages, newMessage];
+            
+            // Sort to maintain chronological order (oldest to newest)
+            return finalMessages.sort((a, b) => 
+              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            );
+          }
+          
+          // For non-thread messages, just add and sort
           const updatedMessages = [...filteredMessages, newMessage];
           
           // Sort to maintain chronological order (oldest to newest)

@@ -108,6 +108,7 @@ class MessageRepository extends BaseRepository<Message> {
       messageType?: string;
       before?: Date;
       after?: Date;
+      includeThreadReplies?: boolean; // New flag to control thread reply inclusion
     },
     limit: number = 50,
     offset: number = 0,
@@ -122,6 +123,10 @@ class MessageRepository extends BaseRepository<Message> {
       whereConditions.push(`m.thread_root = $${paramIndex}`);
       params.push(filters.threadRoot);
       paramIndex++;
+    } else if (!filters?.includeThreadReplies) {
+      // For main channel messages, exclude thread replies (messages with thread_root)
+      // unless explicitly requested to include them
+      whereConditions.push(`m.thread_root IS NULL`);
     }
 
     if (filters?.messageType) {
@@ -186,6 +191,7 @@ class MessageRepository extends BaseRepository<Message> {
       messageType?: string;
       before?: Date;
       after?: Date;
+      includeThreadReplies?: boolean;
     },
     client?: DatabaseClient
   ): Promise<number> {
@@ -198,6 +204,10 @@ class MessageRepository extends BaseRepository<Message> {
       whereConditions.push(`thread_root = $${paramIndex}`);
       params.push(filters.threadRoot);
       paramIndex++;
+    } else if (!filters?.includeThreadReplies) {
+      // For main channel messages, exclude thread replies (messages with thread_root)
+      // unless explicitly requested to include them
+      whereConditions.push(`thread_root IS NULL`);
     }
 
     if (filters?.messageType) {

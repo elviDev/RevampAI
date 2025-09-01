@@ -7,7 +7,6 @@ import {
   TextInput,
   Modal,
   RefreshControl,
-  Alert,
   StatusBar,
   Linking,
 } from 'react-native';
@@ -32,6 +31,7 @@ import { AuthError } from '../../services/api/authService';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { announcementService, CreateAnnouncementData } from '../../services/api/announcementService';
+import { useUI } from '../../components/common/UIProvider';
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 const AnimatedView = Animated.createAnimatedComponent(View);
@@ -44,6 +44,7 @@ export const UserProfileScreen: React.FC<{ navigation: any; route: any }> = ({
   const insets = useSafeAreaInsets();
   const { user: currentUser, logout } = useAuth();
   const { showError, showSuccess, showInfo, showToast } = useToast();
+  const { showConfirm } = useUI();
 
   // State
   const [user, setUser] = useState<User | null>(null);
@@ -399,23 +400,22 @@ export const UserProfileScreen: React.FC<{ navigation: any; route: any }> = ({
   };
 
   const handleLogout = () => {
-    Alert.alert(
+    showConfirm(
       'Logout',
       'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: () => {
-            logout();
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Auth' }],
-            });
-          },
-        },
-      ]
+      () => {
+        logout();
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Auth' }],
+        });
+      },
+      undefined,
+      {
+        confirmText: 'Logout',
+        cancelText: 'Cancel',
+        destructive: true,
+      }
     );
   };
 

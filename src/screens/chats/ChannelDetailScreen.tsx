@@ -87,11 +87,11 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
   // Use message actions hook with a wrapper that connects to addOptimisticMessage
   const addOptimisticMessageWrapper = (message: Omit<Message, 'id' | 'timestamp'>) => {
     // Add timestamp and pass to addOptimisticMessage
-    const messageWithId = {
+    const messageWithTimestamp = {
       ...message,
       timestamp: new Date(),
     };
-    channelActions.addOptimisticMessage(messageWithId);
+    channelActions.addOptimisticMessage(messageWithTimestamp);
   };
 
   const {
@@ -124,25 +124,35 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
     isOnline: member?.isOnline || true,
   }));
 
+  // Transform enhanced members for mention functionality
+  const mentionableMembers = enhancedMembers.map(member => ({
+    id: member.id,
+    name: member.name,
+    username: member.name.toLowerCase().replace(/\s+/g, ''), // Convert name to username format
+  }));
+
   // Message wrapper functions to handle different signatures
   const handleSendMessageWrapper = async (content: string) => {
     const isReply = !!replyingTo;
-    const parentMessageForThread = replyingTo ? messages.find(m => m.id === replyingTo.id) : null;
+    const parentMessage = isReply ? messages.find(m => m.id === replyingTo.id) : null;
     
     try {
       await handleSendMessage(content, 'text');
       
-      // If this was a reply, navigate to ThreadScreen immediately
-      if (isReply && parentMessageForThread) {
-        navigation.navigate('ThreadScreen', {
-          parentMessage: parentMessageForThread,
-          channelId,
-          channelName,
-          members: enhancedMembers,
-          onUpdateMessage: (_messageId: string, replies: any[]) => {
-            console.log('Thread updated after reply:', replies.length);
-          },
-        });
+      // If this was a reply and we successfully sent it, navigate to ThreadScreen
+      if (isReply && parentMessage) {
+        // Wait a moment for the message to be processed
+        setTimeout(() => {
+          navigation.navigate('ThreadScreen', {
+            parentMessage: parentMessage,
+            channelId,
+            channelName,
+            members: enhancedMembers,
+            onUpdateMessage: (messageId: string, replies: any[]) => {
+              console.log('Thread updated after navigation:', messageId, replies.length);
+            },
+          });
+        }, 500); // Small delay to let the optimistic message appear
       }
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -221,32 +231,34 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
 
   // Handle thread navigation and reply logic
   const handleReply = (message: Message) => {
+    // If message already has replies, navigate to ThreadScreen
     if (message.replyCount && message.replyCount > 0) {
-      // Navigate to thread screen for existing thread
       navigation.navigate('ThreadScreen', {
         parentMessage: message,
         channelId,
         channelName,
         members: enhancedMembers,
-        onUpdateMessage: (_messageId: string, replies: any[]) => {
-          // Update the parent message with reply count and timestamp
-          const updatedMessage = {
-            ...message,
-            replyCount: replies.length,
-            lastReplyTimestamp: replies.length > 0 ? replies[replies.length - 1].timestamp : undefined
+        onUpdateMessage: (messageId: string, replies: any[]) => {
+          // Update the parent message with updated reply count
+          const updateMessage = (prevMessages: Message[]) => {
+            return prevMessages.map(msg => 
+              msg.id === messageId 
+                ? { ...msg, replyCount: replies.length, lastReplyTimestamp: replies.length > 0 ? replies[replies.length - 1].timestamp : undefined }
+                : msg
+            );
           };
-          
-          // This would typically update the messages state
-          // but since we're using useChannelState, we might need to add an update function
-          console.log('Thread updated:', updatedMessage);
+          // This would typically trigger a state update in the parent
+          console.log('Thread updated from ThreadScreen:', messageId, replies.length);
         },
       });
     } else {
-      // Start reply for new thread - set up reply state
+      // For new threads, set up reply state
       setReplyingTo({
         id: message.id,
         content: message.content,
         sender: message.sender.name,
+        // For threading: this message becomes the threadRoot
+        threadRoot: message.id,
       });
     }
   };
@@ -308,6 +320,7 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
           channelName={channelName}
           typingUsers={typingUsers}
           currentUserId={currentUserId}
+          channelMembers={mentionableMembers}
           replyingTo={replyingTo}
           editingMessage={editingMessage}
           onSendMessage={handleSendMessageWrapper}

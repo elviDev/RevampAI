@@ -1,6 +1,12 @@
 import React from 'react';
-import { EnhancedChannelInput } from './EnhancedChannelInput';
+import { PromptInput } from '../voice/PromptInput';
 import { SimpleTypingIndicators } from './SimpleTypingIndicators';
+
+interface ChannelMember {
+  id: string;
+  name: string;
+  username: string;
+}
 
 interface ChannelInputContainerProps {
   channelName: string;
@@ -11,6 +17,7 @@ interface ChannelInputContainerProps {
     lastTypingTime?: number;
   }>;
   currentUserId: string;
+  channelMembers?: ChannelMember[];
   replyingTo: { id: string; content: string; sender: string } | null;
   editingMessage: { id: string; content: string } | null;
   onSendMessage: (content: string) => void;
@@ -28,6 +35,7 @@ export const ChannelInputContainer: React.FC<ChannelInputContainerProps> = ({
   channelName,
   typingUsers,
   currentUserId,
+  channelMembers = [],
   replyingTo,
   editingMessage,
   onSendMessage,
@@ -48,8 +56,8 @@ export const ChannelInputContainer: React.FC<ChannelInputContainerProps> = ({
         currentUserId={currentUserId}
       />
 
-      {/* Input */}
-      <EnhancedChannelInput
+      {/* Voice-Enabled Chat Input */}
+      <PromptInput
         onSendMessage={onSendMessage}
         onEditMessage={onEditMessage}
         onSendVoiceMessage={onSendVoiceMessage}
@@ -58,6 +66,7 @@ export const ChannelInputContainer: React.FC<ChannelInputContainerProps> = ({
         onStartTyping={onStartTyping}
         onStopTyping={onStopTyping}
         placeholder={`Message #${channelName}`}
+        channelMembers={channelMembers}
         replyingTo={replyingTo}
         onCancelReply={onCancelReply}
         editingMessage={editingMessage}

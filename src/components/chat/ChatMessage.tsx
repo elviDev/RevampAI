@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Feather from 'react-native-vector-icons/Feather';
 import { Avatar } from '../common/Avatar';
+import { ActionDialog } from '../common/ActionDialog';
+import { useActionDialog, createConfirmDialog } from '../../hooks/useActionDialog';
+import { useToast } from '../../contexts/ToastContext';
 import type { Message } from '../../types/chat';
 
 interface ChatMessageProps {
@@ -43,6 +46,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   replyCount = 0,
 }) => {
   const [showActions, setShowActions] = useState(false);
+  const { dialogProps, showDialog, hideDialog } = useActionDialog();
+  const { showSuccess } = useToast();
   
   // Determine if this is the current user's message for proper styling
   const isCurrentUserMessage = message.sender.id === currentUserId;
@@ -238,19 +243,25 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           {(message.replyCount && message.replyCount > 0) && (
             <TouchableOpacity
               onPress={onReply}
-              className="mt-2 flex-row items-center space-x-2 py-1"
+              className="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-3"
             >
-              <View className="flex-row items-center">
-                <MaterialIcon name="forum" size={14} color="#1D4ED8" />
-                <Text className="text-blue-600 text-sm font-medium ml-1">
-                  {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'}
-                </Text>
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center">
+                  <MaterialIcon name="forum" size={16} color="#1D4ED8" />
+                  <Text className="text-blue-700 text-sm font-medium ml-2">
+                    {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'}
+                  </Text>
+                </View>
+                <MaterialIcon name="chevron-right" size={16} color="#1D4ED8" />
               </View>
               {message.lastReplyTimestamp && (
-                <Text className="text-gray-500 text-xs">
+                <Text className="text-blue-600 text-xs mt-1">
                   Last reply {formatTime(message.lastReplyTimestamp)}
                 </Text>
               )}
+              <Text className="text-blue-600 text-xs mt-1 font-medium">
+                View thread →
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -290,18 +301,20 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           {canDeleteMessage && onDelete && !message.deletedBy && (
             <TouchableOpacity
               onPress={() => {
-                Alert.alert(
+                showDialog(createConfirmDialog(
                   'Delete Message',
-                  'Are you sure you want to delete this message?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { 
-                      text: 'Delete', 
-                      style: 'destructive',
-                      onPress: () => handleActionClick(onDelete)
-                    }
-                  ]
-                );
+                  'Are you sure you want to delete this message? This action cannot be undone.',
+                  () => {
+                    handleActionClick(onDelete);
+                    showSuccess('Message deleted successfully');
+                  },
+                  undefined,
+                  {
+                    confirmText: 'Delete',
+                    destructive: true,
+                    icon: 'delete'
+                  }
+                ));
               }}
               className="bg-red-100 rounded-full px-3 py-2"
             >
@@ -310,6 +323,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           )}
         </View>
       )}
+
+      {/* Action Dialog */}
+      <ActionDialog {...dialogProps} onClose={hideDialog} />
     </View>
   );
 };

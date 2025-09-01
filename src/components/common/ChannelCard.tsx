@@ -48,6 +48,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
 }) => {
   const scale = useSharedValue(1);
   const pressed = useSharedValue(false);
+  const optionsPressed = useSharedValue(false);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -79,6 +80,27 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
     setTimeout(() => {
       runOnJS(onPress)();
     }, 50);
+  };
+
+  const optionsAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          scale: withSpring(optionsPressed.value ? 0.9 : 1, {
+            damping: 15,
+            stiffness: 300,
+          }),
+        },
+      ],
+    };
+  });
+
+  const handleOptionsPress = () => {
+    optionsPressed.value = true;
+    setTimeout(() => {
+      optionsPressed.value = false;
+      runOnJS(onOptionsPress)();
+    }, 100);
   };
 
   return (
@@ -127,10 +149,20 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
           </View>
           <AnimatedTouchableOpacity
             entering={FadeInUp.delay(index * 150 + 250).duration(400)}
-            className="p-1"
-            onPress={onOptionsPress}
+            className="bg-gray-50/80 hover:bg-purple-50 active:bg-purple-100 rounded-full p-2"
+            onPress={handleOptionsPress}
+            style={[
+              {
+                shadowColor: '#8B5CF6',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.08,
+                shadowRadius: 4,
+                elevation: 3,
+              },
+              optionsAnimatedStyle,
+            ]}
           >
-            <MaterialIcon name="more-vert" size={20} color="#9CA3AF" />
+            <MaterialIcon name="more-vert" size={18} color="#6B7280" />
           </AnimatedTouchableOpacity>
         </View>
 

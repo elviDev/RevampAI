@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   Modal,
-  Alert,
   Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -33,6 +32,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { TaskStatsCards } from '../../components/task/TaskStatsCards';
 import { TaskFilterModal } from '../../components/task/TaskFilterModal';
 import { TaskCard } from '../../components/task/TaskCard';
+import { useUI } from '../../components/common/UIProvider';
 
 const { width } = Dimensions.get('window');
 
@@ -46,6 +46,7 @@ export const AdminTaskDashboard: React.FC = () => {
   const activeFilters = useSelector((state: RootState) => state.tasks.activeFilters);
   const { user } = useSelector((state: RootState) => state.auth);
   const { showSuccess, showError } = useToast();
+  const { showConfirm, showDialog } = useUI();
   
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
@@ -99,39 +100,38 @@ export const AdminTaskDashboard: React.FC = () => {
           break;
           
         case 'delete':
-          Alert.alert(
+          showConfirm(
             'Delete Tasks',
             `Are you sure you want to delete ${taskIds.length} tasks? This action cannot be undone.`,
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Delete',
-                style: 'destructive',
-                onPress: async () => {
-                  for (const taskId of taskIds) {
-                    await dispatch(deleteTask(taskId)).unwrap();
-                  }
-                  showSuccess(`${taskIds.length} tasks deleted successfully`);
-                }
+            async () => {
+              for (const taskId of taskIds) {
+                await dispatch(deleteTask(taskId)).unwrap();
               }
-            ]
+              showSuccess(`${taskIds.length} tasks deleted successfully`);
+            },
+            undefined,
+            {
+              confirmText: 'Delete',
+              cancelText: 'Cancel',
+              destructive: true,
+            }
           );
           break;
           
         case 'priority':
-          // Show priority selection modal
-          Alert.alert(
-            'Set Priority',
-            'Choose priority level for selected tasks:',
-            [
-              { text: 'Low', onPress: () => updateBulkPriority(taskIds, 'low') },
-              { text: 'Medium', onPress: () => updateBulkPriority(taskIds, 'medium') },
-              { text: 'High', onPress: () => updateBulkPriority(taskIds, 'high') },
-              { text: 'Urgent', onPress: () => updateBulkPriority(taskIds, 'urgent') },
-              { text: 'Critical', onPress: () => updateBulkPriority(taskIds, 'critical') },
-              { text: 'Cancel', style: 'cancel' },
+          showDialog({
+            title: 'Set Priority',
+            message: 'Choose priority level for selected tasks:',
+            type: 'info',
+            actions: [
+              { text: 'Low', style: 'default', onPress: () => updateBulkPriority(taskIds, 'low') },
+              { text: 'Medium', style: 'default', onPress: () => updateBulkPriority(taskIds, 'medium') },
+              { text: 'High', style: 'default', onPress: () => updateBulkPriority(taskIds, 'high') },
+              { text: 'Urgent', style: 'default', onPress: () => updateBulkPriority(taskIds, 'urgent') },
+              { text: 'Critical', style: 'default', onPress: () => updateBulkPriority(taskIds, 'critical') },
+              { text: 'Cancel', style: 'cancel', onPress: () => {} },
             ]
-          );
+          });
           break;
       }
       

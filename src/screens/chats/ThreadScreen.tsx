@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { ChatMessage } from '../../components/chat/ChatMessage';
-import { EnhancedChannelInput } from '../../components/chat/EnhancedChannelInput';
+import { PromptInput } from '../../components/voice/PromptInput';
 import { SimpleTypingIndicators } from '../../components/chat/SimpleTypingIndicators';
 import { useWebSocket, webSocketService } from '../../services/websocketService';
 import { useToast } from '../../contexts/ToastContext';
@@ -34,6 +34,13 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({
   const flatListRef = useRef<FlatList>(null);
   const { isConnected, joinChannel, leaveChannel } = useWebSocket();
   const { showError, showSuccess } = useToast();
+
+  // Transform members for mention functionality
+  const mentionableMembers = (members || []).map(member => ({
+    id: member.id,
+    name: member.name,
+    username: member.name.toLowerCase().replace(/\s+/g, ''), // Convert name to username format
+  }));
 
   // State
   const [threadMessages, setThreadMessages] = useState<Message[]>([]);
@@ -75,55 +82,97 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({
 
   // WebSocket event listeners for real-time thread updates
   useEffect(() => {
+    // Handle regular messages that might be thread replies  
     const handleMessageSent = (event: any) => {
       if (event.channelId === channelId && event.message) {
         // Check if this is a reply to our thread
         const threadRoot = parentMessage.threadRoot || parentMessage.id;
         if (event.message.thread_root === threadRoot || event.message.reply_to === parentMessage.id) {
-          console.log('📨 New thread reply received:', event);
-          
-          const newMessage: Message = {
-            id: event.message.id,
-            type: 'text',
-            content: event.message.content,
-            sender: {
-              id: event.message.user_id,
-              name: event.message.user_name || 'Unknown User',
-              avatar: event.message.user_avatar,
-              role: event.message.user_role || 'staff',
-            },
-            timestamp: new Date(event.message.created_at),
-            reactions: [],
-            replies: [],
-            mentions: event.message.mentions || [],
-            isEdited: event.message.is_edited || false,
-            connectedTo: event.message.reply_to,
-            threadRoot: event.message.thread_root,
-          };
-
-          setThreadMessages(prev => {
-            if (prev.some(msg => msg.id === newMessage.id)) {
-              return prev;
-            }
-            const updated = [...prev, newMessage];
-            return updated.sort((a, b) => 
-              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-            );
-          });
-
-          // Auto-scroll to bottom for new replies
-          setTimeout(() => {
-            flatListRef.current?.scrollToEnd({ animated: true });
-          }, 100);
+          console.log('📨 New thread reply received (message_sent):', event);
+          addThreadReply(event.message);
         }
       }
     };
 
+    // Handle dedicated thread reply events
+    const handleThreadReplySent = (event: any) => {
+      if (event.channelId === channelId) {
+        // Check if this is a reply to our thread
+        const threadRoot = parentMessage.threadRoot || parentMessage.id;
+        if (event.threadRoot === threadRoot || event.parentMessageId === parentMessage.id) {
+          console.log('🧵 New thread reply received (thread_reply_sent):', event);
+          addThreadReply(event.message);
+        }
+      }
+    };
+
+    const addThreadReply = (messageData: any) => {
+      const newMessage: Message = {
+        id: messageData.id,
+        type: messageData.message_type || 'text',
+        content: messageData.content,
+        sender: {
+          id: messageData.user_id,
+          name: messageData.user_name || 'Unknown User',
+          avatar: messageData.user_avatar,
+          role: messageData.user_role || 'staff',
+        },
+        timestamp: new Date(messageData.created_at),
+        reactions: messageData.reactions || [],
+        replies: [],
+        mentions: messageData.mentions || [],
+        isEdited: messageData.is_edited || false,
+        connectedTo: messageData.reply_to,
+        threadRoot: messageData.thread_root,
+      };
+
+      setThreadMessages(prev => {
+        // Check for duplicates
+        if (prev.some(msg => msg.id === newMessage.id)) {
+          console.log('⚠️ Thread reply already exists, skipping duplicate:', newMessage.id);
+          return prev;
+        }
+        
+        // Remove any optimistic messages that might match this real message
+        const filteredMessages = prev.filter(msg => {
+          if (!msg.isOptimistic) return true;
+          
+          // Check if this optimistic message matches the new real message
+          const timeDiff = Math.abs(new Date(newMessage.timestamp).getTime() - new Date(msg.timestamp).getTime());
+          const contentMatch = msg.content.trim().toLowerCase() === newMessage.content.trim().toLowerCase();
+          const senderMatch = msg.sender.id === newMessage.sender.id;
+          
+          const isLikelyDuplicate = contentMatch && senderMatch && timeDiff < 30000;
+          
+          if (isLikelyDuplicate) {
+            console.log('🔄 Removing optimistic thread reply replaced by real message:', msg.id, '→', newMessage.id);
+          }
+          
+          return !isLikelyDuplicate;
+        });
+        
+        const updated = [...filteredMessages, newMessage];
+        const sorted = updated.sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+        
+        console.log('✅ Thread reply added. Total replies:', sorted.length);
+        return sorted;
+      });
+
+      // Auto-scroll to bottom for new replies
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    };
+
     // Add event listeners
     webSocketService.on('message_sent', handleMessageSent);
+    webSocketService.on('thread_reply_sent', handleThreadReplySent);
 
     return () => {
       webSocketService.off('message_sent', handleMessageSent);
+      webSocketService.off('thread_reply_sent', handleThreadReplySent);
     };
   }, [channelId, parentMessage.id, parentMessage.threadRoot]);
 
@@ -205,6 +254,39 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({
     try {
       console.log('💬 Sending thread reply:', { text, parentMessage: parentMessage.id });
       
+      // Add optimistic message immediately
+      const optimisticMessage: Message = {
+        id: `temp_thread_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: 'text',
+        content: text.trim(),
+        sender: {
+          id: currentUserId,
+          name: 'You', // TODO: Get actual current user name
+          avatar: undefined,
+          role: 'user',
+        },
+        timestamp: new Date(),
+        reactions: [],
+        replies: [],
+        mentions: extractMentions(text),
+        isEdited: false,
+        connectedTo: parentMessage.id,
+        threadRoot: parentMessage.threadRoot || parentMessage.id,
+        isOptimistic: true,
+      };
+
+      setThreadMessages(prev => {
+        const updated = [...prev, optimisticMessage];
+        return updated.sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+      });
+
+      // Auto-scroll to bottom for optimistic message
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 50);
+      
       const response = await messageService.sendReply(channelId, parentMessage.id, {
         content: text,
         message_type: 'text',
@@ -213,21 +295,21 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({
 
       if (response.success) {
         console.log('✅ Thread reply sent successfully');
-        // WebSocket will handle adding the message to UI
+        // WebSocket will handle replacing the optimistic message with the real one
         
         // Update parent message reply count
         if (onUpdateMessage) {
-          onUpdateMessage(parentMessage.id, threadMessages);
+          onUpdateMessage(parentMessage.id, [...threadMessages, optimisticMessage]);
         }
-        
-        // Auto-scroll to bottom after sending
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
       }
     } catch (error) {
       console.error('❌ Error sending thread reply:', error);
       showError('Failed to send reply. Please try again.');
+      
+      // Remove the failed optimistic message
+      setThreadMessages(prev => 
+        prev.filter(msg => !msg.isOptimistic || msg.content !== text.trim())
+      );
     }
   };
 
@@ -249,20 +331,33 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({
     setTypingUsers(users);
   }, []);
 
-  const renderThreadMessage = ({ item }: { item: Message }) => (
-    <ChatMessage
-      message={item}
-      onReply={() => {}} // No nested threading for now
-      onReaction={(emoji) => {
-        // Handle reactions in thread
-        console.log('Thread message reaction:', item.id, emoji);
-      }}
-      onEdit={item.sender.id === currentUserId ? () => {} : undefined}
-      onShowEmojiPicker={() => {}}
-      onNavigateToUser={() => {}}
-      onNavigateToReference={() => {}}
-      isOwnMessage={item.sender.id === currentUserId}
-    />
+  const renderThreadMessage = ({ item, index }: { item: Message; index: number }) => (
+    <View className="bg-white border-b border-gray-100">
+      <View className="px-4 py-2 flex-row items-start">
+        <View className="w-8 items-center mr-2">
+          <View className="w-6 h-6 bg-gray-200 rounded-full items-center justify-center">
+            <Text className="text-gray-600 text-xs font-bold">{index + 1}</Text>
+          </View>
+        </View>
+        <View className="flex-1">
+          <ChatMessage
+            message={item}
+            onReply={() => {}} // No nested threading for now
+            onReaction={(emoji) => {
+              // Handle reactions in thread
+              console.log('Thread message reaction:', item.id, emoji);
+            }}
+            onEdit={item.sender.id === currentUserId ? () => {} : undefined}
+            onShowEmojiPicker={() => {}}
+            onNavigateToUser={() => {}}
+            onNavigateToReference={() => {}}
+            isOwnMessage={item.sender.id === currentUserId}
+            isThreadReply={true}
+            showThreadButton={false}
+          />
+        </View>
+      </View>
+    </View>
   );
 
   return (
@@ -274,29 +369,41 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({
         <StatusBar barStyle="dark-content" backgroundColor="white" />
 
         {/* Thread Header */}
-        <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-200">
+        <View className="flex-row items-center justify-between px-4 py-4 border-b border-gray-200 bg-white">
           <View className="flex-row items-center flex-1">
             <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3">
               <MaterialIcon name="arrow-back" size={24} color="#374151" />
             </TouchableOpacity>
             <View className="flex-1">
-              <Text className="text-lg font-semibold text-gray-900">Thread</Text>
-              <Text className="text-sm text-gray-500">#{channelName}</Text>
+              <Text className="text-lg font-semibold text-gray-900">🧵 Thread</Text>
+              <Text className="text-sm text-gray-500">
+                in #{channelName} • {threadMessages.length} {threadMessages.length === 1 ? 'reply' : 'replies'}
+              </Text>
             </View>
+          </View>
+          <View className="flex-row items-center">
+            <MaterialIcon name="forum" size={20} color="#6B7280" />
           </View>
         </View>
 
-        {/* Parent Message */}
-        <View className="border-b border-gray-100 bg-gray-50">
-          <ChatMessage
-            message={parentMessage}
-            onReply={() => {}} // Disabled in thread view
-            onReaction={() => {}}
-            onShowEmojiPicker={() => {}}
-            onNavigateToUser={() => {}}
-            onNavigateToReference={() => {}}
-            isOwnMessage={parentMessage.sender.id === currentUserId}
-          />
+        {/* Parent Message as Topic */}
+        <View className="border-b border-gray-200 bg-blue-50 px-4 py-6">
+          <View className="flex-row items-start space-x-3">
+            <View className="w-2 h-2 bg-blue-500 rounded-full mt-2"></View>
+            <View className="flex-1">
+              <Text className="text-xs font-medium text-blue-600 mb-2">THREAD TOPIC</Text>
+              <ChatMessage
+                message={parentMessage}
+                onReply={() => {}} // Disabled in thread view
+                onReaction={() => {}}
+                onShowEmojiPicker={() => {}}
+                onNavigateToUser={() => {}}
+                onNavigateToReference={() => {}}
+                isOwnMessage={parentMessage.sender.id === currentUserId}
+                showThreadButton={false}
+              />
+            </View>
+          </View>
         </View>
 
         {/* Thread Messages */}
@@ -337,10 +444,14 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({
               )}
               ListHeaderComponent={
                 threadMessages.length > 0 ? (
-                  <View className="px-4 py-2">
-                    <Text className="text-gray-500 text-sm text-center">
-                      {threadMessages.length} {threadMessages.length === 1 ? 'reply' : 'replies'}
-                    </Text>
+                  <View className="px-4 py-3 bg-gray-50">
+                    <View className="flex-row items-center">
+                      <View className="h-px bg-gray-300 flex-1"></View>
+                      <Text className="text-gray-500 text-xs font-medium px-3">
+                        {threadMessages.length} {threadMessages.length === 1 ? 'REPLY' : 'REPLIES'}
+                      </Text>
+                      <View className="h-px bg-gray-300 flex-1"></View>
+                    </View>
                   </View>
                 ) : null
               }
@@ -354,8 +465,8 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({
           currentUserId={currentUserId}
         />
 
-        {/* Thread Reply Input */}
-        <EnhancedChannelInput
+        {/* Thread Reply Input - Voice-Enabled */}
+        <PromptInput
           onSendMessage={handleSendReply}
           onSendVoiceMessage={(audioUri, transcript) => {
             // Handle voice replies
@@ -370,6 +481,7 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({
             console.log('Attach image to thread');
           }}
           placeholder={`Reply to ${parentMessage.sender.name}...`}
+          channelMembers={mentionableMembers}
           replyingTo={null}
           editingMessage={null}
         />

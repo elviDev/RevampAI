@@ -42,7 +42,9 @@
       "Bash(npx tsx:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(PGPASSWORD=root psql -h localhost -p 5432 -U postgres -d revamp_ai_platform -c \"\\d channels\")",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

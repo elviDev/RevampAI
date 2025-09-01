@@ -54,6 +54,11 @@ export const ThreadedMessageList: React.FC<ThreadedMessageListProps> = ({
     const messageMap = new Map<string, ThreadedMessage>();
     const rootMessages: ThreadedMessage[] = [];
 
+    console.log('🧵 Organizing messages into threads:', {
+      totalMessages: messages.length,
+      threadsExpanded: expandedThreads.size,
+    });
+
     // First pass: create all messages and build map
     messages.forEach(msg => {
       const threadedMsg: ThreadedMessage = {
@@ -62,6 +67,16 @@ export const ThreadedMessageList: React.FC<ThreadedMessageListProps> = ({
         isThreadExpanded: expandedThreads.has(msg.threadRoot || msg.id),
       };
       messageMap.set(msg.id, threadedMsg);
+      
+      // Log thread information for debugging
+      if (msg.threadRoot || msg.connectedTo) {
+        console.log('🧵 Thread message:', {
+          id: msg.id,
+          connectedTo: msg.connectedTo,
+          threadRoot: msg.threadRoot,
+          content: msg.content.substring(0, 30) + '...',
+        });
+      }
     });
 
     // Second pass: organize into threads
@@ -71,25 +86,43 @@ export const ThreadedMessageList: React.FC<ThreadedMessageListProps> = ({
       if (msg.connectedTo && msg.threadRoot) {
         // This is a reply - find the root message
         const rootMsg = messageMap.get(msg.threadRoot);
-        if (rootMsg) {
+        if (rootMsg && rootMsg.id !== threadedMsg.id) { // Avoid self-reference
           rootMsg.replies.push(threadedMsg);
           rootMsg.replies.sort((a, b) => 
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
           );
+          console.log('➡️ Added reply to thread:', {
+            replyId: threadedMsg.id,
+            rootId: rootMsg.id,
+            totalReplies: rootMsg.replies.length,
+          });
         } else {
-          // Root message not found, treat as standalone
+          // Root message not found or is self-referencing, treat as standalone
+          console.log('⚠️ Thread root not found or self-referencing, treating as standalone:', {
+            messageId: msg.id,
+            threadRoot: msg.threadRoot,
+            connectedTo: msg.connectedTo,
+          });
           rootMessages.push(threadedMsg);
         }
       } else {
-        // This is a root message
+        // This is a root message (or standalone message)
         rootMessages.push(threadedMsg);
       }
     });
 
     // Sort root messages by timestamp
-    return rootMessages.sort((a, b) => 
+    const sortedRoots = rootMessages.sort((a, b) => 
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
+
+    console.log('✅ Thread organization complete:', {
+      rootMessages: sortedRoots.length,
+      messagesWithReplies: sortedRoots.filter(m => m.replies.length > 0).length,
+      totalReplies: sortedRoots.reduce((sum, m) => sum + m.replies.length, 0),
+    });
+
+    return sortedRoots;
   };
 
   const threadedMessages = organizeMessagesIntoThreads(messages);
@@ -126,49 +159,56 @@ export const ThreadedMessageList: React.FC<ThreadedMessageListProps> = ({
   const renderThreadHeader = (message: ThreadedMessage) => {
     if (message.replies.length === 0) return null;
 
-    const isExpanded = expandedThreads.has(message.threadRoot || message.id);
+    const threadId = message.threadRoot || message.id;
+    const isExpanded = expandedThreads.has(threadId);
     const replyCount = message.replies.length;
     const lastReply = message.replies[message.replies.length - 1];
 
     return (
       <TouchableOpacity
-        className="py-2 px-4 bg-gray-50 border-l-4 border-blue-500 my-1"
-        onPress={() => toggleThread(message.threadRoot || message.id)}
+        className="py-3 px-4 mx-2 mb-2 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg"
+        onPress={() => toggleThread(threadId)}
       >
-        <Text className="text-sm text-gray-600">
-          {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
-          {lastReply && (
-            <Text className="text-gray-400">
-              {' '}• Last by {lastReply.sender.name}
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1">
+            <Text className="text-sm font-medium text-gray-700">
+              💬 {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
             </Text>
-          )}
-        </Text>
-        <Text className="text-xs text-blue-600">
-          {isExpanded ? 'Collapse thread' : 'Expand thread'}
-        </Text>
+            {lastReply && (
+              <Text className="text-xs text-gray-500 mt-1">
+                Last reply by {lastReply.sender.name} • {lastReply.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            )}
+          </View>
+          <Text className="text-xs text-blue-600 font-medium">
+            {isExpanded ? '▼ Hide' : '▶ Show'} replies
+          </Text>
+        </View>
       </TouchableOpacity>
     );
   };
 
   const renderReply = (reply: ThreadedMessage, index: number) => (
-    <View key={reply.id} className="ml-8 border-l-2 border-gray-200 pl-4">
-      <ChatMessage
-        message={reply}
-        isOwnMessage={reply.sender.id === currentUserId}
-        currentUserId={currentUserId}
-        isCEO={isCEO}
-        onReply={() => onReply(reply)}
-        onEdit={() => onEdit({
-          id: reply.id,
-          content: reply.content
-        })}
-        onDelete={() => onDelete(reply.id)}
-        onShowEmojiPicker={() => onReaction(reply.id)}
-        onReaction={(emoji: string) => {
-          console.log(`Adding reaction ${emoji} to reply ${reply.id}`);
-        }}
-        isThreadReply={true}
-      />
+    <View key={reply.id} className="ml-6 mr-2 mb-1">
+      <View className="bg-gray-50 rounded-lg border-l-3 border-gray-300 pl-3 pr-2 py-1">
+        <ChatMessage
+          message={reply}
+          isOwnMessage={reply.sender.id === currentUserId}
+          currentUserId={currentUserId}
+          isCEO={isCEO}
+          onReply={() => onReply(reply)}
+          onEdit={() => onEdit({
+            id: reply.id,
+            content: reply.content
+          })}
+          onDelete={() => onDelete(reply.id)}
+          onShowEmojiPicker={() => onReaction(reply.id)}
+          onReaction={(emoji: string) => {
+            console.log(`Adding reaction ${emoji} to reply ${reply.id}`);
+          }}
+          isThreadReply={true}
+        />
+      </View>
     </View>
   );
 

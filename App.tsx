@@ -5,6 +5,7 @@ import { Provider } from 'react-redux';
 import { store } from './src/store/store';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { ToastProvider } from './src/contexts/ToastContext';
+import { UIProvider } from './src/components/common/UIProvider';
 
 // Load voice testing utilities (only in development)
 if (__DEV__) {
@@ -16,7 +17,9 @@ export default function App() {
     <Provider store={store}>
       <SafeAreaProvider>
         <ToastProvider>
-          <AppNavigator />
+          <UIProvider>
+            <AppNavigator />
+          </UIProvider>
         </ToastProvider>
       </SafeAreaProvider>
     </Provider>

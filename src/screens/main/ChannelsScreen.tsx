@@ -17,6 +17,7 @@ import IonIcon from 'react-native-vector-icons/Ionicons';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useToast } from '../../contexts/ToastContext';
 import { channelService, type Channel as ApiChannel, type ChannelCategory } from '../../services/api/channelService';
+import { userService, type User } from '../../services/api/userService';
 import { AuthError } from '../../services/api/authService';
 import { useAuth } from '../../hooks/useAuth';
 import { ChannelCard, ConfirmationModal, ActionSheet } from '../../components/common';
@@ -30,6 +31,9 @@ interface Member {
   name: string;
   avatar: string;
   role: string;
+  email?: string;
+  department?: string;
+  job_title?: string;
 }
 
 interface Channel {
@@ -99,6 +103,8 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [availableMembers, setAvailableMembers] = useState<Member[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
 
   // Channel creation/editing form state
   const [isEditMode, setIsEditMode] = useState(false);
@@ -130,18 +136,77 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
   
   const { showError, showSuccess, showToast, showInfo, showWarning } = useToast();
 
-  // Available members (in real app, this would come from API)
-  const availableMembers: Member[] = [
-    { id: 'current_user', name: 'You', avatar: 'Y', role: 'Current User' },
-    { id: '1', name: 'John Smith', avatar: 'J', role: 'Team Lead' },
-    { id: '2', name: 'Sarah Johnson', avatar: 'S', role: 'Designer' },
-    { id: '3', name: 'Mike Wilson', avatar: 'M', role: 'Developer' },
-    { id: '4', name: 'Emma Davis', avatar: 'E', role: 'UX Designer' },
-    { id: '5', name: 'Alex Chen', avatar: 'A', role: 'Backend Dev' },
-    { id: '6', name: 'Lisa Garcia', avatar: 'L', role: 'Product Manager' },
-    { id: '7', name: 'Tom Anderson', avatar: 'T', role: 'Marketing' },
-    { id: '8', name: 'David Kim', avatar: 'D', role: 'CEO' },
-  ];
+  // Load available members from API
+  const loadAvailableMembers = useCallback(async () => {
+    // Use functional update to check loading state without adding to dependencies
+    setLoadingMembers(current => {
+      if (current) return current; // Already loading, don't start another request
+      return true; // Start loading
+    });
+    
+    try {
+      console.log('🔄 Loading available members from API...');
+      
+      // Get current user first to include them in the list
+      const currentUser = await userService.getCurrentUser();
+      
+      // Get list of users
+      const usersResponse = await userService.getUsers({ limit: 50 });
+      console.log('✅ Members loaded:', usersResponse.users.length, 'users');
+      
+      // Convert User objects to Member format
+      const members: Member[] = usersResponse.users.map(user => ({
+        id: user.id,
+        name: user.name,
+        avatar: user.avatar_url || user.name.charAt(0).toUpperCase(), // Use avatar URL or first letter of name
+        role: user.job_title || user.role || 'Member',
+        email: user.email,
+        department: user.department,
+        job_title: user.job_title,
+      }));
+      
+      // Ensure current user is at the beginning of the list with special formatting
+      const currentUserMember = members.find(m => m.id === currentUser.id);
+      const otherMembers = members.filter(m => m.id !== currentUser.id);
+      
+      if (currentUserMember) {
+        currentUserMember.name = 'You';
+        currentUserMember.role = 'Current User';
+        setAvailableMembers([currentUserMember, ...otherMembers]);
+      } else {
+        // Fallback: create current user member manually if not found in list
+        const fallbackCurrentUser: Member = {
+          id: currentUser.id,
+          name: 'You',
+          avatar: currentUser.avatar_url || currentUser.name.charAt(0).toUpperCase(),
+          role: 'Current User',
+          email: currentUser.email,
+          department: currentUser.department,
+          job_title: currentUser.job_title,
+        };
+        setAvailableMembers([fallbackCurrentUser, ...otherMembers]);
+      }
+    } catch (error) {
+      console.error('❌ Failed to load available members:', error);
+      // Fallback to mock data for better user experience
+      const fallbackMembers: Member[] = [
+        { id: 'current_user', name: 'You', avatar: 'Y', role: 'Current User' },
+        { id: '1', name: 'John Smith', avatar: 'J', role: 'Team Lead' },
+        { id: '2', name: 'Sarah Johnson', avatar: 'S', role: 'Designer' },
+        { id: '3', name: 'Mike Wilson', avatar: 'M', role: 'Developer' },
+        { id: '4', name: 'Emma Davis', avatar: 'E', role: 'UX Designer' },
+        { id: '5', name: 'Alex Chen', avatar: 'A', role: 'Backend Dev' },
+        { id: '6', name: 'Lisa Garcia', avatar: 'L', role: 'Product Manager' },
+        { id: '7', name: 'Tom Anderson', avatar: 'T', role: 'Marketing' },
+        { id: '8', name: 'David Kim', avatar: 'D', role: 'CEO' },
+      ];
+      console.log('🎭 Using fallback members:', fallbackMembers);
+      setAvailableMembers(fallbackMembers);
+      showWarning('Unable to load team members from server. Using cached data.');
+    } finally {
+      setLoadingMembers(false);
+    }
+  }, [showWarning]);
 
   // Categories
   // Load categories from API
@@ -303,15 +368,20 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
     }
   }, [channels, loadCategories]);
 
+  // Load available members on component mount
+  useEffect(() => {
+    loadAvailableMembers();
+  }, [loadAvailableMembers]);
+
   // Initialize form with current user as member
   useEffect(() => {
-    if (showCreateChannel && formData.members.length === 0) {
+    if (showCreateChannel && formData.members.length === 0 && availableMembers.length > 0) {
       setFormData(prev => ({
         ...prev,
         members: [availableMembers[0]] // Current user
       }));
     }
-  }, [showCreateChannel]);
+  }, [showCreateChannel, availableMembers]);
 
   // Load channels on component mount
   useEffect(() => {
@@ -490,17 +560,22 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
   };
 
   // Toggle member selection
-  const toggleMember = (member: Member) => {
-    // Don't allow removing current user
-    if (member.id === 'current_user') return;
-
-    setFormData(prev => ({
-      ...prev,
-      members: prev.members.some(m => m.id === member.id)
-        ? prev.members.filter(m => m.id !== member.id)
-        : [...prev.members, member]
-    }));
-  };
+  const toggleMember = useCallback((member: Member) => {
+    // Use functional updates to avoid dependencies
+    setAvailableMembers(currentMembers => {
+      // Don't allow removing current user (first member in the list)
+      if (currentMembers.length > 0 && member.id === currentMembers[0].id) return currentMembers;
+      
+      setFormData(prev => ({
+        ...prev,
+        members: prev.members.some(m => m.id === member.id)
+          ? prev.members.filter(m => m.id !== member.id)
+          : [...prev.members, member]
+      }));
+      
+      return currentMembers; // No change to availableMembers
+    });
+  }, []);
 
   const handleChannelPress = (channel: Channel) => {
     console.log(
@@ -536,6 +611,15 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
   };
 
   const handleChannelOptions = (channel: DisplayChannel) => {
+    console.log('Three dots clicked for channel:', channel.title);
+    
+    // Ensure all other modals are closed
+    setShowCategoryFilter(false);
+    setShowCreateChannel(false);
+    setShowMemberSelector(false);
+    setShowDeleteConfirmation(false);
+    
+    // Open ActionSheet
     setSelectedChannelForAction(channel);
     setShowActionSheet(true);
   };
@@ -1149,19 +1233,27 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
                   <View className="mb-3">
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                       <View className="flex-row space-x-2">
-                        {formData.members.map((member) => (
-                          <View key={member.id} className="bg-purple-50 rounded-xl px-3 py-2 flex-row items-center">
-                            <View className="w-6 h-6 bg-purple-600 rounded-full items-center justify-center mr-2">
-                              <Text className="text-white text-xs font-bold">{member.avatar}</Text>
+                        {formData.members.map((member) => {
+                          const isCurrentUser = availableMembers.length > 0 && member.id === availableMembers[0].id;
+                          return (
+                            <View key={member.id} className="bg-purple-50 rounded-xl px-3 py-2 flex-row items-center">
+                              <View className="w-6 h-6 bg-purple-600 rounded-full items-center justify-center mr-2">
+                                <Text className="text-white text-xs font-bold">
+                                  {typeof member.avatar === 'string' && member.avatar.length === 1 
+                                    ? member.avatar 
+                                    : member.name.charAt(0).toUpperCase()
+                                  }
+                                </Text>
+                              </View>
+                              <Text className="text-purple-700 text-sm font-medium">{member.name}</Text>
+                              {!isCurrentUser && (
+                                <TouchableOpacity onPress={() => toggleMember(member)} className="ml-2">
+                                  <Feather name="x" size={14} color="#7C3AED" />
+                                </TouchableOpacity>
+                              )}
                             </View>
-                            <Text className="text-purple-700 text-sm font-medium">{member.name}</Text>
-                            {member.id !== 'current_user' && (
-                              <TouchableOpacity onPress={() => toggleMember(member)} className="ml-2">
-                                <Feather name="x" size={14} color="#7C3AED" />
-                              </TouchableOpacity>
-                            )}
-                          </View>
-                        ))}
+                          );
+                        })}
                       </View>
                     </ScrollView>
                   </View>
@@ -1227,39 +1319,54 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
-              {availableMembers.map((member) => {
-                const isSelected = formData.members.some(m => m.id === member.id);
-                const isCurrentUser = member.id === 'current_user';
-                return (
-                  <TouchableOpacity
-                    key={member.id}
-                    onPress={() => !isCurrentUser && toggleMember(member)}
-                    disabled={isCurrentUser}
-                    className={`flex-row items-center justify-between py-3 border-b border-gray-100 ${
-                      isCurrentUser ? 'opacity-50' : ''
-                    }`}
-                  >
-                    <View className="flex-row items-center flex-1">
-                      <View className="w-10 h-10 bg-purple-600 rounded-full items-center justify-center mr-3">
-                        <Text className="text-white font-bold">{member.avatar}</Text>
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-gray-900 font-medium">
-                          {member.name} {isCurrentUser && '(You)'}
-                        </Text>
-                        <Text className="text-gray-500 text-sm">{member.role}</Text>
-                      </View>
-                    </View>
-                    <View
-                      className={`w-6 h-6 rounded border-2 items-center justify-center ${
-                        isSelected ? 'bg-purple-600 border-purple-600' : 'border-gray-300'
+              {loadingMembers ? (
+                <View className="items-center justify-center py-8">
+                  <ActivityIndicator size="large" color="#8B5CF6" />
+                  <Text className="text-gray-500 text-sm mt-2">Loading team members...</Text>
+                </View>
+              ) : (
+                availableMembers.map((member) => {
+                  const isSelected = formData.members.some(m => m.id === member.id);
+                  const isCurrentUser = availableMembers.length > 0 && member.id === availableMembers[0].id;
+                  return (
+                    <TouchableOpacity
+                      key={member.id}
+                      onPress={() => !isCurrentUser && toggleMember(member)}
+                      disabled={isCurrentUser}
+                      className={`flex-row items-center justify-between py-3 border-b border-gray-100 ${
+                        isCurrentUser ? 'opacity-50' : ''
                       }`}
                     >
-                      {isSelected && <Feather name="check" size={14} color="white" />}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
+                      <View className="flex-row items-center flex-1">
+                        <View className="w-10 h-10 bg-purple-600 rounded-full items-center justify-center mr-3">
+                          <Text className="text-white font-bold">
+                            {typeof member.avatar === 'string' && member.avatar.length === 1 
+                              ? member.avatar 
+                              : member.name.charAt(0).toUpperCase()
+                            }
+                          </Text>
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-gray-900 font-medium">
+                            {member.name}
+                          </Text>
+                          <Text className="text-gray-500 text-sm">{member.role}</Text>
+                          {member.department && (
+                            <Text className="text-gray-400 text-xs">{member.department}</Text>
+                          )}
+                        </View>
+                      </View>
+                      <View
+                        className={`w-6 h-6 rounded border-2 items-center justify-center ${
+                          isSelected ? 'bg-purple-600 border-purple-600' : 'border-gray-300'
+                        }`}
+                      >
+                        {isSelected && <Feather name="check" size={14} color="white" />}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </ScrollView>
 
             <TouchableOpacity
@@ -1279,6 +1386,7 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
         message={selectedChannelForAction ? `Options for "${selectedChannelForAction.title}"` : ''}
         options={getActionSheetOptions()}
         onClose={() => {
+          console.log('ActionSheet closing');
           setShowActionSheet(false);
           setSelectedChannelForAction(null);
         }}

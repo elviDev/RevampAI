@@ -1,16 +1,18 @@
 import React from 'react';
-import { View, Text, Alert, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { PromptInput } from '../../components/voice/PromptInput';
 import { useAuth } from '../../hooks/useAuth';
+import { useUI } from '../../components/common/UIProvider';
 
 const DashboardScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { user } = useAuth();
+  const { showInfo } = useUI();
 
   const getUserInitials = (name?: string) => {
     if (!name) return 'U';
@@ -22,7 +24,7 @@ const DashboardScreen = () => {
 
   const handleProfilePress = () => {
     // Navigate to own profile - don't pass userId so UserProfileScreen knows it's own profile
-    navigation.navigate('UserProfile', {});
+    navigation.navigate('Main', { screen: 'UserProfile', params: {} });
   };
 
   const handleSendMessage = (text: string) => {
@@ -38,12 +40,12 @@ const DashboardScreen = () => {
 
   const handleAttachFile = (file: any) => {
     console.log('File attached:', file);
-    Alert.alert('File Attached', `${file.name} has been attached`);
+    showInfo(`${file.name} has been attached`);
   };
 
   const handleAttachImage = (image: any) => {
     console.log('Image attached:', image);
-    Alert.alert('Image Attached', `Image has been attached`);
+    showInfo('Image has been attached');
   };
 
   return (
@@ -160,7 +162,6 @@ const DashboardScreen = () => {
           onAttachFile={handleAttachFile}
           onAttachImage={handleAttachImage}
           placeholder="Ask Javiar"
-          maxLines={6}
           disabled={false}
         />
         </View>

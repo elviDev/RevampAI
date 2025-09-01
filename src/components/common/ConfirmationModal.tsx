@@ -1,7 +1,10 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Modal } from 'react-native';
-import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import { View, Text, TouchableOpacity, Modal, Dimensions } from 'react-native';
+import Animated, { FadeIn, SlideInDown, SlideOutDown, FadeOut, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import LinearGradient from 'react-native-linear-gradient';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 interface ConfirmationModalProps {
   visible: boolean;
@@ -28,19 +31,22 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="none"
       onRequestClose={onCancel}
+      statusBarTranslucent
     >
       <Animated.View
-        entering={FadeIn.duration(200)}
+        entering={FadeIn.duration(300)}
+        exiting={FadeOut.duration(200)}
         style={{
           flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.5)',
+          backgroundColor: 'rgba(0,0,0,0.7)',
           justifyContent: 'center',
           alignItems: 'center',
-          padding: 20,
+          padding: 24,
         }}
       >
+        {/* Backdrop */}
         <TouchableOpacity
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
           onPress={onCancel}
@@ -48,67 +54,150 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
         />
         
         <Animated.View
-          entering={SlideInDown.duration(300).springify()}
+          entering={ZoomIn.duration(400).springify().damping(15)}
+          exiting={ZoomOut.duration(300)}
           style={{
             backgroundColor: 'white',
-            borderRadius: 20,
-            padding: 24,
+            borderRadius: 24,
+            padding: 0,
             width: '100%',
-            maxWidth: 400,
+            maxWidth: 380,
             shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.25,
-            shadowRadius: 16,
-            elevation: 12,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.3,
+            shadowRadius: 24,
+            elevation: 20,
           }}
         >
-          {/* Header */}
-          <View className="flex-row items-center justify-between mb-4">
-            <View className="flex-row items-center flex-1">
-              <View
-                className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${
-                  confirmStyle === 'destructive' ? 'bg-red-100' : 'bg-blue-100'
-                }`}
+          {/* Icon Header */}
+          <View className="items-center pt-8 pb-4">
+            <Animated.View 
+              entering={ZoomIn.delay(200).duration(500).springify()}
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: 40,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <LinearGradient
+                colors={confirmStyle === 'destructive' 
+                  ? ['#FEE2E2', '#FECACA'] 
+                  : ['#DBEAFE', '#BFDBFE']
+                }
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 40,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: confirmStyle === 'destructive' ? '#EF4444' : '#3B82F6',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }}
               >
                 <MaterialIcon
-                  name={confirmStyle === 'destructive' ? 'warning' : 'help-outline'}
-                  size={24}
-                  color={confirmStyle === 'destructive' ? '#EF4444' : '#3B82F6'}
+                  name={confirmStyle === 'destructive' ? 'delete-outline' : 'help-outline'}
+                  size={36}
+                  color={confirmStyle === 'destructive' ? '#DC2626' : '#2563EB'}
                 />
-              </View>
-              <Text className="text-xl font-bold text-gray-900 flex-1">
+              </LinearGradient>
+            </Animated.View>
+            
+            {/* Title */}
+            <Animated.View entering={FadeIn.delay(300).duration(400)}>
+              <Text 
+                style={{
+                  fontSize: 22,
+                  fontWeight: '700',
+                  color: '#111827',
+                  textAlign: 'center',
+                  marginBottom: 8,
+                }}
+              >
                 {title}
               </Text>
-            </View>
+            </Animated.View>
           </View>
 
           {/* Message */}
-          <Text className="text-gray-600 text-base leading-6 mb-6">
-            {message}
-          </Text>
+          <Animated.View entering={FadeIn.delay(400).duration(400)} className="px-6 pb-8">
+            <Text 
+              style={{
+                fontSize: 16,
+                lineHeight: 24,
+                color: '#6B7280',
+                textAlign: 'center',
+              }}
+            >
+              {message}
+            </Text>
+          </Animated.View>
 
           {/* Action Buttons */}
-          <View className="flex-row space-x-3">
-            <TouchableOpacity
-              onPress={onCancel}
-              className="flex-1 bg-gray-100 rounded-xl py-4 px-6"
-            >
-              <Text className="text-gray-700 font-semibold text-center text-base">
-                {cancelText}
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              onPress={onConfirm}
-              className={`flex-1 rounded-xl py-4 px-6 ${
-                confirmStyle === 'destructive' ? 'bg-red-600' : 'bg-blue-600'
-              }`}
-            >
-              <Text className="text-white font-semibold text-center text-base">
-                {confirmText}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <Animated.View 
+            entering={SlideInDown.delay(500).duration(400)}
+            className="px-6 pb-6"
+          >
+            <View className="space-y-3">
+              {/* Primary Action Button */}
+              <TouchableOpacity
+                onPress={onConfirm}
+                style={{
+                  paddingVertical: 16,
+                  paddingHorizontal: 24,
+                  borderRadius: 16,
+                  backgroundColor: confirmStyle === 'destructive' ? '#DC2626' : '#2563EB',
+                  shadowColor: confirmStyle === 'destructive' ? '#DC2626' : '#2563EB',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }}
+                className="active:scale-95"
+              >
+                <Text 
+                  style={{
+                    color: 'white',
+                    fontSize: 17,
+                    fontWeight: '600',
+                    textAlign: 'center',
+                  }}
+                >
+                  {confirmText}
+                </Text>
+              </TouchableOpacity>
+              
+              {/* Secondary Cancel Button */}
+              <TouchableOpacity
+                onPress={onCancel}
+                style={{
+                  paddingVertical: 16,
+                  paddingHorizontal: 24,
+                  borderRadius: 16,
+                  backgroundColor: '#F9FAFB',
+                  borderWidth: 1,
+                  borderColor: '#E5E7EB',
+                }}
+                className="active:bg-gray-200"
+              >
+                <Text 
+                  style={{
+                    color: '#6B7280',
+                    fontSize: 17,
+                    fontWeight: '600',
+                    textAlign: 'center',
+                  }}
+                >
+                  {cancelText}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
         </Animated.View>
       </Animated.View>
     </Modal>

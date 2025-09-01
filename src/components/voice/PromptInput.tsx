@@ -6,7 +6,6 @@ import {
   Text,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   PermissionsAndroid,
   Modal,
   Pressable,
@@ -43,16 +42,38 @@ import Icon from 'react-native-vector-icons/Feather';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { EmojiPicker } from '../chat/EmojiPicker';
 import { openAIService } from '../../services/ai/OpenAIService';
+import { PermissionDialog } from '../common/PermissionDialog';
+import { ActionDialog } from '../common/ActionDialog';
+import { useActionDialog } from '../../hooks/useActionDialog';
+import { useToast } from '../../contexts/ToastContext';
 
 interface PromptInputProps {
   onSendMessage?: (text: string) => void;
   onSendRecording?: (audioUri: string, transcript?: string) => void;
+  onSendVoiceMessage?: (audioUri: string, transcript?: string) => void; // Alias for compatibility
+  onEditMessage?: (messageId: string, content: string) => void;
   onAttachFile?: (file: any) => void;
   onAttachImage?: (image: any) => void;
   onStartTyping?: () => void;
   onStopTyping?: () => void;
+  onStartReplyTyping?: (parentMessageId: string, parentUserName: string) => void;
+  onStopReplyTyping?: (parentMessageId: string) => void;
+  onClose?: () => void; // For modal mode
   placeholder?: string;
   disabled?: boolean;
+  showCloseButton?: boolean; // For modal mode
+  channelMembers?: MentionUser[]; // Add channel members for mentions
+  replyingTo?: {
+    id: string;
+    content: string;
+    sender: string;
+  } | null;
+  onCancelReply?: () => void;
+  editingMessage?: {
+    id: string;
+    content: string;
+  } | null;
+  onCancelEdit?: () => void;
 }
 
 interface RecordingState {
@@ -68,30 +89,29 @@ interface MentionUser {
   username: string;
 }
 
-// Dummy users for mention functionality
-const DUMMY_USERS: MentionUser[] = [
-  { id: '1', name: 'John Doe', username: 'johndoe' },
-  { id: '2', name: 'Jane Smith', username: 'janesmith' },
-  { id: '3', name: 'Mike Johnson', username: 'mikejohnson' },
-  { id: '4', name: 'Sarah Wilson', username: 'sarahwilson' },
-  { id: '5', name: 'David Brown', username: 'davidbrown' },
-  { id: '6', name: 'Emily Davis', username: 'emilydavis' },
-  { id: '7', name: 'Chris Miller', username: 'chrismiller' },
-  { id: '8', name: 'Lisa Anderson', username: 'lisaanderson' },
-  { id: '9', name: 'Tom Garcia', username: 'tomgarcia' },
-  { id: '10', name: 'Amy Martinez', username: 'amymartinez' },
-];
+// Channel members will be passed via props instead of hardcoded data
 
 
 export const PromptInput: React.FC<PromptInputProps> = ({
   onSendMessage,
   onSendRecording,
+  onSendVoiceMessage,
+  onEditMessage,
   onAttachFile,
   onAttachImage,
   onStartTyping,
   onStopTyping,
+  onStartReplyTyping,
+  onStopReplyTyping,
+  onClose,
   placeholder = 'Enter a prompt here...',
   disabled = false,
+  showCloseButton = false,
+  channelMembers = [],
+  replyingTo,
+  onCancelReply,
+  editingMessage,
+  onCancelEdit,
 }) => {
   const [text, setText] = useState('');
   const [recording, setRecording] = useState<RecordingState>({
@@ -109,6 +129,10 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const [mentionQuery, setMentionQuery] = useState('');
   const [voiceAvailable, setVoiceAvailable] = useState(false);
   const [selectionStart, setSelectionStart] = useState(0);
+  const [showPermissionDialog, setShowPermissionDialog] = useState(false);
+
+  const { dialogProps, showDialog, hideDialog } = useActionDialog();
+  const { showError, showSuccess, showInfo } = useToast();
 
   const audioRecorderPlayer = useRef(new CustomAudioRecorderPlayer()).current;
   const recordingTimer = useRef<NodeJS.Timeout | null>(null);
@@ -127,19 +151,31 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const handleTextChange = (newText: string) => {
     setText(newText);
 
-    // Handle typing indicators
+    // Handle typing indicators with reply support
     const wasEmpty = text.trim() === '';
     const isEmpty = newText.trim() === '';
     
     if (!wasEmpty && isEmpty) {
       // User cleared input - stop typing
-      onStopTyping?.();
+      if (replyingTo && onStopReplyTyping) {
+        onStopReplyTyping(replyingTo.id);
+      } else {
+        onStopTyping?.();
+      }
     } else if (wasEmpty && !isEmpty) {
       // User started typing - start typing indicator
-      onStartTyping?.();
+      if (replyingTo && onStartReplyTyping) {
+        onStartReplyTyping(replyingTo.id, replyingTo.sender);
+      } else {
+        onStartTyping?.();
+      }
     } else if (!isEmpty) {
       // User is continuing to type - refresh typing indicator
-      onStartTyping?.();
+      if (replyingTo && onStartReplyTyping) {
+        onStartReplyTyping(replyingTo.id, replyingTo.sender);
+      } else {
+        onStartTyping?.();
+      }
     }
 
     // Clear existing debounce timer
@@ -220,11 +256,22 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   };
 
 
-  const filteredMentionUsers = DUMMY_USERS.filter(
+  // Filter channel members based on mention query
+  const filteredMentionUsers = channelMembers.filter(
     user =>
       user.username.toLowerCase().includes(mentionQuery.toLowerCase()) ||
       user.name.toLowerCase().includes(mentionQuery.toLowerCase()),
   );
+
+  // Set initial text when editing
+  useEffect(() => {
+    if (editingMessage) {
+      setText(editingMessage.content);
+      setTimeout(() => textInputRef.current?.focus(), 100);
+    } else {
+      setText('');
+    }
+  }, [editingMessage]);
 
   // Check for mentions when cursor position changes
   useEffect(() => {
@@ -329,14 +376,15 @@ export const PromptInput: React.FC<PromptInputProps> = ({
     return true;
   };
 
+  const showPermissionRequest = () => {
+    setShowPermissionDialog(true);
+  };
+
   // Recording functions
   const startRecording = async () => {
     const hasPermission = await requestAudioPermission();
     if (!hasPermission) {
-      Alert.alert(
-        'Permission required',
-        'Please grant microphone permission to record audio.',
-      );
+      showPermissionRequest();
       return;
     }
 
@@ -381,15 +429,11 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         console.warn('❌ Voice recognition failed to start:', voiceError);
         console.warn('Error details:', voiceError.message);
         // Continue with recording even if voice recognition fails
-        Alert.alert(
-          'Voice Recognition',
-          'Voice recognition is not available, but audio recording will continue.',
-          [{ text: 'OK' }],
-        );
+        showInfo('Voice recognition is not available, but audio recording will continue.');
       }
     } catch (error) {
       console.error('Start recording error:', error);
-      Alert.alert('Error', 'Failed to start recording');
+      showError('Failed to start recording. Please try again.');
     }
   };
 
@@ -440,8 +484,12 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         }
       }
 
-      // Send recording with corrected transcript
-      onSendRecording?.(recording.audioPath, finalTranscript);
+      // Send recording with corrected transcript - support both callbacks
+      if (onSendRecording) {
+        onSendRecording(recording.audioPath, finalTranscript);
+      } else if (onSendVoiceMessage) {
+        onSendVoiceMessage(recording.audioPath, finalTranscript);
+      }
 
       // Reset state
       setRecording({
@@ -453,7 +501,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
       setVoiceResults([]);
     } catch (error) {
       console.error('Stop recording error:', error);
-      Alert.alert('Error', 'Failed to stop recording');
+      showError('Failed to stop recording. Please try again.');
     }
   };
 
@@ -550,11 +598,11 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         const errorCode = (error as any).code;
         if (errorCode !== 'DOCUMENT_PICKER_CANCELED') {
           console.error('File picker error:', error);
-          Alert.alert('Error', 'Failed to pick file');
+          showError('Failed to pick file. Please try again.');
         }
       } else {
         console.error('File picker error:', error);
-        Alert.alert('Error', 'Failed to pick file');
+        showError('Failed to pick file. Please try again.');
       }
     }
   };
@@ -576,7 +624,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
       }
     } catch (error) {
       console.error('Image picker error:', error);
-      Alert.alert('Error', 'Failed to pick image');
+      showError('Failed to pick image. Please try again.');
     }
   };
 
@@ -587,9 +635,44 @@ export const PromptInput: React.FC<PromptInputProps> = ({
         withTiming(1, { duration: 100 }),
       );
 
-      onSendMessage?.(text.trim());
+      // Stop typing indicator immediately
+      if (replyingTo && onStopReplyTyping) {
+        onStopReplyTyping(replyingTo.id);
+      } else {
+        onStopTyping?.();
+      }
+
+      // Handle editing vs sending new message
+      if (editingMessage && onEditMessage) {
+        // Edit existing message
+        onEditMessage(editingMessage.id, text.trim());
+        if (onCancelEdit) {
+          onCancelEdit();
+        }
+      } else {
+        // Send new message (including replies)
+        onSendMessage?.(text.trim());
+      }
+
       setText('');
       setAttachedFiles([]);
+    }
+  };
+
+  const handleCancel = () => {
+    // Stop typing indicator
+    if (replyingTo && onStopReplyTyping) {
+      onStopReplyTyping(replyingTo.id);
+    } else {
+      onStopTyping?.();
+    }
+
+    setText('');
+    if (replyingTo && onCancelReply) {
+      onCancelReply();
+    }
+    if (editingMessage && onCancelEdit) {
+      onCancelEdit();
     }
   };
 
@@ -631,6 +714,51 @@ export const PromptInput: React.FC<PromptInputProps> = ({
 
   return (
     <View className="relative">
+      {/* Close Button for Modal Mode */}
+      {showCloseButton && (
+        <View className="flex-row justify-end p-4">
+          <TouchableOpacity onPress={onClose} className="p-2">
+            <MaterialIcon name="close" size={24} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Reply Preview */}
+      {replyingTo && (
+        <View className="mx-4 mb-2 flex-row items-center px-4 py-2 bg-blue-50 border-l-4 border-blue-400 rounded-r-lg">
+          <MaterialIcon name="reply" size={16} color="#3B82F6" />
+          <View className="flex-1 ml-2">
+            <Text className="text-blue-600 text-xs font-medium">
+              Replying to {replyingTo.sender}
+            </Text>
+            <Text className="text-gray-600 text-sm" numberOfLines={1}>
+              {replyingTo.content}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={handleCancel} className="p-1">
+            <MaterialIcon name="close" size={20} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Edit Preview */}
+      {editingMessage && (
+        <View className="mx-4 mb-2 flex-row items-center px-4 py-2 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg">
+          <MaterialIcon name="edit" size={16} color="#F59E0B" />
+          <View className="flex-1 ml-2">
+            <Text className="text-amber-600 text-xs font-medium">
+              Editing message
+            </Text>
+            <Text className="text-gray-600 text-sm" numberOfLines={1}>
+              {editingMessage.content}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={handleCancel} className="p-1">
+            <MaterialIcon name="close" size={20} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="px-1 py-1"
@@ -660,6 +788,10 @@ export const PromptInput: React.FC<PromptInputProps> = ({
               placeholder={
                 recording.isRecording
                   ? `Recording ${formatDuration(recording.duration)}${recording.isPaused ? ' (Paused)' : ''}...`
+                  : replyingTo
+                  ? `Reply to ${replyingTo.sender}...`
+                  : editingMessage
+                  ? 'Edit message...'
                   : placeholder
               }
               value={
@@ -921,6 +1053,31 @@ export const PromptInput: React.FC<PromptInputProps> = ({
           </ScrollView>
         </View>
       )}
+
+      {/* Permission Dialog */}
+      <PermissionDialog
+        visible={showPermissionDialog}
+        title="Microphone Permission"
+        message="Allow access to your microphone to record voice messages with transcription."
+        permissionType="microphone"
+        onAllow={async () => {
+          const hasPermission = await requestAudioPermission();
+          if (hasPermission) {
+            showSuccess('Microphone permission granted!');
+            // Auto-start recording if permission was just granted
+            setTimeout(() => startRecording(), 300);
+          } else {
+            showError('Microphone permission denied. You can enable it in Settings.');
+          }
+        }}
+        onDeny={() => {
+          showInfo('Voice recording requires microphone permission.');
+        }}
+        onClose={() => setShowPermissionDialog(false)}
+      />
+
+      {/* Action Dialog */}
+      <ActionDialog {...dialogProps} onClose={hideDialog} />
     </View>
   );
 };
