@@ -117,7 +117,7 @@ export const MessageListContainer: React.FC<MessageListContainerProps> = ({
       data={messages}
       renderItem={renderMessage}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={{ paddingBottom: 20, paddingTop: 10 }}
+      contentContainerStyle={{ paddingBottom: 20, paddingTop: 10, paddingHorizontal: 0 }}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       onRefresh={onLoadMore}
@@ -138,9 +138,12 @@ export const MessageListContainer: React.FC<MessageListContainerProps> = ({
       onEndReachedThreshold={0.1}
       ListEmptyComponent={() => (
         <View className="flex-1 items-center justify-center p-8">
-          <Text className="text-gray-500 text-lg mb-2">No messages yet</Text>
-          <Text className="text-gray-400 text-center">
-            Be the first to send a message in #{channelName}
+          <View className="w-16 h-16 bg-blue-100 rounded-full items-center justify-center mb-4">
+            <Text className="text-2xl">💬</Text>
+          </View>
+          <Text className="text-gray-600 text-lg font-semibold mb-2">Start the discussion</Text>
+          <Text className="text-gray-400 text-center leading-5">
+            Share your thoughts and ideas in #{channelName}{'\n'}The AI assistant will help summarize and create tasks
           </Text>
           {__DEV__ && (
             <View className="mt-4 p-2 bg-gray-100 rounded">

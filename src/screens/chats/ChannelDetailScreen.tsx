@@ -269,7 +269,7 @@ export const ChannelDetailScreen: React.FC<ChannelDetailScreenProps> = ({
       style={{ flex: 1 }}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
-      <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
+      <View className="flex-1 bg-gray-50" style={{ paddingTop: insets.top }}>
         <StatusBar barStyle="dark-content" backgroundColor="white" />
 
         {/* Header */}
