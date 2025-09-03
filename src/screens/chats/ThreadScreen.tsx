@@ -332,30 +332,23 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({
   }, []);
 
   const renderThreadMessage = ({ item, index }: { item: Message; index: number }) => (
-    <View className="bg-white border-b border-gray-100">
-      <View className="px-4 py-2 flex-row items-start">
-        <View className="w-8 items-center mr-2">
-          <View className="w-6 h-6 bg-gray-200 rounded-full items-center justify-center">
-            <Text className="text-gray-600 text-xs font-bold">{index + 1}</Text>
-          </View>
-        </View>
-        <View className="flex-1">
-          <ChatMessage
-            message={item}
-            onReply={() => {}} // No nested threading for now
-            onReaction={(emoji) => {
-              // Handle reactions in thread
-              console.log('Thread message reaction:', item.id, emoji);
-            }}
-            onEdit={item.sender.id === currentUserId ? () => {} : undefined}
-            onShowEmojiPicker={() => {}}
-            onNavigateToUser={() => {}}
-            onNavigateToReference={() => {}}
-            isOwnMessage={item.sender.id === currentUserId}
-            isThreadReply={true}
-            showThreadButton={false}
-          />
-        </View>
+    <View className="mx-4 mb-3 bg-white rounded-xl border border-gray-100 overflow-hidden">
+      <View className="px-4 py-3">
+        <ChatMessage
+          message={item}
+          onReply={() => {}} // No nested threading for now
+          onReaction={(emoji) => {
+            // Handle reactions in thread
+            console.log('Thread message reaction:', item.id, emoji);
+          }}
+          onEdit={item.sender.id === currentUserId ? () => {} : undefined}
+          onShowEmojiPicker={() => {}}
+          onNavigateToUser={() => {}}
+          onNavigateToReference={() => {}}
+          isOwnMessage={item.sender.id === currentUserId}
+          isThreadReply={true}
+          showThreadButton={false}
+        />
       </View>
     </View>
   );
@@ -365,49 +358,55 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{ flex: 1 }}
     >
-      <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
+      <View className="flex-1 bg-gray-50" style={{ paddingTop: insets.top }}>
         <StatusBar barStyle="dark-content" backgroundColor="white" />
 
-        {/* Thread Header */}
-        <View className="flex-row items-center justify-between px-4 py-4 border-b border-gray-200 bg-white">
-          <View className="flex-row items-center flex-1">
-            <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3">
-              <MaterialIcon name="arrow-back" size={24} color="#374151" />
+        {/* Modern Thread Header */}
+        <View className="px-6 py-4 bg-white border-b border-gray-100">
+          <View className="flex-row items-center justify-between">
+            <TouchableOpacity 
+              onPress={() => navigation.goBack()} 
+              className="w-9 h-9 items-center justify-center rounded-full bg-gray-50"
+            >
+              <MaterialIcon name="arrow-back" size={20} color="#374151" />
             </TouchableOpacity>
-            <View className="flex-1">
-              <Text className="text-lg font-semibold text-gray-900">🧵 Thread</Text>
-              <Text className="text-sm text-gray-500">
-                in #{channelName} • {threadMessages.length} {threadMessages.length === 1 ? 'reply' : 'replies'}
+            <View className="flex-1 ml-4">
+              <Text className="text-xl font-bold text-gray-900">Thread</Text>
+              <Text className="text-sm text-gray-500 mt-0.5">
+                #{channelName}
+              </Text>
+            </View>
+            <View className="bg-gray-100 px-3 py-1.5 rounded-full">
+              <Text className="text-gray-600 text-xs font-medium">
+                {threadMessages.length} {threadMessages.length === 1 ? 'reply' : 'replies'}
               </Text>
             </View>
           </View>
-          <View className="flex-row items-center">
-            <MaterialIcon name="forum" size={20} color="#6B7280" />
-          </View>
         </View>
 
-        {/* Parent Message as Topic */}
-        <View className="border-b border-gray-200 bg-blue-50 px-4 py-6">
-          <View className="flex-row items-start space-x-3">
-            <View className="w-2 h-2 bg-blue-500 rounded-full mt-2"></View>
-            <View className="flex-1">
-              <Text className="text-xs font-medium text-blue-600 mb-2">THREAD TOPIC</Text>
-              <ChatMessage
-                message={parentMessage}
-                onReply={() => {}} // Disabled in thread view
-                onReaction={() => {}}
-                onShowEmojiPicker={() => {}}
-                onNavigateToUser={() => {}}
-                onNavigateToReference={() => {}}
-                isOwnMessage={parentMessage.sender.id === currentUserId}
-                showThreadButton={false}
-              />
-            </View>
+        {/* Modern Parent Message */}
+        <View className="bg-gray-50 mx-4 mt-4 rounded-2xl p-4 border border-gray-200">
+          <View className="flex-row items-center mb-3">
+            <View className="w-1 h-8 bg-blue-500 rounded-full mr-3" />
+            <Text className="text-sm font-semibold text-gray-600 uppercase tracking-wider">
+              Original Message
+            </Text>
           </View>
+          <ChatMessage
+            message={parentMessage}
+            onReply={() => {}} // Disabled in thread view
+            onReaction={() => {}}
+            onShowEmojiPicker={() => {}}
+            onNavigateToUser={() => {}}
+            onNavigateToReference={() => {}}
+            isOwnMessage={parentMessage.sender.id === currentUserId}
+            showThreadButton={false}
+            hideThreadInfo={true}
+          />
         </View>
 
         {/* Thread Messages */}
-        <View className="flex-1">
+        <View className="flex-1 pt-2">
           {isLoadingThread ? (
             <View className="flex-1 items-center justify-center">
               <Text className="text-gray-500">Loading thread...</Text>
@@ -428,30 +427,28 @@ export const ThreadScreen: React.FC<ThreadScreenProps> = ({
               data={threadMessages}
               renderItem={renderThreadMessage}
               keyExtractor={(item) => item.id}
-              contentContainerStyle={{ paddingBottom: 20, paddingTop: 10 }}
+              contentContainerStyle={{ paddingBottom: 20 }}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
               onRefresh={() => loadThreadMessages(true)}
               refreshing={isLoadingMore}
               ListEmptyComponent={() => (
-                <View className="flex-1 items-center justify-center p-8">
-                  <MaterialIcon name="forum" size={48} color="#D1D5DB" />
-                  <Text className="text-gray-500 text-lg mb-2 mt-4">No replies yet</Text>
-                  <Text className="text-gray-400 text-center">
+                <View className="flex-1 items-center justify-center p-12">
+                  <View className="w-16 h-16 bg-gray-100 rounded-full items-center justify-center mb-4">
+                    <MaterialIcon name="chat-bubble-outline" size={28} color="#9CA3AF" />
+                  </View>
+                  <Text className="text-gray-600 text-lg font-medium mb-2">Start the conversation</Text>
+                  <Text className="text-gray-400 text-center text-sm leading-5">
                     Be the first to reply to this message
                   </Text>
                 </View>
               )}
               ListHeaderComponent={
                 threadMessages.length > 0 ? (
-                  <View className="px-4 py-3 bg-gray-50">
-                    <View className="flex-row items-center">
-                      <View className="h-px bg-gray-300 flex-1"></View>
-                      <Text className="text-gray-500 text-xs font-medium px-3">
-                        {threadMessages.length} {threadMessages.length === 1 ? 'REPLY' : 'REPLIES'}
-                      </Text>
-                      <View className="h-px bg-gray-300 flex-1"></View>
-                    </View>
+                  <View className="px-6 py-4 mb-2">
+                    <Text className="text-sm font-semibold text-gray-600 uppercase tracking-wider">
+                      Replies ({threadMessages.length})
+                    </Text>
                   </View>
                 ) : null
               }

@@ -25,6 +25,7 @@ interface ChatMessageProps {
   isThreadReply?: boolean;
   hasReplies?: boolean;
   replyCount?: number;
+  hideThreadInfo?: boolean;
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -44,6 +45,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   isThreadReply = false,
   hasReplies = false,
   replyCount = 0,
+  hideThreadInfo = false,
 }) => {
   const [showActions, setShowActions] = useState(false);
   const { dialogProps, showDialog, hideDialog } = useActionDialog();
@@ -239,29 +241,17 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             </View>
           )}
 
-          {/* Thread Info - Slack Style */}
-          {(message.replyCount && message.replyCount > 0) && (
+          {/* Thread Info - Modern Minimalist Style */}
+          {!hideThreadInfo && (message.replyCount && message.replyCount > 0) && (
             <TouchableOpacity
               onPress={onReply}
-              className="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-3"
+              className="mt-3 flex-row items-center py-1"
             >
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center">
-                  <MaterialIcon name="forum" size={16} color="#1D4ED8" />
-                  <Text className="text-blue-700 text-sm font-medium ml-2">
-                    {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'}
-                  </Text>
-                </View>
-                <MaterialIcon name="chevron-right" size={16} color="#1D4ED8" />
-              </View>
-              {message.lastReplyTimestamp && (
-                <Text className="text-blue-600 text-xs mt-1">
-                  Last reply {formatTime(message.lastReplyTimestamp)}
-                </Text>
-              )}
-              <Text className="text-blue-600 text-xs mt-1 font-medium">
-                View thread →
+              <View className="w-6 h-px bg-gray-300 mr-2" />
+              <Text className="text-gray-500 text-sm font-medium">
+                {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'}
               </Text>
+              <View className="flex-1 h-px bg-gray-300 ml-2" />
             </TouchableOpacity>
           )}
         </View>
