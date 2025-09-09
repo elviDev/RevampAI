@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DeviceInfo from 'react-native-device-info';
 import { authService } from './api/authService';
 import { tokenManager } from './tokenManager';
+import { permissionService } from './permissionService';
 
 export interface PushNotificationData {
   taskId?: string;

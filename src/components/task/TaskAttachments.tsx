@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { fileService, TaskAttachment, FileUploadProgress } from '../../services/api/fileService';
 import { useToast } from '../../contexts/ToastContext';
+import { permissionService } from '../../services/permissionService';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -62,6 +63,14 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
 
   const handleDocumentPick = async () => {
     try {
+      // Request storage permission
+      const permissions = await permissionService.ensureFilePermissions();
+      if (!permissions.storage) {
+        toast.showError('Storage permission is required to access documents');
+        setShowUploadOptions(false);
+        return;
+      }
+
       const result = await DocumentPicker.getDocumentAsync({
         type: '*/*',
         multiple: true,
@@ -86,6 +95,25 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({
 
   const handleImagePick = async (useCamera: boolean = false) => {
     try {
+      // Request appropriate permissions
+      const permissionType = useCamera ? 'camera' : 'media_library';
+      const status = await permissionService.checkPermissionStatus(permissionType);
+      
+      if (!status.granted) {
+        const granted = useCamera 
+          ? await permissionService.requestCameraPermission()
+          : await permissionService.requestMediaLibraryPermission();
+        
+        if (!granted.granted) {
+          const message = useCamera 
+            ? 'Camera permission is required to take photos'
+            : 'Media library permission is required to select images';
+          toast.showError(message);
+          setShowUploadOptions(false);
+          return;
+        }
+      }
+
       const result = useCamera
         ? await ImagePicker.launchCameraAsync({
             mediaTypes: 'images',

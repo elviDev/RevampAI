@@ -12,6 +12,7 @@ import { registerMessageRoutes } from './routes/MessageRoutes';
 import { registerActivityRoutes } from './routes/ActivityRoutes';
 import { notificationRoutes } from './routes/NotificationRoutes';
 import { announcementRoutes } from './routes/AnnouncementRoutes';
+import { registerVoiceRoutes } from './routes/VoiceRoutes';
 import { logger } from '../utils/logger';
 
 /**
@@ -28,6 +29,7 @@ export const registerAPIRoutes = async (fastify: FastifyInstance): Promise<void>
     await fastify.register(registerDocsRoutes);
     await fastify.register(notificationRoutes);
     await fastify.register(announcementRoutes);
+    await fastify.register(registerVoiceRoutes);
 
     logger.debug('All API routes registered');
   } catch (error) {

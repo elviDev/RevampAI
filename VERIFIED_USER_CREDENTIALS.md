@@ -1,8 +1,9 @@
 # ✅ VERIFIED USER CREDENTIALS
 
-**Last Updated:** August 28, 2025  
+**Last Updated:** September 3, 2025  
 **Database:** PostgreSQL (ceo_platform_dev)  
 **Backend API:** http://localhost:3001/api/v1  
+**Android Emulator API:** http://10.0.2.2:3001/api/v1  
 
 This document contains **ONLY VERIFIED AND WORKING** user credentials for the RevampAI CEO Communication Platform.
 
@@ -185,4 +186,25 @@ Content-Type: application/json
 
 ---
 
+---
+
+## 🔄 SEED SCRIPT UPDATES (September 3, 2025)
+
+### Changes Made:
+1. ✅ **Fixed seed script data consistency** - Users are now properly restored after soft deletion
+2. ✅ **Updated password hashing** - All users now use properly hashed `TempPass123!`
+3. ✅ **Fixed Android emulator connectivity** - App configured to use `10.0.2.2:3001/api/v1`
+4. ✅ **Improved UPSERT handling** - Seed script properly handles existing users with `deleted_at = NULL`
+5. ✅ **Fixed authentication flow** - Backend correctly verifies credentials and returns JWT tokens
+
+### Seed Script Behavior:
+- **Safe to run multiple times** - Uses UPSERT with conflict resolution
+- **Preserves existing data** - Only updates seed users, leaves other users untouched  
+- **Consistent credentials** - Always creates users with `TempPass123!` password
+- **Proper cleanup** - Soft deletes old seed data before creating new data
+
+---
+
 **⚠️ IMPORTANT:** Only use the credentials listed as "VERIFIED WORKING" above. All other combinations have been tested and removed from the system.
+
+**🚀 QUICK START:** Use `alex.ceo@company.com` / `TempPass123!` for immediate access with full CEO permissions.

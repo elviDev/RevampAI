@@ -1,6 +1,10 @@
 import { Message } from '../../types/chat';
 import { tokenManager } from '../tokenManager';
-import { API_BASE_URL } from '@env';
+import { EXPO_PUBLIC_API_URL } from '@env';
+
+// Use EXPO_PUBLIC_API_URL for Expo compatibility with Android emulator
+// For Android emulator: 10.0.2.2 maps to localhost on host machine
+const API_BASE_URL = 'http://10.0.2.2:3001/api/v1';
 
 // Backend database message structure
 export interface BackendMessage {

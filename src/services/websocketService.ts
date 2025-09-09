@@ -1,7 +1,9 @@
 import React from 'react';
 import { io, Socket } from 'socket.io-client';
+import { AppState } from 'react-native';
 import { store } from '../store/store';
 import { tokenManager } from './tokenManager';
+import { notificationService } from './notificationService';
 import { 
   taskUpdatedRealtime, 
   taskCreatedRealtime, 
@@ -370,19 +372,80 @@ class WebSocketService {
     switch (event.type) {
       case 'task_created':
         store.dispatch(taskCreatedRealtime(event.task));
+        this.sendTaskNotification(event, 'New task created');
         break;
         
       case 'task_updated':
+        store.dispatch(taskUpdatedRealtime(event.task));
+        this.sendTaskNotification(event, 'Task updated');
+        break;
+        
       case 'task_completed':
         store.dispatch(taskUpdatedRealtime(event.task));
+        this.sendTaskNotification(event, 'Task completed');
+        break;
+        
+      case 'task_assigned':
+        store.dispatch(taskUpdatedRealtime(event.task));
+        this.sendTaskNotification(event, `Task assigned to you by ${event.userName}`);
         break;
         
       case 'task_deleted':
         store.dispatch(taskDeletedRealtime(event.taskId));
+        this.sendTaskNotification(event, 'Task deleted');
         break;
         
       default:
         console.warn('Unknown task update type:', event.type);
+    }
+  }
+
+  /**
+   * Send task-specific notification
+   */
+  private async sendTaskNotification(event: TaskUpdateEvent, defaultMessage: string): Promise<void> {
+    try {
+      const appState = AppState.currentState;
+      
+      // Only send push notification if app is in background or inactive
+      if (appState === 'background' || appState === 'inactive') {
+        await notificationService.scheduleLocalNotification({
+          type: this.mapTaskEventToPushType(event.type),
+          title: event.task.title || 'Task Update',
+          body: defaultMessage,
+          priority: event.task.priority === 'high' ? 'high' : 'medium',
+          taskId: event.taskId,
+          channelId: event.channelId,
+          data: {
+            action: event.action,
+            userId: event.userId,
+            userName: event.userName,
+            changes: event.changes
+          }
+        });
+        
+        console.log('✅ Task notification scheduled:', defaultMessage);
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to send task notification:', error);
+    }
+  }
+
+  /**
+   * Map task event type to push notification type
+   */
+  private mapTaskEventToPushType(type: WebSocketEventType): 'task_created' | 'task_updated' | 'task_assigned' | 'task_completed' | 'mention' | 'general' {
+    switch (type) {
+      case 'task_created':
+        return 'task_created';
+      case 'task_updated':
+        return 'task_updated';
+      case 'task_assigned':
+        return 'task_assigned';
+      case 'task_completed':
+        return 'task_completed';
+      default:
+        return 'general';
     }
   }
 
@@ -395,10 +458,11 @@ class WebSocketService {
     // Emit to custom listeners
     this.emitToListeners('notification', notification);
     
-    // Show local notification if app is in background
-    // This would typically integrate with react-native-push-notification
-    // or Expo notifications
+    // Show local notification if app is in background or foreground
     this.showLocalNotification(notification);
+    
+    // Send push notification through notification service
+    this.sendPushNotification(notification);
   }
 
   /**
@@ -434,6 +498,56 @@ class WebSocketService {
       // This could integrate with expo-notifications or react-native-push-notification
     } catch (error) {
       console.error('Failed to show notification:', error);
+    }
+  }
+
+  /**
+   * Send push notification through notification service
+   */
+  private async sendPushNotification(notification: NotificationEvent): Promise<void> {
+    try {
+      const appState = AppState.currentState;
+      
+      // Only send push notification if app is in background or inactive
+      if (appState === 'background' || appState === 'inactive') {
+        await notificationService.scheduleLocalNotification({
+          type: this.mapNotificationTypeToPush(notification.type),
+          title: notification.title,
+          body: notification.message,
+          priority: notification.priority,
+          taskId: notification.taskId,
+          channelId: notification.channelId,
+          data: notification.data
+        });
+        
+        console.log('✅ Push notification scheduled:', notification.title);
+      } else {
+        console.log('🔔 App is active, skipping push notification');
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to send push notification:', error);
+    }
+  }
+
+  /**
+   * Map WebSocket notification type to push notification type
+   */
+  private mapNotificationTypeToPush(type: string): 'task_created' | 'task_updated' | 'task_assigned' | 'task_completed' | 'mention' | 'general' {
+    switch (type) {
+      case 'task_created':
+        return 'task_created';
+      case 'task_updated':
+      case 'task_status_changed':
+        return 'task_updated';
+      case 'task_assigned':
+        return 'task_assigned';
+      case 'task_completed':
+        return 'task_completed';
+      case 'mention':
+      case 'message_mention':
+        return 'mention';
+      default:
+        return 'general';
     }
   }
 

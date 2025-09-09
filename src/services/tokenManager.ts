@@ -14,10 +14,13 @@ export interface TokenData {
   userId?: string;
 }
 
+export type TokenRefreshCallback = () => Promise<TokenData>;
+
 class TokenManager {
   private static instance: TokenManager;
   private tokenCache: TokenData | null = null;
   private listeners: Array<(token: string | null) => void> = [];
+  private refreshCallback: TokenRefreshCallback | null = null;
 
   private constructor() {}
 
@@ -240,37 +243,43 @@ class TokenManager {
   }
 
   /**
+   * Set the refresh token callback
+   */
+  setRefreshCallback(callback: TokenRefreshCallback): void {
+    this.refreshCallback = callback;
+  }
+
+  /**
    * Refresh access token using refresh token
    */
   async refreshAccessToken(): Promise<string | null> {
-    try {
-      console.log('🔄 TokenManager: Attempting to refresh access token...');
-      
-      const refreshToken = await this.getRefreshToken();
-      if (!refreshToken) {
-        console.log('❌ TokenManager: No refresh token available');
-        await this.clearTokens();
-        return null;
-      }
+    console.log('🔄 TokenManager: Attempting to refresh access token...');
 
-      // Import authService dynamically to avoid circular dependency
-      const { authService } = await import('./api/authService');
-      
-      try {
-        const newTokens = await authService.refreshToken();
-        console.log('✅ TokenManager: Successfully refreshed access token');
-        return newTokens.accessToken;
-      } catch (error) {
-        console.error('❌ TokenManager: Token refresh failed:', error);
-        // Clear tokens since refresh failed
-        await this.clearTokens();
-        
-        // Dispatch logout action to update Redux state
-        store.dispatch({ type: 'auth/logout' });
-        return null;
-      }
+    const refreshToken = await this.getRefreshToken();
+    if (!refreshToken) {
+      console.log('❌ TokenManager: No refresh token available');
+      await this.clearTokens();
+      return null;
+    }
+
+    // Use the callback if set, otherwise return null
+    if (!this.refreshCallback) {
+      console.log('❌ TokenManager: No refresh callback set');
+      await this.clearTokens();
+      return null;
+    }
+
+    try {
+      const newTokens = await this.refreshCallback();
+      console.log('✅ TokenManager: Successfully refreshed access token');
+      return newTokens.accessToken;
     } catch (error) {
-      console.error('❌ TokenManager: Error during token refresh:', error);
+      console.error('❌ TokenManager: Token refresh failed:', error);
+      // Clear tokens since refresh failed
+      await this.clearTokens();
+      
+      // Dispatch logout action to update Redux state
+      store.dispatch({ type: 'auth/logout' });
       return null;
     }
   }

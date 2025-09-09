@@ -1,7 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_BASE_URL } from '@env';
+import { EXPO_PUBLIC_API_URL } from '@env';
 import { AuthError } from './authService';
 import { tokenManager } from '../tokenManager';
+
+// Use EXPO_PUBLIC_API_URL for Expo compatibility with Android emulator
+// For Android emulator: 10.0.2.2 maps to localhost on host machine
+const API_BASE_URL = 'http://10.0.2.2:3001/api/v1';
 
 export interface Channel {
   id: string;

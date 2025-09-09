@@ -1,17 +1,16 @@
-version: '3.8'
 
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15
     container_name: ceo-platform-db
     environment:
-      POSTGRES_DB: ceo_platform
-      POSTGRES_USER: ceo_user
-      POSTGRES_PASSWORD: ceo_password
+      POSTGRES_DB: ceo_platform_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=en_US.UTF-8 --lc-ctype=en_US.UTF-8"
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -30,7 +29,7 @@ services:
       -c min_wal_size=1GB
       -c max_wal_size=4GB
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ceo_user -d ceo_platform"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ceo_platform_dev"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -41,7 +40,7 @@ services:
 
   # Redis for caching and real-time
   redis:
-    image: redis:7-alpine
+    image: redis:7
     container_name: ceo-platform-redis
     ports:
       - "6379:6379"
@@ -69,7 +68,7 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: development
-      DATABASE_URL: postgresql://ceo_user:ceo_password@postgres:5432/ceo_platform
+      DATABASE_URL: postgresql://postgres:root@postgres:5432/ceo_platform_dev
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev-jwt-secret-change-in-production
       JWT_REFRESH_SECRET: dev-refresh-secret-change-in-production

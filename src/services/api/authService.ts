@@ -1,8 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
-import { API_BASE_URL } from '@env';
+import { EXPO_PUBLIC_API_URL } from '@env';
 import { tokenManager } from '../tokenManager';
+import { errorHandler } from '../errorHandler';
 import type { User, AuthTokens } from '../../types/auth';
+
+// Use EXPO_PUBLIC_API_URL for Expo compatibility with Android emulator
+// For Android emulator: 10.0.2.2 maps to localhost on host machine
+const API_BASE_URL = 'http://10.0.2.2:3001/api/v1';
 
 interface LoginRequest {
   email: string;
@@ -219,8 +224,9 @@ class AuthService {
   async testConnection(): Promise<boolean> {
     try {
       console.log('🔍 Testing backend connectivity...');
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
-        method: 'GET',
+      // Test with a simple OPTIONS request to auth/login endpoint
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'OPTIONS',
         headers: { 'Content-Type': 'application/json' }
       });
       console.log(`✅ Backend reachable, status: ${response.status}`);
@@ -532,6 +538,17 @@ class AuthService {
 }
 
 export const authService = new AuthService();
+
+// Register the refresh callback with tokenManager
+tokenManager.setRefreshCallback(async () => {
+  const response = await authService.refreshToken();
+  return {
+    accessToken: response.accessToken,
+    refreshToken: response.refreshToken,
+    expiresAt: response.expiresIn,
+    userId: response.user?.id
+  };
+});
 
 // Development helper - accessible globally in __DEV__ mode
 if (__DEV__) {

@@ -1,19 +1,87 @@
+import { tokenManager } from '../tokenManager';
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3001/api/v1';
+
 export class VoiceService {
   static async processVoiceCommand(transcript: string): Promise<any> {
     try {
-      // Simulate API call to process voice command
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const token = await tokenManager.getToken();
       
-      // Parse the command and extract intent
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      console.log(`🎤 VoiceService: Processing voice command: "${transcript.substring(0, 50)}..."`);
+
+      const response = await fetch(`${API_BASE_URL}/voice/process`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          transcript: transcript,
+          language: 'en-US'
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ VoiceService: API error:', result);
+        throw new Error(result.error || 'Failed to process voice command');
+      }
+
+      console.log('✅ VoiceService: Command processed successfully', {
+        intent: result.command?.intent,
+        actionCount: result.command?.actions?.length,
+        processingTime: result.metrics?.processingTime
+      });
+
+      return {
+        success: result.success,
+        command: result.command,
+        executionResult: result.executionResult,
+        metrics: result.metrics,
+        // Legacy format for backward compatibility
+        intent: result.command?.intent,
+        actions: result.command?.actions?.map((action: any) => action.description || action.type) || []
+      };
+    } catch (error) {
+      console.error('❌ VoiceService: Error processing voice command:', error);
+      
+      // Fallback to local processing for now
+      console.log('🔄 VoiceService: Falling back to local processing');
       const intent = this.parseIntent(transcript);
       
       return {
         success: true,
         intent,
         actions: this.generateActions(intent),
+        isLocalFallback: true
       };
+    }
+  }
+
+  static async getVoiceServiceHealth(): Promise<any> {
+    try {
+      const token = await tokenManager.getToken();
+      
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/voice/health`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      return await response.json();
     } catch (error) {
-      throw new Error('Failed to process voice command');
+      console.error('VoiceService: Health check failed:', error);
+      throw error;
     }
   }
 

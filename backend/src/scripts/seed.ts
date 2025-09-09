@@ -85,15 +85,28 @@ export class DatabaseSeeder {
     try {
       await client.query('BEGIN');
       
-      // Clear in dependency order
-      await client.query('DELETE FROM activities WHERE created_at > NOW() - INTERVAL \'1 day\'');
-      await client.query('DELETE FROM messages WHERE created_at > NOW() - INTERVAL \'1 day\'');
-      await client.query('DELETE FROM task_assignment_history WHERE performed_at > NOW() - INTERVAL \'1 day\'');
-      await client.query('DELETE FROM tasks WHERE created_at > NOW() - INTERVAL \'1 day\'');
-      await client.query('DELETE FROM channel_member_history WHERE performed_at > NOW() - INTERVAL \'1 day\'');
-      await client.query('DELETE FROM channels WHERE created_at > NOW() - INTERVAL \'1 day\'');
-      // Delete all CEO users and seed data users
-      await client.query('DELETE FROM users WHERE role = \'ceo\' OR (created_at > NOW() - INTERVAL \'1 day\' AND (email LIKE \'%@seeddata.com\' OR email LIKE \'%@company.com\'))');
+      // Clear in dependency order, with error handling for missing tables
+      const clearQueries = [
+        'DELETE FROM messages WHERE created_at > NOW() - INTERVAL \'1 day\'',
+        'DELETE FROM task_assignment_history WHERE performed_at > NOW() - INTERVAL \'1 day\'',
+        'DELETE FROM tasks WHERE created_at > NOW() - INTERVAL \'1 day\'',
+        'DELETE FROM channel_member_history WHERE performed_at > NOW() - INTERVAL \'1 day\'',
+        'DELETE FROM channels WHERE created_at > NOW() - INTERVAL \'1 day\'',
+        // Soft delete seed users instead of hard delete to avoid conflicts
+        'UPDATE users SET deleted_at = NOW() WHERE (email LIKE \'%@seeddata.com\' OR email LIKE \'%@company.com\') AND deleted_at IS NULL'
+      ];
+
+      for (const query of clearQueries) {
+        try {
+          await client.query(query);
+        } catch (error: any) {
+          if (error.code === '42P01') {
+            logger.warn(`Table does not exist for query: ${query}`);
+            continue;
+          }
+          throw error;
+        }
+      }
 
       await client.query('COMMIT');
       logger.info('Cleared existing seed data');
@@ -167,7 +180,8 @@ export class DatabaseSeeder {
             language_preference = EXCLUDED.language_preference,
             email_verified = true,
             last_active = NOW(),
-            updated_at = NOW()
+            updated_at = NOW(),
+            deleted_at = NULL
           RETURNING id, email, name, role, department, job_title, avatar_url, phone, timezone, language_preference
         `, [userId, userData.email, userData.name, passwordHash, userData.role, userData.department, userData.job_title, userData.avatar_url, faker.phone.number(), 'America/New_York', 'en']);
 
@@ -675,9 +689,23 @@ export class DatabaseSeeder {
   private async createActivities(): Promise<void> {
     const client = await pool.connect();
 
-    const activityTypes = ['task_created', 'task_updated', 'task_completed', 'channel_created', 'user_joined', 'file_uploaded', 'message_sent', 'announcement'] as const;
-    
     try {
+      // Check if activities table exists
+      const tableCheck = await client.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'activities'
+        );
+      `);
+
+      if (!tableCheck.rows[0].exists) {
+        logger.warn('Activities table does not exist, skipping activities creation');
+        return;
+      }
+
+      const activityTypes = ['task_created', 'task_updated', 'task_completed', 'channel_created', 'user_joined', 'file_uploaded', 'message_sent', 'announcement'] as const;
+      
       await client.query('BEGIN');
 
       // Create activities for tasks
