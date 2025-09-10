@@ -7,10 +7,7 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import { ToastProvider } from './src/contexts/ToastContext';
 import { UIProvider } from './src/components/common/UIProvider';
 
-// Load voice testing utilities (only in development)
-if (__DEV__) {
-  require('./src/utils/voiceTestGlobal');
-}
+// Voice testing utilities were removed during cleanup
 
 export default function App() {
   return (

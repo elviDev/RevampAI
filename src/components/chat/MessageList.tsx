@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, FlatList } from 'react-native';
-import { EnhancedChatMessage } from './EnhancedChatMessage';
+import { ChatMessage } from './ChatMessage';
 import { TypingIndicators } from './TypingIndicators';
 import type { Message } from '../../types/chat';
 
@@ -54,16 +54,16 @@ export const MessageList: React.FC<MessageListProps> = ({
   onRetryLoadMessages,
 }) => {
   const renderMessage = ({ item }: { item: Message }) => (
-    <EnhancedChatMessage
+    <ChatMessage
       message={item}
-      currentUserId={currentUserId}
       onReply={() => onReply(item)}
       onReaction={(emoji) => onReaction(item.id, emoji)}
       onEdit={item.sender.id === currentUserId ? () => onEdit(item) : undefined}
       onShowEmojiPicker={() => onShowEmojiPicker(item.id)}
       onNavigateToUser={onNavigateToUser}
       onNavigateToReference={onNavigateToReference}
-      onOpenThread={item.replies && item.replies.length > 0 ? () => onReply(item) : undefined}
+      currentUserId={currentUserId}
+      isOwnMessage={item.sender.id === currentUserId}
     />
   );
 

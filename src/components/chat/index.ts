@@ -1,6 +1,4 @@
 // Enhanced Chat Components
-export { EnhancedChatMessage } from './EnhancedChatMessage';
-export { EnhancedChannelInput } from './EnhancedChannelInput';
 export { MessageList } from './MessageList';
 export { TypingIndicators } from './TypingIndicators';
 export { ThreadedMessage } from './ThreadedMessage';

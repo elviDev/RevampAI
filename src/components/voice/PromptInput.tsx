@@ -22,7 +22,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import LinearGradient from 'react-native-linear-gradient';
 import Voice from '../../services/voice/CustomVoice';
-import { debugVoiceSystem, logVoiceModuleStatus } from '../../utils/debugVoice';
 import {
   showVoiceErrorDialog,
   runVoiceDiagnostics,
@@ -283,8 +282,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   // Voice recognition setup
   useEffect(() => {
     // Debug voice system on component mount
-    debugVoiceSystem();
-    logVoiceModuleStatus();
+    // Debug voice system (functions removed during cleanup)
 
     // Run comprehensive diagnostics
     runVoiceDiagnostics();
