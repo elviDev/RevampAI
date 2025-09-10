@@ -1,11 +1,11 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Announcement, CreateAnnouncementData, UpdateAnnouncementData, AnnouncementFilter } from '../../types/announcement.types';
+import { SEED_ANNOUNCEMENTS } from '../../data/seedData';
 
 // Mock API service - replace with actual API calls
 const mockAnnouncementService = {
   async getAnnouncements(filters?: AnnouncementFilter): Promise<{ data: Announcement[]; total: number }> {
     // Mock implementation - replace with actual API call
-    const { SEED_ANNOUNCEMENTS } = await import('../../data/seedData');
     return { data: SEED_ANNOUNCEMENTS, total: SEED_ANNOUNCEMENTS.length };
   },
 
@@ -24,7 +24,6 @@ const mockAnnouncementService = {
 
   async updateAnnouncement(id: string, data: UpdateAnnouncementData): Promise<Announcement> {
     // Mock implementation - replace with actual API call
-    const { SEED_ANNOUNCEMENTS } = await import('../../data/seedData');
     const existing = SEED_ANNOUNCEMENTS.find(a => a.id === id);
     if (!existing) throw new Error('Announcement not found');
     

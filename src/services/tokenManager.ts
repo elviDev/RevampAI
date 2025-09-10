@@ -5,6 +5,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { store } from '../store/store';
+import { API_BASE_URL } from '@env';
+import type { AuthTokens } from '../types/auth';
 // import { logout } from '../store/slices/authSlice';
 
 export interface TokenData {
@@ -253,13 +255,48 @@ class TokenManager {
         return null;
       }
 
-      // Import authService dynamically to avoid circular dependency
-      const { authService } = await import('./api/authService');
-      
+      // In development, don't try to refresh - just clear tokens
+      if (__DEV__) {
+        console.log('🚫 Development mode: Refresh token disabled, clearing tokens');
+        await this.clearTokens();
+        return null;
+      }
+
       try {
-        const newTokens = await authService.refreshToken();
-        console.log('✅ TokenManager: Successfully refreshed access token');
-        return newTokens.accessToken;
+        // Make the refresh request directly to avoid circular dependency
+        const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json() as {
+          success: boolean;
+          data: AuthTokens;
+        };
+
+        if (result.success) {
+          const newTokens = result.data;
+          const expirationTime = Date.now() + newTokens.expiresIn * 1000;
+          
+          // Store the new tokens
+          await this.storeTokens({
+            accessToken: newTokens.accessToken,
+            refreshToken: newTokens.refreshToken,
+            expiresAt: expirationTime,
+          });
+
+          console.log('✅ TokenManager: Successfully refreshed access token');
+          return newTokens.accessToken;
+        } else {
+          throw new Error('Token refresh failed');
+        }
       } catch (error) {
         console.error('❌ TokenManager: Token refresh failed:', error);
         // Clear tokens since refresh failed

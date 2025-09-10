@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '@env';
 import { AuthError } from './authService';
 import { tokenManager } from '../tokenManager';
+import { messageService } from './messageService';
 
 export interface Channel {
   id: string;
@@ -434,7 +435,6 @@ class ChannelService {
       console.log('🔍 Fetching channel stats for:', channelId);
       
       // Use messageService for messages since it has the correct API structure
-      const messageService = await import('./messageService').then(m => m.messageService);
       
       const [messagesResponse, filesResponse, membersResponse] = await Promise.allSettled([
         messageService.getChannelMessages(channelId, { limit: 1, offset: 0 }),
