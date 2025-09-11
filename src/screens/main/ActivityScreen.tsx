@@ -355,7 +355,7 @@ export const ActivityScreen: React.FC = () => {
   return (
     <Animated.View 
       className="flex-1 bg-gray-50" 
-      style={{ paddingTop: insets.top`` }}
+      style={{ paddingTop: insets.top }}
     >
       {/* Header */}
       <View className="px-4 py-6 bg-white border-b border-gray-200">
