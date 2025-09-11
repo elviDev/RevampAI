@@ -26,7 +26,7 @@ export const TaskSubtasksCard: React.FC<TaskSubtasksCardProps> = ({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 8,
-        elevation: 3,
+        elevation: 1,
       }}
     >
       <View className="flex-row items-center justify-between mb-6">

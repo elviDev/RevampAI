@@ -26,14 +26,14 @@ export const TaskOverviewCard: React.FC<TaskOverviewCardProps> = ({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 8,
-        elevation: 3,
+        elevation: 1,
       }}
     >
       {/* Category Badge */}
       <View className="flex-row items-center mb-4">
         <View className="bg-blue-50 px-3 py-1.5 rounded-full flex-row items-center">
           <MaterialIcon 
-            name={TaskUtils.getCategoryIcon(task.category)} 
+            name={TaskUtils.getCategoryIcon(task.category!)} 
             size={14} 
             color="#2563EB" 
           />
@@ -54,7 +54,7 @@ export const TaskOverviewCard: React.FC<TaskOverviewCardProps> = ({
       </Text>
 
       {/* Status Row */}
-      <View className="flex-row space-x-3">
+      <View className="flex-row gap-4">
         {/* Status */}
         <TouchableOpacity
           onPress={onStatusPress}

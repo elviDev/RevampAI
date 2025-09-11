@@ -59,6 +59,8 @@ export const Avatar: React.FC<AvatarProps> = ({
     if (!GRADIENT_COLORS || !Array.isArray(GRADIENT_COLORS) || GRADIENT_COLORS.length === 0) {
       return ['#6B7280', '#9CA3AF']; // Fallback gray gradient
     }
+
+    console.log('User ID:', user);
     
     const userId = user?.id || '0';
     const numericId = parseInt(userId, 10) || 0;
@@ -76,7 +78,7 @@ export const Avatar: React.FC<AvatarProps> = ({
 
   const AvatarContent = () => (
     <View style={{ position: 'relative' }}>
-      {user.avatar ? (
+      {user.avatar?.includes('http') || user.avatar?.includes('https') ? (
         <Image
           source={{ uri: user.avatar }}
           style={{
@@ -99,7 +101,7 @@ export const Avatar: React.FC<AvatarProps> = ({
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0.1,
             shadowRadius: 3,
-            elevation: 3,
+            elevation: 0,
           }}
         >
           <Text

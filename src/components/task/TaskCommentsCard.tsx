@@ -8,6 +8,7 @@ import Animated, {
 import LinearGradient from 'react-native-linear-gradient';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { TaskComment } from '../../types/task.types';
+import { Avatar } from '../common/Avatar';
 
 interface TaskCommentsCardProps {
   comments: TaskComment[];
@@ -41,7 +42,7 @@ export const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 8,
-        elevation: 3,
+        elevation: 1,
       }}
     >
       <Text className="text-lg font-bold text-gray-900 mb-6">
@@ -59,14 +60,7 @@ export const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({
               onPress={() => onAuthorPress?.(comment.author.id)}
               activeOpacity={0.7}
             >
-              <LinearGradient
-                colors={['#6366F1', '#8B5CF6']}
-                className="w-10 h-10 rounded-full items-center justify-center mr-3 mt-0.5"
-              >
-                <Text className="text-white text-sm font-bold">
-                  {comment.author.avatar}
-                </Text>
-              </LinearGradient>
+              <Avatar user={comment.author} size="sm" />
             </TouchableOpacity>
 
             <View className="flex-1">
@@ -96,12 +90,6 @@ export const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({
         style={animatedCommentInputStyle}
         className="flex-row items-center bg-gray-50 rounded-xl p-3 border border-gray-200"
       >
-        <LinearGradient
-          colors={['#6366F1', '#8B5CF6']}
-          className="w-9 h-9 rounded-full items-center justify-center mr-3"
-        >
-          <Text className="text-white text-sm font-bold">Y</Text>
-        </LinearGradient>
 
         <TextInput
           placeholder="Add a comment..."

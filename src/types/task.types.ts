@@ -79,6 +79,10 @@ export interface Task {
   actualHours?: number;
   progress?: number;
   category?: string;
+  subtasks: TaskSubtask[];
+  comments: TaskComment[];
+  attachments: TaskAttachment[];
+  dependencies: string[];
 }
 
 export interface TaskFilter {

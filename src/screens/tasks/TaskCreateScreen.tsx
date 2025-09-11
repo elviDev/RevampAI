@@ -93,6 +93,12 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
   route,
 }) => {
   const { user } = useAuth();
+  
+  // Safety check for navigation
+  if (!navigation) {
+    console.error('TaskCreateScreen: Navigation not available');
+    return null;
+  }
   const isEditMode = !!route.params?.taskId;
   const channelId = route.params?.channelId;
   const scrollViewRef = useRef<ScrollView>(null);
@@ -512,6 +518,7 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
         }
       } catch (error) {
         console.error(`Error updating form field ${field}:`, error);
+        // Don't rethrow the error to prevent crashes
       }
     },
     [formErrors]
@@ -646,10 +653,7 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
         ...newAttachments,
       ]);
     } catch (err) {
-      if (!DocumentPicker.isCancel(err)) {
-        console.error('Document picker error:', err);
-        Alert.alert('Error', 'Failed to pick documents. Please try again.');
-      }
+      
     }
   }, [formData.attachments, updateFormData]);
 
@@ -690,8 +694,26 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
             }}
             onTitleChange={text => updateFormData('title', text)}
             onDescriptionChange={text => updateFormData('description', text)}
-            onPriorityChange={priority => updateFormData('priority', priority)}
-            onCategoryChange={category => updateFormData('category', category)}
+            onPriorityChange={(priority) => {
+              // Use requestAnimationFrame to defer state update and prevent navigation context conflicts
+              requestAnimationFrame(() => {
+                try {
+                  updateFormData('priority', priority);
+                } catch (error) {
+                  console.error('Error in priority change handler:', error);
+                }
+              });
+            }}
+            onCategoryChange={category => {
+              // Use requestAnimationFrame to defer state update and prevent navigation context conflicts
+              requestAnimationFrame(() => {
+                try {
+                  updateFormData('category', category);
+                } catch (error) {
+                  console.error('Error in category change handler:', error);
+                }
+              });
+            }}
           />
         );
       case 2:
@@ -816,7 +838,7 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           minimumDate={new Date()}
-          onChange={(event, selectedDate) => {
+          onChange={(_, selectedDate) => {
             setShowStartDatePicker(false);
             if (selectedDate) {
               updateFormData('startDate', selectedDate);
@@ -831,7 +853,7 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           minimumDate={formData.startDate}
-          onChange={(event, selectedDate) => {
+          onChange={(_, selectedDate) => {
             setShowEndDatePicker(false);
             if (selectedDate) {
               updateFormData('endDate', selectedDate);

@@ -41,9 +41,9 @@ export const TaskTimeline: React.FC<TaskTimelineProps> = ({
   };
 
   return (
-    <Animated.View entering={FadeInDown.duration(600)} className="space-y-8">
+    <Animated.View entering={FadeInDown.duration(600)} className="gap-8 flex-col">
       {/* Date Selection */}
-      <View className="flex-row space-x-4">
+      <View className="flex-row gap-4">
         {/* Start Date */}
         <View className="flex-1">
           <View className="flex-row items-center mb-4">

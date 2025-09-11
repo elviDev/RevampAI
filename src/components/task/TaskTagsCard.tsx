@@ -18,7 +18,7 @@ export const TaskTagsCard: React.FC<TaskTagsCardProps> = ({ tags }) => {
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 8,
-        elevation: 3,
+        elevation: 1,
       }}
     >
       <Text className="text-lg font-bold text-gray-900 mb-4">Tags</Text>

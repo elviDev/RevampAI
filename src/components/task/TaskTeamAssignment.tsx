@@ -4,6 +4,7 @@ import Animated, { FadeInDown, SlideInRight, BounceIn } from 'react-native-reani
 import LinearGradient from 'react-native-linear-gradient';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { TaskAssignee } from '../../types/task.types';
+import { Avatar } from '../common/Avatar';
 
 interface TaskTeamAssignmentProps {
   assignees: TaskAssignee[];
@@ -44,7 +45,7 @@ export const TaskTeamAssignment: React.FC<TaskTeamAssignmentProps> = ({
           </Animated.View>
         ) : null}
 
-        <View className="space-y-3">
+        <View className="gap-3">
           {availableAssignees.map((assignee, index) => {
             const isSelected = assignees.some(a => a.id === assignee.id);
             
@@ -58,23 +59,8 @@ export const TaskTeamAssignment: React.FC<TaskTeamAssignmentProps> = ({
                       : 'bg-white border-gray-200'
                   }`}
                 >
-                  <View className="flex-row items-center">
-                    <LinearGradient
-                      colors={
-                        index % 4 === 0
-                          ? ['#3B82F6', '#8B5CF6']
-                          : index % 4 === 1
-                          ? ['#8B5CF6', '#EC4899']
-                          : index % 4 === 2
-                          ? ['#EC4899', '#F59E0B']
-                          : ['#F59E0B', '#10B981']
-                      }
-                      className="w-14 h-14 rounded-full items-center justify-center mr-4"
-                    >
-                      <Text className="text-white text-lg font-bold">
-                        {assignee.avatar}
-                      </Text>
-                    </LinearGradient>
+                  <View className="flex-row gap-3  items-center">
+                    <Avatar user={assignee} size="md" />
 
                     <View className="flex-1">
                       <Text

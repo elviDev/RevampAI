@@ -34,7 +34,7 @@ export const TaskDetailFloatingActions: React.FC<TaskDetailFloatingActionsProps>
   return (
     <Animated.View
       entering={FadeInUp.delay(800).duration(600)}
-      className="absolute bottom-6 right-6 flex-row space-x-3"
+      className="absolute bottom-6 right-6 flex-row gap-3"
       style={animatedFabStyle}
     >
       <TouchableOpacity
@@ -46,11 +46,12 @@ export const TaskDetailFloatingActions: React.FC<TaskDetailFloatingActionsProps>
 
       <TouchableOpacity
         onPress={() => handlePress(onCompletePress)}
-        className="w-14 h-14 rounded-full items-center justify-center shadow-lg"
+        className="w-14 h-14 rounded-full shadow-lg border border-gray-200"
+       
       >
         <LinearGradient
           colors={['#2563EB', '#7C3AED']}
-          className="w-full h-full rounded-full items-center justify-center"
+         style={{ flex: 1, borderRadius: 9999, alignItems: 'center', justifyContent: 'center' }}
         >
           <MaterialIcon name="done" size={24} color="white" />
         </LinearGradient>

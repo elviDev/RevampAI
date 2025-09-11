@@ -4,6 +4,7 @@ import Animated, { FadeInUp, SlideInRight } from 'react-native-reanimated';
 import LinearGradient from 'react-native-linear-gradient';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { TaskAssignee } from '../../types/task.types';
+import { Avatar } from '../common/Avatar';
 
 interface TaskAssigneesCardProps {
   assignees: TaskAssignee[];
@@ -25,7 +26,7 @@ export const TaskAssigneesCard: React.FC<TaskAssigneesCardProps> = ({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 8,
-        elevation: 3,
+        elevation: 1,
       }}
     >
       <View className="flex-row items-center justify-between mb-4">
@@ -38,7 +39,7 @@ export const TaskAssigneesCard: React.FC<TaskAssigneesCardProps> = ({
         </TouchableOpacity>
       </View>
 
-      <View className="space-y-3">
+      <View className="gap-4">
         {assignees.map((assignee, index) => (
           <TouchableOpacity
             key={assignee.id}
@@ -49,21 +50,10 @@ export const TaskAssigneesCard: React.FC<TaskAssigneesCardProps> = ({
               entering={SlideInRight.delay(index * 100).duration(600)}
               className="flex-row items-center"
             >
-              <LinearGradient
-                colors={
-                  index % 3 === 0
-                    ? ['#2563EB', '#7C3AED']
-                    : index % 3 === 1
-                    ? ['#7C3AED', '#EC4899']
-                    : ['#EC4899', '#F59E0B']
-                }
-                className="w-12 h-12 rounded-full items-center justify-center mr-4"
-              >
-                <Text className="text-white font-bold text-lg">
-                  {assignee.avatar}
-                </Text>
-              </LinearGradient>
-              <View className="flex-1">
+
+              <Avatar user={assignee} size="md"  />
+
+              <View className="flex-1 ml-2">
                 <Text className="text-gray-900 font-semibold text-base">
                   {assignee.name}
                 </Text>

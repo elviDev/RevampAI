@@ -23,7 +23,7 @@ export const TaskProgressCard: React.FC<TaskProgressCardProps> = ({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 8,
-        elevation: 3,
+        elevation: 1,
       }}
     >
       <View className="flex-row items-center justify-between mb-4">
@@ -36,7 +36,7 @@ export const TaskProgressCard: React.FC<TaskProgressCardProps> = ({
           entering={ZoomIn.delay(500).duration(800)}
           className="h-full rounded-full"
           style={{
-            width: `${task.progress}%`,
+            width: `${task.progress!}%`,
             backgroundColor: TaskUtils.getStatusColor(task.status),
           }}
         />
@@ -46,7 +46,7 @@ export const TaskProgressCard: React.FC<TaskProgressCardProps> = ({
         <Text className="text-gray-500">
           {task.subtasks.filter(s => s.completed).length} of {task.subtasks.length} completed
         </Text>
-        <Text className="text-gray-500">Due {formatDueDate(task.dueDate)}</Text>
+        <Text className="text-gray-500">Due {formatDueDate(task.dueDate!)}</Text>
       </View>
     </Animated.View>
   );

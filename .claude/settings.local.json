@@ -44,7 +44,10 @@
       "Bash(git commit:*)",
       "Bash(chmod:*)",
       "Bash(PGPASSWORD=root psql -h localhost -p 5432 -U postgres -d revamp_ai_platform -c \"\\d channels\")",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(tree:*)",
+      "Bash(PGPASSWORD=ceo_password psql:*)",
+      "Bash(PGPASSWORD=root psql -h localhost -p 5432 -U postgres -d revamp_ai_platform -c \"SELECT id, user_id, activity_type, title FROM activities LIMIT 5;\")"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

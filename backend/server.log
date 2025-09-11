@@ -1,0 +1,39 @@
+
+> ceo-communication-backend@1.0.0 dev
+> tsx watch src/server.ts
+
+Starting server directly...
+[06:58:48 UTC] [32mINFO[39m: [36m2025-09-11T06:58:48.666Z [info] : 📋 API Server Startup...[39m
+[06:58:48 UTC] [32mINFO[39m: [36m2025-09-11T06:58:48.680Z [info] : Database initialized[39m
+    [35mpoolSize[39m: 1
+    [35mcurrentTime[39m: "2025-09-11T06:58:48.679Z"
+    [35mpostgresVersion[39m: "PostgreSQL 14.19 (Homebrew) on aarch64-apple-darwin24.4.0, compiled by Apple clang version 17.0.0 (clang-1700.0.13.3), 64-bit"
+[06:58:48 UTC] [32mINFO[39m: [36m2025-09-11T06:58:48.680Z [info] : Initializing Redis connections...[39m
+[06:58:48 UTC] [32mINFO[39m: [36m2025-09-11T06:58:48.682Z [info] cache: Redis client connected[39m
+    [35mcomponent[39m: "cache"
+[06:58:48 UTC] [32mINFO[39m: [36m2025-09-11T06:58:48.684Z [info] cache: Redis client ready for operations[39m
+    [35mcomponent[39m: "cache"
+[06:58:48 UTC] [32mINFO[39m: [36m2025-09-11T06:58:48.684Z [info] : Redis initialized[39m
+[06:58:48 UTC] [32mINFO[39m: [36m2025-09-11T06:58:48.684Z [info] : Starting database migrations...[39m
+[06:58:48 UTC] [32mINFO[39m: [36m2025-09-11T06:58:48.686Z [info] : Migration tracking table initialized[39m
+[06:58:48 UTC] [32mINFO[39m: [36m2025-09-11T06:58:48.688Z [info] : Loaded migration files[39m
+    [35mcount[39m: 9
+[06:58:48 UTC] [32mINFO[39m: [36m2025-09-11T06:58:48.689Z [info] : No pending migrations found[39m
+[06:58:48 UTC] [32mINFO[39m: [36m2025-09-11T06:58:48.689Z [info] : Initializing API server...[39m
+[06:58:48 UTC] [32mINFO[39m: [36m2025-09-11T06:58:48.778Z [info] : API server initialized successfully[39m
+[06:58:48 UTC] [31mERROR[39m: [36m2025-09-11T06:58:48.780Z [error] : Failed to start API server[39m
+    error: {
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 3001
+    }
+[06:58:48 UTC] [41mFATAL[49m: [36m2025-09-11T06:58:48.780Z [fatal] : Failed to start server[39m
+    error: {
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 3001
+    }

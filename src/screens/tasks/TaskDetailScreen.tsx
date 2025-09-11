@@ -300,7 +300,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       {/* Clean Header */}
       <TaskDetailHeader
         title="Task Details"
-        subtitle={task.channelName}
+        subtitle={task.channelName!}
         onBack={() => navigation.goBack()}
         onEdit={handleEditPress}
         isEditing={isEditing}
@@ -326,7 +326,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
 
         {/* Assignees Card */}
         <TaskAssigneesCard
-          assignees={task.assignees}
+          assignees={task.assignees!}
           onAddAssignee={handleAddAssignee}
           onAssigneePress={(assigneeId) => {
             navigation.navigate('UserProfile', { userId: assigneeId });

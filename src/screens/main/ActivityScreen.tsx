@@ -1,22 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useDispatch, useSelector } from 'react-redux';
-import { RootState, AppDispatch } from '../../store/store';
-import { fetchTasks, selectTasks, selectTasksLoading } from '../../store/slices/taskSlice';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../store/store';
 import { useWebSocket } from '../../services/websocketService';
 import { activityService, Activity } from '../../services/api/activityService';
-import { Task } from '../../types/task.types';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
-import { Toast } from '../../components/common/Toast';
 
 interface ActivityItem {
   id: string;
@@ -37,14 +33,13 @@ interface ActivityItem {
 
 export const ActivityScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const dispatch = useDispatch<AppDispatch>();
-  const tasks = useSelector(selectTasks);
-  const tasksLoading = useSelector(selectTasksLoading);
   const { user } = useSelector((state: RootState) => state.auth);
   const { on, off, joinChannel, leaveChannel } = useWebSocket();
   
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'tasks' | 'announcements' | 'system'>('all');
   const [unreadCount, setUnreadCount] = useState(0);
   const fadeAnim = new Animated.Value(0);
@@ -59,153 +54,76 @@ export const ActivityScreen: React.FC = () => {
     };
   }, []);
 
-  // Animate in
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, []);
 
-  const generateActivitiesFromTasks = useCallback(() => {
-    console.log('ActivityScreen: generateActivitiesFromTasks called', {
-      totalTasks: tasks.length,
-      userId: user?.id,
-      sampleTasks: tasks.slice(0, 2).map(t => ({ id: t.id, title: t.title, assigned_to: t.assigned_to }))
-    });
-    
-    const activityItems: ActivityItem[] = [];
-    
-    // Show all tasks if no user or show user-related tasks
-    const userTasks = user?.id 
-      ? tasks.filter(task => 
-          task.assigned_to.includes(user.id) || 
-          task.created_by === user.id
-        )
-      : tasks.slice(0, 10); // Show first 10 tasks if no user context
-    
-    console.log('ActivityScreen: Filtered user tasks', {
-      userTasksCount: userTasks.length,
-      totalTasksCount: tasks.length,
-      hasUser: !!user?.id
-    });
-    
-    userTasks.forEach(task => {
-      // Task creation activity
-      activityItems.push({
-        id: `create_${task.id}`,
-        type: 'task_created',
-        title: 'New Task Created',
-        description: `"${task.title}" was created`,
-        timestamp: new Date(task.created_at),
-        priority: task.priority as any,
-        data: { task },
-        read: true, // Existing tasks are considered "read"
-      });
-      
-      // Task completion activity
-      if (task.status === 'completed' && task.completed_at) {
-        activityItems.push({
-          id: `complete_${task.id}`,
-          type: 'task_completed',
-          title: 'Task Completed',
-          description: `"${task.title}" was marked as complete`,
-          timestamp: new Date(task.completed_at),
-          priority: task.priority as any,
-          data: { task },
-          read: true,
-        });
-      }
-      
-      // Task assignment activity (if user was assigned recently)
-      if (user?.id && task.assigned_to.includes(user.id) && task.created_by !== user.id) {
-        activityItems.push({
-          id: `assign_${task.id}`,
-          type: 'task_assigned',
-          title: 'Task Assigned',
-          description: `You were assigned to "${task.title}"`,
-          timestamp: new Date(task.updated_at || task.created_at),
-          priority: task.priority as any,
-          data: { task },
-          read: true,
-        });
-      }
-    });
-    
-    // Sort by timestamp (newest first)
-    activityItems.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-    
-    const finalActivities = activityItems.slice(0, 100); // Limit to 100 items
-    console.log('ActivityScreen: Generated activities', {
-      count: finalActivities.length,
-      sampleActivities: finalActivities.slice(0, 2)
-    });
-    
-    setActivities(finalActivities);
-  }, [tasks, user?.id]);
-
-  // Generate activities when tasks change
-  useEffect(() => {
-    console.log('ActivityScreen: useEffect for generateActivitiesFromTasks', {
-      tasksLength: tasks.length,
-      activitiesLength: activities.length,
-      userId: user?.id
-    });
-    
-    if (tasks.length > 0 && activities.length === 0) {
-      console.log('ActivityScreen: Generating activities from tasks', { tasksCount: tasks.length });
-      generateActivitiesFromTasks();
-    }
-  }, [tasks, generateActivitiesFromTasks, activities.length]);
 
   const loadActivities = async () => {
     try {
-      console.log('ActivityScreen: Attempting to load activities from API...');
+      setLoading(true);
+      console.log('ActivityScreen: Loading activities from backend API...', {
+        userId: user?.id,
+        userExists: !!user
+      });
       
-      // Load activities from the backend
+      // Load activities from the backend with user filtering
       const response = await activityService.getActivities({
-        limit: 50,
+        limit: 100,
         offset: 0,
+        user_id: user?.id, // Filter by current user if available
       });
 
       console.log('ActivityScreen: API response received', { 
-        dataLength: response.data.length,
-        sampleData: response.data.slice(0, 2)
+        success: response.success,
+        hasData: !!response.data,
+        dataLength: response.data ? response.data.length : 0,
+        pagination: response.pagination,
+        data: response.data
       });
 
-      // Transform backend activities to frontend format
-      const transformedActivities: ActivityItem[] = response.data.map((activity: Activity) => ({
-        id: activity.id,
-        type: activity.type as any,
-        title: activity.title,
-        description: activity.description,
-        timestamp: new Date(activity.created_at),
-        priority: activity.metadata?.priority,
-        data: activity.metadata,
-        read: true, // Mark as read for now
-        user: activity.user,
-      }));
+      if (response.success && response.data && Array.isArray(response.data)) {
+        // Transform backend activities to frontend format
+        const transformedActivities: ActivityItem[] = response.data.map((activity: Activity) => ({
+          id: activity.id,
+          type: activity.type as any,
+          title: activity.title,
+          description: activity.description,
+          timestamp: new Date(activity.created_at),
+          priority: activity.metadata?.priority,
+          data: activity.metadata,
+          read: activity.metadata?.read || false, // Use backend read status
+          user: activity.user,
+        }));
 
-      setActivities(transformedActivities);
-      console.log('ActivityScreen: Activities set from API', { count: transformedActivities.length });
-      
-      // Also load tasks for additional context
-      dispatch(fetchTasks({ limit: 10 }));
-    } catch (error) {
-      console.error('ActivityScreen: API failed, loading tasks for fallback activities', error);
-      
-      // Fallback to task-based activities if API fails
-      try {
-        console.log('ActivityScreen: Loading tasks as fallback...');
-        await dispatch(fetchTasks({ limit: 50 })).unwrap();
-        console.log('ActivityScreen: Tasks loaded, generateActivitiesFromTasks will be called by useEffect');
-        // generateActivitiesFromTasks will be called by useEffect when tasks update
-      } catch (fallbackError) {
-        console.error('Fallback task loading also failed:', fallbackError);
-        // Simple error display without Toast dependency issues
-        console.error('ActivityScreen: Could not load activities');
+        // Sort by timestamp (newest first)
+        transformedActivities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+        setActivities(transformedActivities);
+        setError(null); // Clear any previous errors
+        console.log('ActivityScreen: Activities loaded successfully', { 
+          count: transformedActivities.length,
+          unreadCount: transformedActivities.filter(a => !a.read).length
+        });
+
+        // Update unread count
+        const unreadItems = transformedActivities.filter(a => !a.read);
+        setUnreadCount(unreadItems.length);
+      } else {
+        // Backend returned successful response but no data - this is normal for empty database
+        console.log('ActivityScreen: No activities found in database');
+        setActivities([]);
+        setUnreadCount(0);
+        setError(null); // Clear any previous errors - this is not an error state
       }
+    } catch (error) {
+      console.error('ActivityScreen: Failed to load activities from backend', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('ActivityScreen: Error details:', { message: errorMessage });
+      
+      // On error, set empty array and show error state
+      setActivities([]);
+      setUnreadCount(0);
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -317,8 +235,12 @@ export const ActivityScreen: React.FC = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadActivities();
-    setRefreshing(false);
+    try {
+      setError(null); // Clear any previous errors when refreshing
+      await loadActivities();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const markAsRead = (activityId: string) => {
@@ -388,14 +310,16 @@ export const ActivityScreen: React.FC = () => {
     }
   };
 
-  const renderActivityItem = ({ item, index }: { item: ActivityItem; index: number }) => (
+  console.log("ACTIVITIES:", filteredActivities)
+
+  const renderActivityItem = ({ item }: { item: ActivityItem }) => (
     <TouchableOpacity
       key={item.id}
       className={`mx-4 mb-3 p-4 rounded-xl ${
         item.read ? 'bg-white' : 'bg-blue-50 border border-blue-200'
       } shadow-sm`}
       onPress={() => !item.read && markAsRead(item.id)}
-      activeOpacity={0.7}
+      // activeOpacity={0.9}
     >
       <View className="flex-row items-start justify-between">
         <View className="flex-row items-start flex-1">
@@ -420,7 +344,7 @@ export const ActivityScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
-  if (tasksLoading && activities.length === 0) {
+  if (loading && activities.length === 0) {
     return (
       <View className="flex-1 bg-gray-50" style={{ paddingTop: insets.top }}>
         <LoadingSpinner size="large" />
@@ -431,7 +355,7 @@ export const ActivityScreen: React.FC = () => {
   return (
     <Animated.View 
       className="flex-1 bg-gray-50" 
-      style={{ paddingTop: insets.top, opacity: fadeAnim }}
+      style={{ paddingTop: insets.top`` }}
     >
       {/* Header */}
       <View className="px-4 py-6 bg-white border-b border-gray-200">
@@ -485,14 +409,40 @@ export const ActivityScreen: React.FC = () => {
       >
         {filteredActivities.length === 0 ? (
           <View className="flex-1 items-center justify-center px-4 py-20">
-            <Text className="text-6xl mb-4">📭</Text>
-            <Text className="text-gray-500 text-lg font-medium mb-2">No activities yet</Text>
-            <Text className="text-gray-400 text-center">
-              When you interact with tasks or receive notifications,{'\n'}they'll appear here.
-            </Text>
+            {error ? (
+              // Error state
+              <>
+                <Text className="text-6xl mb-4">🚨</Text>
+                <Text className="text-gray-900 text-xl font-semibold mb-2 text-center">
+                  Unable to Load Activities
+                </Text>
+                <Text className="text-gray-500 text-center leading-6 mb-6">
+                  There was a problem connecting to the server.{'\n'}
+                  Please check your connection and try again.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setError(null);
+                    loadActivities();
+                  }}
+                  className="bg-blue-500 px-6 py-3 rounded-lg"
+                >
+                  <Text className="text-white font-semibold">Try Again</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              // Empty database state
+              <>
+                <Text className="text-6xl mb-4">📭</Text>
+                <Text className="text-gray-500 text-lg font-medium mb-2">No activities yet</Text>
+                <Text className="text-gray-400 text-center">
+                  When you interact with tasks or receive notifications,{'\n'}they'll appear here.
+                </Text>
+              </>
+            )}
           </View>
         ) : (
-          filteredActivities.map((item, index) => renderActivityItem({ item, index }))
+          filteredActivities.map((item) => renderActivityItem({ item }))
         )}
       </ScrollView>
     </Animated.View>

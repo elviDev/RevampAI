@@ -53,96 +53,6 @@ class ActivityService {
     this.baseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3001/api/v1';
   }
 
-  /**
-   * Check if using mock authentication in development
-   */
-  private async isUsingMockAuth(): Promise<boolean> {
-    const token = await authService.getAccessToken();
-    return token?.startsWith('dev-') || false;
-  }
-
-  /**
-   * Get mock API response for development
-   */
-  private async getMockApiResponse(endpoint: string, config: RequestInit): Promise<any> {
-    console.log('🎭 Using mock activity response for:', endpoint);
-    
-    // Mock activity data
-    const mockActivities: Activity[] = [
-      {
-        id: 'activity-1',
-        user_id: 'dev-user-id',
-        type: 'task_created',
-        title: 'New Task Created',
-        description: 'Created task "Review quarterly reports"',
-        metadata: { taskId: 'task-1', taskTitle: 'Review quarterly reports' },
-        related_id: 'task-1',
-        channel_id: 'channel-1',
-        created_at: new Date().toISOString(),
-        user: {
-          id: 'dev-user-id',
-          name: 'Alexander Johnson',
-          email: 'ceo@seeddata.com',
-          avatar_url: undefined
-        }
-      },
-      {
-        id: 'activity-2',
-        user_id: 'dev-user-id',
-        type: 'task_updated',
-        title: 'Task Progress Updated',
-        description: 'Updated progress on "Security protocols" to 25%',
-        metadata: { taskId: 'task-2', progress: 25 },
-        related_id: 'task-2',
-        channel_id: 'channel-1',
-        created_at: new Date(Date.now() - 3600000).toISOString(),
-        user: {
-          id: 'dev-user-id',
-          name: 'Alexander Johnson',
-          email: 'ceo@seeddata.com',
-          avatar_url: undefined
-        }
-      },
-      {
-        id: 'activity-3',
-        user_id: 'dev-user-id',
-        type: 'announcement',
-        title: 'Company Update',
-        description: 'Shared important company news with all teams',
-        metadata: { announcement: 'Q3 results announced' },
-        channel_id: 'general',
-        created_at: new Date(Date.now() - 7200000).toISOString(),
-        user: {
-          id: 'dev-user-id',
-          name: 'Alexander Johnson',
-          email: 'ceo@seeddata.com',
-          avatar_url: undefined
-        }
-      }
-    ];
-
-    // Return appropriate mock response based on endpoint
-    if (endpoint.includes('/activities')) {
-      return {
-        success: true,
-        data: mockActivities,
-        pagination: {
-          total: mockActivities.length,
-          limit: 50,
-          offset: 0,
-          hasMore: false
-        },
-        timestamp: new Date().toISOString()
-      };
-    }
-
-    // Default response
-    return {
-      success: true,
-      data: [],
-      timestamp: new Date().toISOString()
-    };
-  }
 
   /**
    * Make authenticated API request
@@ -151,6 +61,11 @@ class ActivityService {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
+    console.log('🔄 ActivityService makeRequest called:', {
+      endpoint,
+      baseUrl: this.baseUrl
+    });
+
     try {
       const url = `${this.baseUrl}${endpoint}`;
       
@@ -170,38 +85,82 @@ class ActivityService {
         endpoint,
         url,
         hasToken: !!accessToken,
-        tokenLength: accessToken ? accessToken.length : 0,
-        headers: config.headers
+        method: config.method || 'GET'
       });
 
-      return await authService.withAuth(async () => {
-        const response = await fetch(url, config);
-        
-        if (!response.ok) {
-          let errorData: any = {};
-          try {
-            errorData = await response.json();
-          } catch {
-            // Ignore JSON parsing errors for error responses
-          }
-          
-          const error = new Error(
-            errorData.message || 
-            errorData.error?.message || 
-            `HTTP ${response.status}: ${response.statusText}`
-          );
-          
-          throw error;
+      const response = await fetch(url, config);
+      
+      console.log('🔄 ActivityService response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
+      if (!response.ok) {
+        let errorData: any = {};
+        let rawErrorText = '';
+        try {
+          rawErrorText = await response.text();
+          console.log('🚨 Raw error response:', rawErrorText);
+          errorData = JSON.parse(rawErrorText);
+          console.log('🚨 Parsed error data:', errorData);
+        } catch (parseError) {
+          console.log('🚨 Could not parse error response as JSON:', parseError);
+          console.log('🚨 Raw response text:', rawErrorText);
         }
         
-        return response.json();
-      });
+        // Create detailed error message
+        const errorMessage = errorData.message || 
+          errorData.error?.message || 
+          `HTTP ${response.status}: ${response.statusText}`;
+          
+        console.log('🚨 Creating error with message:', errorMessage);
+        const error = new Error(errorMessage);
+        throw error;
+      }
+      
+      const data = await response.json();
+      console.log('✅ ActivityService successful response:', data);
+      return data;
     } catch (error) {
+      console.error('🚨 ActivityService request failed:', error);
+      console.error('🚨 Error type:', typeof error);
+      console.error('🚨 Error instanceof Error:', error instanceof Error);
+      console.error('🚨 Error name:', error?.name);
+      console.error('🚨 Error message:', error?.message);
+      
+      // Check if it's a network error (common on mobile)
+      if (error?.message?.includes('Failed to fetch') || 
+          error?.message?.includes('Network request failed') ||
+          error?.message?.includes('fetch')) {
+        console.error('🚨 Network error detected - backend may be unreachable');
+        throw new Error('Network error: Unable to connect to backend server. Please check your connection.');
+      }
+      
       if (error instanceof Error) {
         throw error;
       }
       
-      throw new Error('Unknown error occurred');
+      throw new Error(`Unknown error occurred: ${JSON.stringify(error)}`);
+    }
+  }
+
+  /**
+   * Test backend connectivity
+   */
+  async testConnection(): Promise<boolean> {
+    try {
+      console.log('🔄 Testing backend connectivity to:', this.baseUrl);
+      const response = await fetch(`${this.baseUrl}/health`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      console.log('✅ Backend connectivity test response:', response.status, response.statusText);
+      return response.status < 500; // Accept any non-server error response
+    } catch (error) {
+      console.error('🚨 Backend connectivity test failed:', error);
+      return false;
     }
   }
 
@@ -209,6 +168,11 @@ class ActivityService {
    * Get activities with filters and pagination
    */
   async getActivities(filters?: ActivityFilter): Promise<ActivityListResponse> {
+    // First test basic connectivity
+    const isConnected = await this.testConnection();
+    if (!isConnected) {
+      throw new Error(`Backend server not accessible at ${this.baseUrl}. Please ensure the backend is running.`);
+    }
     const params = new URLSearchParams();
     
     if (filters) {

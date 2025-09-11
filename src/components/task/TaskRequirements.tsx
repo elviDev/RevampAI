@@ -112,7 +112,7 @@ export const TaskRequirements: React.FC<TaskRequirementsProps> = ({
   };
 
   return (
-    <Animated.View entering={FadeInDown.duration(600)} className="space-y-8">
+    <Animated.View entering={FadeInDown.duration(600)} className="gap-6 flex-col">
       {/* Features */}
       <View>
         <View className="flex-row items-center mb-4">
@@ -176,7 +176,7 @@ export const TaskRequirements: React.FC<TaskRequirementsProps> = ({
           </View>
         </View>
 
-        <View className="space-y-3 mb-4">
+        <View className="gap-4 mb-4">
           <View className="border-2 border-gray-200 rounded-xl p-3 bg-white">
             <TextInput
               placeholder="Deliverable title..."
