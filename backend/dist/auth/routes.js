@@ -71,6 +71,7 @@ const registerAuthRoutes = async (fastify) => {
                             name: typebox_1.Type.String(),
                             role: typebox_1.Type.String(),
                             avatar_url: typebox_1.Type.Optional(typebox_1.Type.String()),
+                            email_verified: typebox_1.Type.Boolean(),
                             permissions: typebox_1.Type.Array(typebox_1.Type.String()),
                         }),
                     }),
@@ -120,14 +121,13 @@ const registerAuthRoutes = async (fastify) => {
                 });
                 throw new errors_1.AuthenticationError('Invalid email or password');
             }
-            // Check if email is verified (if required)
+            // Log if user is not verified (but don't prevent login)
             if (!user.email_verified) {
-                logger_1.securityLogger.logAuthEvent('failed_login', {
+                logger_1.securityLogger.logAuthEvent('login_attempt', {
                     email,
                     ip: request.ip,
                     reason: 'email_not_verified',
                 });
-                throw new errors_1.AuthenticationError('Please verify your email address before logging in');
             }
             // Generate tokens
             const tokens = await jwt_1.jwtService.generateTokens({
@@ -152,6 +152,7 @@ const registerAuthRoutes = async (fastify) => {
                         name: user.name,
                         role: user.role,
                         avatar_url: user.avatar_url,
+                        email_verified: user.email_verified,
                         permissions: jwt_1.jwtService.decodeToken(tokens.accessToken)?.permissions || [],
                     },
                 },
@@ -688,7 +689,7 @@ const registerAuthRoutes = async (fastify) => {
             if (!emailSent) {
                 logger_1.logger.warn({ userId: user.id, email: user.email }, 'Failed to send verification email');
             }
-            logger_1.securityLogger.logAuthEvent('email_verification_resent', {
+            logger_1.securityLogger.logAuthEvent('email_verified', {
                 userId: user.id,
                 email: user.email,
                 ip: request.ip,

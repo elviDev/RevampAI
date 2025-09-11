@@ -73,7 +73,28 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     try {
       const result = await login(credentials);
       if (result.type === 'auth/login/fulfilled') {
-        showSuccess('Welcome back! Login successful.');
+        // Check if user's email is verified and show warning if not
+        const user = result.payload?.user;
+        if (user && !user.email_verified) {
+          showToast(
+            'Your email address is not verified. Please check your email and verify your account for full access to all features.',
+            'warning',
+            {
+              duration: 8000,
+              action: {
+                text: 'Resend Email',
+                onPress: () => {
+                  navigation.navigate('EmailVerification', {
+                    email: credentials.email,
+                    fromRegistration: false,
+                  });
+                },
+              },
+            }
+          );
+        } else {
+          showSuccess('Welcome back! Login successful.');
+        }
         // Navigation will be handled by the AuthNavigator based on auth state
       } else {
         const errorMessage = result.payload as string;

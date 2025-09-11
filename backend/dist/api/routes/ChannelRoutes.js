@@ -80,10 +80,32 @@ class ChannelService {
         return await index_1.channelRepository.findById(channelId);
     }
     async updateChannel(channelId, updateData) {
-        return await index_1.channelRepository.update(channelId, updateData);
+        // Map frontend fields to backend fields
+        const mappedData = {};
+        if (updateData.name !== undefined)
+            mappedData.name = updateData.name;
+        if (updateData.description !== undefined)
+            mappedData.description = updateData.description;
+        if (updateData.type !== undefined)
+            mappedData.channel_type = updateData.type;
+        if (updateData.privacy !== undefined)
+            mappedData.privacy_level = updateData.privacy;
+        if (updateData.settings !== undefined)
+            mappedData.settings = updateData.settings;
+        // Handle project_info updates
+        if (updateData.tags !== undefined || updateData.color !== undefined) {
+            const existingChannel = await index_1.channelRepository.findById(channelId);
+            const currentProjectInfo = existingChannel?.project_info || {};
+            mappedData.project_info = {
+                ...currentProjectInfo,
+                ...(updateData.tags !== undefined && { tags: updateData.tags }),
+                ...(updateData.color !== undefined && { color: updateData.color }),
+            };
+        }
+        return await index_1.channelRepository.update(channelId, mappedData);
     }
     async createChannel(channelData) {
-        return await index_1.channelRepository.create(channelData);
+        return await index_1.channelRepository.createChannel(channelData);
     }
 }
 __decorate([
@@ -376,16 +398,46 @@ const registerChannelRoutes = async (fastify) => {
     }, async (request, reply) => {
         try {
             const channelData = {
-                ...request.body,
+                name: request.body.name,
+                description: request.body.description,
+                channel_type: request.body.type,
+                privacy_level: request.body.privacy,
                 created_by: request.user.userId,
-                tags: request.body.tags || [],
                 settings: request.body.settings || {},
-                member_count: 1,
-                message_count: 0,
+                project_info: {
+                    tags: request.body.tags || [],
+                    ...(request.body.color && { color: request.body.color }),
+                },
+                ...(request.body.parent_id && { parent_id: request.body.parent_id }),
             };
             const channel = await channelService.createChannel(channelData);
-            // Add creator as owner
-            await index_1.channelRepository.addMember(channel.id, request.user.userId, 'owner');
+            // Creator is already added as member in createChannel method
+            // await channelRepository.addMember(channel.id, request.user!.userId, request.user!.userId);
+            // Create activity for channel creation
+            try {
+                await index_1.activityRepository.createActivity({
+                    channelId: channel.id,
+                    userId: request.user.userId,
+                    activityType: 'channel_created',
+                    title: `Channel Created: ${channel.name}`,
+                    description: `New ${channel.channel_type} channel "${channel.name}" was created${channel.description ? ': ' + channel.description : ''}`,
+                    category: 'channel',
+                    metadata: {
+                        channelId: channel.id,
+                        channelName: channel.name,
+                        channelType: channel.channel_type,
+                        channelPrivacy: channel.privacy_level,
+                        parentId: channel.parent_id,
+                        createdBy: request.user.userId,
+                        createdByName: request.user.name,
+                        tags: request.body.tags || [],
+                        settings: channel.settings
+                    }
+                });
+            }
+            catch (error) {
+                logger_1.loggers.api.warn?.({ error, channelId: channel.id }, 'Failed to create channel creation activity');
+            }
             // Broadcast channel creation
             await utils_1.WebSocketUtils.broadcastChannelMessage({
                 type: 'chat_message',
@@ -432,6 +484,10 @@ const registerChannelRoutes = async (fastify) => {
                     error: {
                         message: 'Failed to create channel',
                         code: 'SERVER_ERROR',
+                        ...(process.env.NODE_ENV === 'development' && {
+                            details: error instanceof Error ? error.message : String(error),
+                            stack: error instanceof Error ? error.stack : undefined,
+                        }),
                     },
                 });
             }

@@ -3,11 +3,11 @@ import { TaskPriority, TaskStatus, TaskType } from '../../types/task.types';
 export const TaskUtils = {
   getPriorityColor: (priority: TaskPriority): string => {
     const colors: Record<TaskPriority, string> = {
-      critical: '#DC2626',
       urgent: '#EF4444',
       high: '#EA580C',
       medium: '#CA8A04',
       low: '#16A34A',
+      critical: '#DC2626',
     };
     return colors[priority] || colors.medium;
   },
@@ -40,14 +40,20 @@ export const TaskUtils = {
     const icons: Record<string, string> = {
       development: 'code',
       design: 'palette',
+      marketing: 'campaign',
+      operations: 'business',
       research: 'search',
+      general: 'work',
+      project: 'folder',
+      maintenance: 'build',
+      emergency: 'warning',
+      approval: 'check-circle',
       meeting: 'people',
-      documentation: 'file-text',
-      testing: 'bug',
-      deployment: 'upload',
-      general: 'clipboard',
+      documentation: 'description',
+      testing: 'bug-report',
+      deployment: 'cloud-upload',
     };
-    return icons[category] || 'clipboard';
+    return icons[category] || 'work';
   },
 
   formatDueDate: (dueDate: Date): string => {

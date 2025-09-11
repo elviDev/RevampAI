@@ -22,15 +22,23 @@ export const TaskTeamAssignment: React.FC<TaskTeamAssignmentProps> = ({
   errors,
 }) => {
   return (
-    <Animated.View entering={FadeInDown.duration(600)} className="space-y-6">
+    <Animated.View entering={FadeInDown.duration(600)} style={{ gap: 24 }}>
       <View>
-        <View className="flex-row items-center mb-4">
-          <View className="w-10 h-10 bg-blue-100 rounded-xl items-center justify-center mr-3">
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+          <View style={{ 
+            width: 40, 
+            height: 40, 
+            backgroundColor: '#DBEAFE', 
+            borderRadius: 12, 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            marginRight: 12 
+          }}>
             <MaterialIcon name="groups" size={20} color="#3B82F6" />
           </View>
           <View>
-            <Text className="text-gray-900 font-bold text-lg">Team Assignment</Text>
-            <Text className="text-gray-500 text-sm">
+            <Text style={{ color: '#111827', fontWeight: 'bold', fontSize: 18 }}>Team Assignment</Text>
+            <Text style={{ color: '#6B7280', fontSize: 14 }}>
               Select team members who will work on this task
             </Text>
           </View>
@@ -39,59 +47,120 @@ export const TaskTeamAssignment: React.FC<TaskTeamAssignmentProps> = ({
         {errors.assignees ? (
           <Animated.View 
             entering={BounceIn} 
-            className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4"
+            style={{
+              backgroundColor: '#FEF2F2',
+              borderWidth: 1,
+              borderColor: '#FECACA',
+              borderRadius: 12,
+              padding: 12,
+              marginBottom: 16
+            }}
           >
-            <Text className="text-red-700 font-medium">{errors.assignees}</Text>
+            <Text style={{ color: '#B91C1C', fontWeight: '500' }}>{errors.assignees}</Text>
           </Animated.View>
         ) : null}
 
-        <View className="gap-3">
-          {availableAssignees.map((assignee, index) => {
+        {availableAssignees.length === 0 ? (
+          <View style={{ 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            paddingVertical: 40,
+            backgroundColor: '#F9FAFB',
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: '#E5E7EB'
+          }}>
+            <MaterialIcon name="groups-off" size={48} color="#9CA3AF" />
+            <Text style={{ 
+              color: '#6B7280', 
+              fontSize: 16, 
+              fontWeight: '500',
+              marginTop: 12,
+              textAlign: 'center'
+            }}>No Team Members Available</Text>
+            <Text style={{ 
+              color: '#9CA3AF', 
+              fontSize: 14,
+              marginTop: 4,
+              textAlign: 'center',
+              paddingHorizontal: 20
+            }}>Please select a channel first to see available team members for assignment.</Text>
+          </View>
+        ) : (
+          <View style={{ gap: 12 }}>
+            {availableAssignees.map((assignee, index) => {
             const isSelected = assignees.some(a => a.id === assignee.id);
             
             return (
               <Animated.View key={assignee.id} entering={SlideInRight.delay(index * 100)}>
                 <TouchableOpacity
-                  onPress={() => onToggleAssignee(assignee)}
-                  className={`rounded-2xl p-4 border-2 ${
-                    isSelected
-                      ? 'bg-blue-50 border-blue-300 shadow-lg'
-                      : 'bg-white border-gray-200'
-                  }`}
+                  onPress={() => {
+                    try {
+                      if (onToggleAssignee && typeof onToggleAssignee === 'function') {
+                        onToggleAssignee(assignee);
+                      }
+                    } catch (error) {
+                      console.error('Error toggling assignee:', error);
+                    }
+                  }}
+                  style={{
+                    borderRadius: 16,
+                    padding: 16,
+                    borderWidth: 2,
+                    borderColor: isSelected ? '#93C5FD' : '#E5E7EB',
+                    backgroundColor: isSelected ? '#EFF6FF' : '#FFFFFF',
+                    ...(isSelected && {
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 8,
+                      elevation: 4,
+                    }),
+                  }}
                 >
-                  <View className="flex-row gap-3  items-center">
+                  <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
                     <Avatar user={assignee} size="md" />
 
-                    <View className="flex-1">
+                    <View style={{ flex: 1 }}>
                       <Text
-                        className={`font-bold text-lg ${
-                          isSelected ? 'text-blue-900' : 'text-gray-900'
-                        }`}
+                        style={{
+                          fontWeight: 'bold',
+                          fontSize: 18,
+                          color: isSelected ? '#1E3A8A' : '#111827'
+                        }}
                       >
                         {assignee.name}
                       </Text>
                       <Text
-                        className={`font-medium text-sm ${
-                          isSelected ? 'text-blue-600' : 'text-gray-600'
-                        }`}
+                        style={{
+                          fontWeight: '500',
+                          fontSize: 14,
+                          color: isSelected ? '#2563EB' : '#6B7280'
+                        }}
                       >
                         {assignee.role}
                       </Text>
                       <Text
-                        className={`text-sm ${
-                          isSelected ? 'text-blue-500' : 'text-gray-500'
-                        }`}
+                        style={{
+                          fontSize: 14,
+                          color: isSelected ? '#3B82F6' : '#9CA3AF'
+                        }}
                       >
                         {assignee.email}
                       </Text>
                     </View>
 
                     <View
-                      className={`w-8 h-8 rounded-full border-2 items-center justify-center ${
-                        isSelected
-                          ? 'bg-blue-600 border-blue-600'
-                          : 'border-gray-300'
-                      }`}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
+                        borderWidth: 2,
+                        borderColor: isSelected ? '#2563EB' : '#D1D5DB',
+                        backgroundColor: isSelected ? '#2563EB' : 'transparent',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
                     >
                       {isSelected && (
                         <MaterialIcon name="check" size={18} color="white" />
@@ -102,24 +171,54 @@ export const TaskTeamAssignment: React.FC<TaskTeamAssignmentProps> = ({
               </Animated.View>
             );
           })}
-        </View>
+          </View>
+        )}
 
         {assignees.length > 0 && (
           <Animated.View 
             entering={BounceIn} 
-            className="mt-6 bg-blue-50 border border-blue-200 rounded-2xl p-4"
+            style={{
+              marginTop: 24,
+              backgroundColor: '#EFF6FF',
+              borderWidth: 1,
+              borderColor: '#BFDBFE',
+              borderRadius: 16,
+              padding: 16
+            }}
           >
-            <Text className="text-blue-800 font-semibold mb-3">
+            <Text style={{ 
+              color: '#1E40AF', 
+              fontWeight: '600', 
+              marginBottom: 12 
+            }}>
               Selected Team Members ({assignees.length})
             </Text>
-            <View className="flex-row flex-wrap gap-2">
+            <View style={{ 
+              flexDirection: 'row', 
+              flexWrap: 'wrap', 
+              gap: 8 
+            }}>
               {assignees.map(assignee => (
                 <View
                   key={assignee.id}
-                  className="bg-blue-100 rounded-full px-3 py-2 flex-row items-center"
+                  style={{
+                    backgroundColor: '#DBEAFE',
+                    borderRadius: 20,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center'
+                  }}
                 >
-                  <Text className="text-blue-700 font-medium">{assignee.name}</Text>
-                  <Text className="text-blue-600 text-sm ml-1">• {assignee.role}</Text>
+                  <Text style={{ 
+                    color: '#1D4ED8', 
+                    fontWeight: '500' 
+                  }}>{assignee.name}</Text>
+                  <Text style={{ 
+                    color: '#2563EB', 
+                    fontSize: 14, 
+                    marginLeft: 4 
+                  }}>• {assignee.role}</Text>
                 </View>
               ))}
             </View>

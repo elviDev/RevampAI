@@ -460,6 +460,31 @@ export const registerChannelRoutes = async (fastify: FastifyInstance) => {
         // Creator is already added as member in createChannel method
         // await channelRepository.addMember(channel.id, request.user!.userId, request.user!.userId);
 
+        // Create activity for channel creation
+        try {
+          await activityRepository.createActivity({
+            channelId: channel.id,
+            userId: request.user!.userId,
+            activityType: 'channel_created',
+            title: `Channel Created: ${channel.name}`,
+            description: `New ${channel.channel_type} channel "${channel.name}" was created${channel.description ? ': ' + channel.description : ''}`,
+            category: 'channel' as any,
+            metadata: {
+              channelId: channel.id,
+              channelName: channel.name,
+              channelType: channel.channel_type,
+              channelPrivacy: channel.privacy_level,
+              parentId: (channel as any).parent_id,
+              createdBy: request.user!.userId,
+              createdByName: request.user!.name,
+              tags: request.body.tags || [],
+              settings: channel.settings
+            }
+          });
+        } catch (error) {
+          loggers.api.warn?.({ error, channelId: channel.id }, 'Failed to create channel creation activity');
+        }
+
         // Broadcast channel creation
         await WebSocketUtils.broadcastChannelMessage({
           type: 'chat_message',

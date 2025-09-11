@@ -264,11 +264,16 @@ const registerMessageRoutes = async (fastify) => {
             const message = await messageService.createMessage(messageData);
             // Update channel activity
             await index_1.channelRepository.updateActivity(channelId);
-            // Broadcast message to channel members
+            // Determine if this is a thread message
+            const isThreadReply = message.reply_to && message.thread_root;
+            // Broadcast message to channel members with thread context
             await utils_1.WebSocketUtils.sendToChannel(channelId, 'message_sent', {
                 type: 'message_sent',
                 channelId,
                 messageId: message.id,
+                isThreadReply,
+                threadRoot: message.thread_root,
+                replyTo: message.reply_to,
                 message: {
                     id: message.id,
                     channel_id: message.channel_id,
@@ -303,6 +308,49 @@ const registerMessageRoutes = async (fastify) => {
                 userRole: request.user.role,
                 timestamp: new Date().toISOString(),
             });
+            // If this is a thread reply, also send a separate thread-specific event
+            if (isThreadReply) {
+                await utils_1.WebSocketUtils.sendToChannel(channelId, 'thread_reply_sent', {
+                    type: 'thread_reply_sent',
+                    channelId,
+                    threadRoot: message.thread_root,
+                    parentMessageId: message.reply_to,
+                    messageId: message.id,
+                    message: {
+                        id: message.id,
+                        channel_id: message.channel_id,
+                        user_id: message.user_id,
+                        user_name: request.user.name,
+                        user_email: request.user.email,
+                        user_avatar: request.user.avatar_url,
+                        user_role: request.user.role,
+                        content: message.content,
+                        message_type: message.message_type,
+                        voice_data: message.voice_data,
+                        transcription: message.transcription,
+                        attachments: message.attachments,
+                        reply_to: message.reply_to,
+                        thread_root: message.thread_root,
+                        is_edited: message.is_edited,
+                        is_pinned: message.is_pinned,
+                        is_announcement: message.is_announcement,
+                        reactions: message.reactions,
+                        mentions: message.mentions,
+                        ai_generated: message.ai_generated,
+                        ai_context: message.ai_context,
+                        command_execution_id: message.command_execution_id,
+                        metadata: message.metadata,
+                        formatting: message.formatting,
+                        created_at: message.created_at,
+                        updated_at: message.updated_at,
+                        edited_at: message.edited_at,
+                    },
+                    userId: request.user.userId,
+                    userName: request.user.name,
+                    userRole: request.user.role,
+                    timestamp: new Date().toISOString(),
+                });
+            }
             // Send mention notifications
             if (message.mentions.length > 0) {
                 for (const mentionedUserId of message.mentions) {

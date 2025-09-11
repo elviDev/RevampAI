@@ -16,7 +16,6 @@ import {
   TaskPriority,
   TaskCategory,
   TaskAssignee,
-  Task,
 } from '../../types/task.types';
 import { MainStackParamList } from '../../types/navigation.types';
 
@@ -27,9 +26,10 @@ import { TaskBasicInfo } from '../../components/task/TaskBasicInfo';
 import { TaskTimeline } from '../../components/task/TaskTimeline';
 import { TaskRequirements } from '../../components/task/TaskRequirements';
 import { TaskTeamAssignment } from '../../components/task/TaskTeamAssignment';
+import { TaskChannelSelection } from '../../components/task/TaskChannelSelection';
 import { taskService } from '../../services/api/taskService';
-import { userService } from '../../services/api/userService';
 import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../contexts/ToastContext';
 import { CreateTaskData } from '../../types/task.types';
 
 type TaskCreateScreenProps = NativeStackScreenProps<
@@ -85,6 +85,7 @@ interface FormErrors {
   assignees: string;
   startDate: string;
   endDate: string;
+  channel: string;
   general: string;
 }
 
@@ -93,12 +94,8 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
   route,
 }) => {
   const { user } = useAuth();
+  const { showSuccess, showError, showWarning } = useToast();
   
-  // Safety check for navigation
-  if (!navigation) {
-    console.error('TaskCreateScreen: Navigation not available');
-    return null;
-  }
   const isEditMode = !!route.params?.taskId;
   const channelId = route.params?.channelId;
   const scrollViewRef = useRef<ScrollView>(null);
@@ -132,6 +129,7 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
     assignees: '',
     startDate: '',
     endDate: '',
+    channel: '',
     general: '',
   });
 
@@ -139,7 +137,6 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [availableAssignees, setAvailableAssignees] = useState<TaskAssignee[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -148,6 +145,13 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
   useEffect(() => {
     loadInitialData();
   }, [isEditMode, route.params?.taskId]);
+
+  // Reload available users when channel changes
+  useEffect(() => {
+    if (formData.channel_id) {
+      loadAvailableUsers();
+    }
+  }, [formData.channel_id]);
 
   const loadInitialData = async () => {
     setIsLoadingData(true);
@@ -164,7 +168,7 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
       }
     } catch (error) {
       console.error('Error loading initial data:', error);
-      Alert.alert('Error', 'Failed to load data. Please try again.');
+      showError('Failed to load data. Please try again.', 5000);
     } finally {
       setIsLoadingData(false);
     }
@@ -172,58 +176,108 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
 
   const loadAvailableUsers = async () => {
     try {
-      // In a real app, you'd fetch users from the API
-      // For now, we'll use mock data but make it look like it came from API
-      const mockUsers: TaskAssignee[] = [
-        {
-          id: user?.id || 'current-user',
-          name: user?.name || 'You',
-          avatar: user?.name ? user.name.split(' ').map(n => n[0]).join('') : 'YU',
-          role: 'Current User',
-          email: user?.email || 'you@company.com',
-        },
-        {
-          id: 'user-1',
-          name: 'John Smith',
-          avatar: 'JS',
-          role: 'Frontend Developer',
-          email: 'john.smith@company.com',
-        },
-        {
-          id: 'user-2',
-          name: 'Sarah Wilson',
-          avatar: 'SW',
-          role: 'UI/UX Designer',
-          email: 'sarah.wilson@company.com',
-        },
-        {
-          id: 'user-3',
-          name: 'Mike Johnson',
-          avatar: 'MJ',
-          role: 'Product Manager',
-          email: 'mike.johnson@company.com',
-        },
-        {
-          id: 'user-4',
-          name: 'Alex Chen',
-          avatar: 'AC',
-          role: 'Backend Developer',
-          email: 'alex.chen@company.com',
-        },
-        {
-          id: 'user-5',
-          name: 'Emily Davis',
-          avatar: 'ED',
-          role: 'DevOps Engineer',
-          email: 'emily.davis@company.com',
-        },
-      ];
+      let channelMembers: TaskAssignee[] = [];
       
-      setAvailableAssignees(mockUsers);
+      // Only load members if we have a channel ID selected
+      const targetChannelId = formData.channel_id || channelId;
+      if (!targetChannelId) {
+        console.log('⚠️  No channel selected - not loading members yet');
+        setAvailableAssignees([]);
+        return;
+      }
+      
+      // If we have a channel ID, fetch channel members
+      if (targetChannelId) {
+        try {
+          console.log('🔄 Loading channel members for channel:', targetChannelId);
+          
+          // Import channelService here to avoid circular dependencies
+          const { channelService } = await import('../../services/api/channelService');
+          const membersResponse = await channelService.getChannelMembers(targetChannelId, { limit: 100 });
+          
+          if (membersResponse?.data) {
+            channelMembers = membersResponse.data.map((member: any) => ({
+              id: member.user_id,
+              name: member.user_name || 'Unknown User',
+              avatar: member.user_avatar || member.user_name?.charAt(0).toUpperCase() || '?',
+              role: member.role || 'Member',
+              email: member.user_email || `${member.user_id || 'unknown'}@company.com`,
+            }));
+            
+            console.log('✅ Channel members loaded:', channelMembers.length, 'members');
+          }
+        } catch (channelError) {
+          console.warn('Failed to load channel members, using fallback:', channelError);
+          // Fall through to use fallback data
+        }
+      }
+      
+      // Fallback to mock data if no channel members or channel not specified
+      if (channelMembers.length === 0) {
+        console.log('🎭 Using fallback user data');
+        channelMembers = [
+          {
+            id: user?.id || 'current-user',
+            name: user?.name || 'You',
+            avatar: user?.name ? user.name.split(' ').map(n => n[0]).join('') : 'YU',
+            role: 'Current User',
+            email: user?.email || 'you@company.com',
+          },
+          {
+            id: 'user-1',
+            name: 'John Smith',
+            avatar: 'JS',
+            role: 'Frontend Developer',
+            email: 'john.smith@company.com',
+          },
+          {
+            id: 'user-2',
+            name: 'Sarah Wilson',
+            avatar: 'SW',
+            role: 'UI/UX Designer',
+            email: 'sarah.wilson@company.com',
+          },
+          {
+            id: 'user-3',
+            name: 'Mike Johnson',
+            avatar: 'MJ',
+            role: 'Product Manager',
+            email: 'mike.johnson@company.com',
+          },
+          {
+            id: 'user-4',
+            name: 'Alex Chen',
+            avatar: 'AC',
+            role: 'Backend Developer',
+            email: 'alex.chen@company.com',
+          },
+          {
+            id: 'user-5',
+            name: 'Emily Davis',
+            avatar: 'ED',
+            role: 'DevOps Engineer',
+            email: 'emily.davis@company.com',
+          },
+        ];
+      }
+      
+      // Ensure current user is in the list if not already
+      const currentUserExists = channelMembers.some(member => member.id === user?.id);
+      if (!currentUserExists && user?.id) {
+        channelMembers.unshift({
+          id: user.id,
+          name: user.name || 'You',
+          avatar: user.name ? user.name.split(' ').map(n => n[0]).join('') : 'YU',
+          role: 'Current User',
+          email: user.email || 'you@company.com',
+        });
+      }
+      
+      setAvailableAssignees(channelMembers);
       
       // Auto-assign current user if not editing
       if (!isEditMode && user?.id) {
-        const currentUserAssignee = mockUsers.find(u => u.id === user.id);
+        const currentUserAssignee = channelMembers.find(u => u.id === user.id);
         if (currentUserAssignee) {
           setFormData(prev => ({ 
             ...prev, 
@@ -234,6 +288,7 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
       }
     } catch (error) {
       console.error('Error loading users:', error);
+      showWarning('Could not load team members. Please try again or contact support.', 5000);
     }
   };
 
@@ -283,12 +338,13 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
       }
     } catch (error) {
       console.error('Error loading task:', error);
-      Alert.alert('Error', 'Failed to load task data');
+      showError('Failed to load task data', 5000);
     }
   };
 
   const pageHeaders = [
     { title: isEditMode ? 'Edit Basic Information' : 'Basic Information', subtitle: isEditMode ? 'Update task fundamentals' : 'Define your task fundamentals' },
+    { title: isEditMode ? 'Edit Channel Assignment' : 'Channel Assignment', subtitle: isEditMode ? 'Update task channel' : 'Select where this task belongs' },
     {
       title: isEditMode ? 'Edit Timeline & Planning' : 'Timeline & Planning',
       subtitle: isEditMode ? 'Update dates and details' : 'Set dates and organize details',
@@ -330,17 +386,24 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
         }
         break;
 
-      case 2: // Timeline
+      case 2: // Channel Assignment
+        if (!formData.channel_id) {
+          errors.channel = 'Please select a channel for this task';
+          isValid = false;
+        }
+        break;
+
+      case 3: // Timeline
         if (formData.startDate >= formData.endDate) {
           errors.endDate = 'End date must be after start date';
           isValid = false;
         }
         break;
 
-      case 3: // Requirements - no validation needed
+      case 4: // Requirements - no validation needed
         break;
 
-      case 4: // Team Assignment
+      case 5: // Team Assignment
         if (formData.assignees.length === 0) {
           errors.assignees = 'At least one team member must be assigned';
           isValid = false;
@@ -351,6 +414,55 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
     setFormErrors(errors);
     return isValid;
   }, [currentPage, formData, formErrors]);
+
+  // Final validation before creating/updating task
+  const validateFinalTask = (): boolean => {
+    const errors: FormErrors = { ...formErrors };
+    let isValid = true;
+
+    // Reset all errors
+    Object.keys(errors).forEach(key => {
+      errors[key as keyof FormErrors] = '';
+    });
+
+    // Mandatory channel requirement
+    if (!formData.channel_id) {
+      errors.general = 'Tasks must be associated with a channel. Please create this task from within a channel.';
+      isValid = false;
+    }
+
+    // Basic info validation
+    if (!formData.title.trim()) {
+      errors.title = 'Task title is required';
+      isValid = false;
+    } else if (formData.title.trim().length < 3) {
+      errors.title = 'Title must be at least 3 characters long';
+      isValid = false;
+    }
+
+    if (!formData.description.trim()) {
+      errors.description = 'Task description is required';
+      isValid = false;
+    } else if (formData.description.trim().length < 10) {
+      errors.description = 'Description must be at least 10 characters long';
+      isValid = false;
+    }
+
+    // Timeline validation
+    if (formData.startDate >= formData.endDate) {
+      errors.endDate = 'End date must be after start date';
+      isValid = false;
+    }
+
+    // Assignee validation
+    if (formData.assignees.length === 0) {
+      errors.assignees = 'At least one team member must be assigned';
+      isValid = false;
+    }
+
+    setFormErrors(errors);
+    return isValid;
+  };
 
   const handleNext = useCallback(() => {
     if (validateCurrentPage()) {
@@ -369,12 +481,12 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
   }, [currentPage]);
 
   const handleCreateTask = useCallback(async () => {
-    if (!validateCurrentPage()) {
+    if (!validateFinalTask()) {
       return;
     }
 
     if (!user?.id) {
-      Alert.alert('Error', 'User not authenticated');
+      showError('User not authenticated', 5000);
       return;
     }
 
@@ -389,12 +501,12 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
         priority: formData.priority,
         task_type: formData.category as any,
         assigned_to: formData.assignees.map(a => a.id),
-        owned_by: formData.owned_by || user.id,
+        owned_by: formData.owned_by || user?.id || '',
         created_by: user.id,
         channel_id: formData.channel_id,
         due_date: formData.endDate,
         start_date: formData.startDate,
-        estimated_hours: parseInt(formData.estimatedHours) || undefined,
+        estimated_hours: parseInt(formData.estimatedHours, 10) || undefined,
         tags: formData.tags,
         labels: {
           features: formData.features,
@@ -418,43 +530,29 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
         // Success animation
         buttonScale.value = withSpring(1);
         
-        const successTitle = isEditMode ? '✅ Task Updated!' : '🎉 Task Created!';
         const successMessage = isEditMode 
-          ? 'Your task has been successfully updated.'
-          : 'Your task has been successfully created and assigned to the team.';
+          ? 'Task updated successfully!'
+          : 'Task created successfully and assigned to the team!';
 
-        Alert.alert(
-          successTitle,
-          successMessage,
-          [
-            {
-              text: isEditMode ? 'View Task' : 'Create Another',
-              onPress: () => {
-                if (isEditMode) {
-                  navigation.replace('TaskDetail', { taskId: route.params!.taskId });
-                } else {
-                  // Reset form for creating another task
-                  resetForm();
-                }
-              },
-            },
-            {
-              text: 'Go to Tasks',
-              onPress: () => navigation.navigate('TasksScreen'),
-              style: 'cancel',
-            },
-          ],
-        );
+        showSuccess(successMessage, 4000);
+        
+        // Navigate after a brief delay to let user see the toast
+        setTimeout(() => {
+          if (isEditMode && route.params?.taskId) {
+            navigation.replace('TaskDetail', { taskId: route.params.taskId });
+          } else {
+            navigation.navigate('TasksScreen');
+          }
+        }, 1500);
       } else {
-        throw new Error(response.message || 'Failed to save task');
+        throw new Error('Failed to save task');
       }
     } catch (error) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} task:`, error);
-      Alert.alert(
-        isEditMode ? 'Update Failed' : 'Creation Failed',
-        `There was an error ${isEditMode ? 'updating' : 'creating'} your task. Please check your connection and try again.`,
-        [{ text: 'OK' }],
-      );
+      
+      const errorMessage = `Failed to ${isEditMode ? 'update' : 'create'} task. Please check your connection and try again.`;
+      showError(errorMessage, 6000);
+      
       buttonScale.value = withSpring(1);
     } finally {
       setIsSaving(false);
@@ -495,6 +593,7 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
       assignees: '',
       startDate: '',
       endDate: '',
+      channel: '',
       general: '',
     });
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -679,6 +778,16 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
     [formData.assignees, updateFormData],
   );
 
+  const handleChannelSelect = (channel: any) => {
+    try {
+      updateFormData('channel_id', channel.id);
+      // Clear assignees when channel changes since we need to reload members
+      updateFormData('assignees', []);
+    } catch (error) {
+      console.error('Error in channel select handler:', error);
+    }
+  };
+
   const renderPage = () => {
     switch (currentPage) {
       case 1:
@@ -695,28 +804,33 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
             onTitleChange={text => updateFormData('title', text)}
             onDescriptionChange={text => updateFormData('description', text)}
             onPriorityChange={(priority) => {
-              // Use requestAnimationFrame to defer state update and prevent navigation context conflicts
-              requestAnimationFrame(() => {
-                try {
-                  updateFormData('priority', priority);
-                } catch (error) {
-                  console.error('Error in priority change handler:', error);
-                }
-              });
+              try {
+                updateFormData('priority', priority);
+              } catch (error) {
+                console.error('Error in priority change handler:', error);
+                // Don't throw to prevent app crash
+              }
             }}
             onCategoryChange={category => {
-              // Use requestAnimationFrame to defer state update and prevent navigation context conflicts
-              requestAnimationFrame(() => {
-                try {
-                  updateFormData('category', category);
-                } catch (error) {
-                  console.error('Error in category change handler:', error);
-                }
-              });
+              try {
+                updateFormData('category', category);
+              } catch (error) {
+                console.error('Error in category change handler:', error);
+                // Don't throw to prevent app crash
+              }
             }}
           />
         );
       case 2:
+        return (
+          <TaskChannelSelection
+            selectedChannelId={formData.channel_id}
+            onChannelSelect={handleChannelSelect}
+            currentUserId={user?.id}
+            errors={{ channel: formErrors.channel }}
+          />
+        );
+      case 3:
         return (
           <TaskTimeline
             startDate={formData.startDate}
@@ -733,7 +847,7 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
             onRemoveTag={handleRemoveTag}
           />
         );
-      case 3:
+      case 4:
         return (
           <TaskRequirements
             features={formData.features}
@@ -753,7 +867,7 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
             onRemoveAttachment={handleRemoveAttachment}
           />
         );
-      case 4:
+      case 5:
         return (
           <TaskTeamAssignment
             assignees={formData.assignees}
@@ -766,6 +880,16 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
         return null;
     }
   };
+
+  // Safety check for navigation
+  if (!navigation) {
+    console.error('TaskCreateScreen: Navigation not available');
+    return (
+      <View className="flex-1 bg-gray-50 items-center justify-center">
+        <Text className="text-red-500 text-lg">Navigation error - please restart the app</Text>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -792,6 +916,13 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
         currentStep={currentPage}
         totalSteps={pageHeaders.length}
       />
+
+      {/* General Error Display */}
+      {formErrors.general ? (
+        <View className="bg-red-50 border border-red-200 mx-4 mb-4 p-4 rounded-xl">
+          <Text className="text-red-700 font-medium">{formErrors.general}</Text>
+        </View>
+      ) : null}
 
       <KeyboardAvoidingView
         className="flex-1"

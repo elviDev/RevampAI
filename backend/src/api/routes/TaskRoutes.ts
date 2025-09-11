@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { taskRepository, channelRepository } from '@db/index';
+import { taskRepository, channelRepository, activityRepository } from '@db/index';
 import { logger, loggers } from '@utils/logger';
 import {
   ValidationError,
@@ -466,6 +466,32 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
 
         const task = await taskService.createTask(taskData);
 
+        // Create activity for task creation
+        try {
+          await activityRepository.createActivity({
+            channelId: task.channel_id,
+            taskId: task.id,
+            userId: request.user!.userId,
+            activityType: 'task_created',
+            title: `Task Created: ${task.title}`,
+            description: `New task "${task.title}" was created${task.description ? ': ' + task.description : ''}`,
+            priority: task.priority as any,
+            category: 'task' as any,
+            metadata: {
+              taskId: task.id,
+              taskTitle: task.title,
+              taskStatus: task.status,
+              taskPriority: task.priority,
+              assignedTo: task.assigned_to,
+              channelId: task.channel_id,
+              createdBy: request.user!.userId,
+              createdByName: request.user!.name
+            }
+          });
+        } catch (error) {
+          loggers.api.warn?.({ error, taskId: task.id }, 'Failed to create task creation activity');
+        }
+
         // Broadcast task creation
         await WebSocketUtils.broadcastTaskUpdate({
           type: 'task_created',
@@ -705,6 +731,41 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
 
         const task = await taskRepository.updateStatus(id, status as any, request.user!.userId);
 
+        // Create activity for task status update
+        try {
+          const activityType = status === 'completed' ? 'task_completed' : 'task_updated';
+          const activityTitle = status === 'completed' 
+            ? `Task Completed: ${task.title}` 
+            : `Task Status Updated: ${task.title}`;
+          const activityDescription = status === 'completed'
+            ? `Task "${task.title}" was marked as completed`
+            : `Task "${task.title}" status was updated to ${status}`;
+            
+          await activityRepository.createActivity({
+            channelId: task.channel_id,
+            taskId: task.id,
+            userId: request.user!.userId,
+            activityType,
+            title: activityTitle,
+            description: activityDescription,
+            priority: task.priority as any,
+            category: 'task' as any,
+            metadata: {
+              taskId: task.id,
+              taskTitle: task.title,
+              oldStatus: status, // Note: we don't have the old status here, but status is the new one
+              newStatus: status,
+              taskPriority: task.priority,
+              assignedTo: task.assigned_to,
+              channelId: task.channel_id,
+              updatedBy: request.user!.userId,
+              updatedByName: request.user!.name
+            }
+          });
+        } catch (error) {
+          loggers.api.warn?.({ error, taskId: id }, 'Failed to create task status update activity');
+        }
+
         // Broadcast status change
         await WebSocketUtils.broadcastTaskUpdate({
           type: status === 'completed' ? 'task_completed' : 'task_updated',
@@ -827,6 +888,32 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
         // Get updated task for broadcast
         const task = await taskRepository.findById(id);
         if (task) {
+          // Create activity for task assignment
+          try {
+            await activityRepository.createActivity({
+              channelId: task.channel_id,
+              taskId: task.id,
+              userId: request.user!.userId,
+              activityType: 'task_assigned',
+              title: `Task Assigned: ${task.title}`,
+              description: `Task "${task.title}" was assigned to ${user_ids.length} user(s)`,
+              priority: task.priority as any,
+              category: 'task' as any,
+              metadata: {
+                taskId: task.id,
+                taskTitle: task.title,
+                assignedUserIds: user_ids,
+                taskPriority: task.priority,
+                channelId: task.channel_id,
+                assignedBy: request.user!.userId,
+                assignedByName: request.user!.name,
+                totalAssignedUsers: task.assigned_to.length
+              }
+            });
+          } catch (error) {
+            loggers.api.warn?.({ error, taskId: id }, 'Failed to create task assignment activity');
+          }
+          
           // Broadcast assignment
           await WebSocketUtils.broadcastTaskUpdate({
             type: 'task_updated',
@@ -1209,6 +1296,33 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
         };
 
         const task = await taskService.createTask(taskData);
+
+        // Create activity for channel task creation
+        try {
+          await activityRepository.createActivity({
+            channelId,
+            taskId: task.id,
+            userId: request.user!.userId,
+            activityType: 'task_created',
+            title: `Channel Task Created: ${task.title}`,
+            description: `New task "${task.title}" was created in channel${task.description ? ': ' + task.description : ''}`,
+            priority: task.priority as any,
+            category: 'task' as any,
+            metadata: {
+              taskId: task.id,
+              taskTitle: task.title,
+              taskStatus: task.status,
+              taskPriority: task.priority,
+              assignedTo: task.assigned_to,
+              channelId,
+              createdBy: request.user!.userId,
+              createdByName: request.user!.name,
+              isChannelTask: true
+            }
+          });
+        } catch (error) {
+          loggers.api.warn?.({ error, taskId: task.id, channelId }, 'Failed to create channel task creation activity');
+        }
 
         // Broadcast task creation to channel and task management system
         await WebSocketUtils.broadcastTaskUpdate({

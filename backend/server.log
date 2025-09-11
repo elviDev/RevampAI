@@ -37,3 +37,585 @@ Starting server directly...
       "address": "0.0.0.0",
       "port": 3001
     }
+8:28:01 AM [tsx] change in ./src/auth/routes.ts Rerunning...
+cStarting server directly...
+[07:28:01 UTC] [32mINFO[39m: [36m2025-09-11T07:28:01.932Z [info] : 📋 API Server Startup...[39m
+[07:28:01 UTC] [32mINFO[39m: [36m2025-09-11T07:28:01.947Z [info] : Database initialized[39m
+    [35mpoolSize[39m: 1
+    [35mcurrentTime[39m: "2025-09-11T07:28:01.946Z"
+    [35mpostgresVersion[39m: "PostgreSQL 14.19 (Homebrew) on aarch64-apple-darwin24.4.0, compiled by Apple clang version 17.0.0 (clang-1700.0.13.3), 64-bit"
+[07:28:01 UTC] [32mINFO[39m: [36m2025-09-11T07:28:01.947Z [info] : Initializing Redis connections...[39m
+[07:28:01 UTC] [32mINFO[39m: [36m2025-09-11T07:28:01.949Z [info] cache: Redis client connected[39m
+    [35mcomponent[39m: "cache"
+[07:28:01 UTC] [32mINFO[39m: [36m2025-09-11T07:28:01.950Z [info] cache: Redis client ready for operations[39m
+    [35mcomponent[39m: "cache"
+[07:28:01 UTC] [32mINFO[39m: [36m2025-09-11T07:28:01.950Z [info] : Redis initialized[39m
+[07:28:01 UTC] [32mINFO[39m: [36m2025-09-11T07:28:01.950Z [info] : Starting database migrations...[39m
+[07:28:01 UTC] [32mINFO[39m: [36m2025-09-11T07:28:01.951Z [info] : Migration tracking table initialized[39m
+[07:28:01 UTC] [32mINFO[39m: [36m2025-09-11T07:28:01.954Z [info] : Loaded migration files[39m
+    [35mcount[39m: 10
+[07:28:01 UTC] [32mINFO[39m: [36m2025-09-11T07:28:01.957Z [info] : Migration status[39m
+    [35mtotal[39m: 10
+    [35mexecuted[39m: 10
+    [35mpending[39m: 1
+[07:28:01 UTC] [32mINFO[39m: [36m2025-09-11T07:28:01.957Z [info] : Executing migration[39m
+    [35mmigration[39m: "20250101000002_create_activities_table.sql"
+[07:28:01 UTC] [31mERROR[39m: [36m2025-09-11T07:28:01.960Z [error] : Operation failed[39m
+    [35moperation[39m: "database-transaction"
+    [35mduration[39m: 3
+    error: {
+      "length": 147,
+      "name": "error",
+      "severity": "ERROR",
+      "code": "42710",
+      "file": "trigger.c",
+      "line": "760",
+      "routine": "CreateTriggerFiringOn"
+    }
+[07:28:01 UTC] [31mERROR[39m: [36m2025-09-11T07:28:01.961Z [error] : Database transaction rolled back[39m
+    error: {
+      "length": 147,
+      "name": "error",
+      "severity": "ERROR",
+      "code": "42710",
+      "file": "trigger.c",
+      "line": "760",
+      "routine": "CreateTriggerFiringOn"
+    }
+[07:28:01 UTC] [31mERROR[39m: [36m2025-09-11T07:28:01.961Z [error] : Migration failed[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Transaction failed: trigger \"trigger_activities_updated_at\" for relation \"activities\" already exists",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "context": {
+        "originalError": {
+          "length": 147,
+          "name": "error",
+          "severity": "ERROR",
+          "code": "42710",
+          "file": "trigger.c",
+          "line": "760",
+          "routine": "CreateTriggerFiringOn"
+        }
+      },
+      "stack":
+          DatabaseError: Transaction failed: trigger "trigger_activities_updated_at" for relation "activities" already exists
+              at transaction (/Users/mac/Documents/Elvis/broken-app/backend/src/config/database.ts:192:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async executeMigration (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:106:3)
+              at async runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:168:7)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+[07:28:01 UTC] [31mERROR[39m: [36m2025-09-11T07:28:01.962Z [error] : Failed to start API server[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Migration execution failed",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "stack":
+          DatabaseError: Migration execution failed
+              at runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:179:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+[07:28:01 UTC] [41mFATAL[49m: [36m2025-09-11T07:28:01.962Z [fatal] : Failed to start server[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Migration execution failed",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "stack":
+          DatabaseError: Migration execution failed
+              at runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:179:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+8:28:07 AM [tsx] change in ./src/auth/routes.ts Rerunning...
+cStarting server directly...
+[07:28:07 UTC] [32mINFO[39m: [36m2025-09-11T07:28:07.592Z [info] : 📋 API Server Startup...[39m
+[07:28:07 UTC] [32mINFO[39m: [36m2025-09-11T07:28:07.602Z [info] : Database initialized[39m
+    [35mpoolSize[39m: 1
+    [35mcurrentTime[39m: "2025-09-11T07:28:07.601Z"
+    [35mpostgresVersion[39m: "PostgreSQL 14.19 (Homebrew) on aarch64-apple-darwin24.4.0, compiled by Apple clang version 17.0.0 (clang-1700.0.13.3), 64-bit"
+[07:28:07 UTC] [32mINFO[39m: [36m2025-09-11T07:28:07.602Z [info] : Initializing Redis connections...[39m
+[07:28:07 UTC] [32mINFO[39m: [36m2025-09-11T07:28:07.604Z [info] cache: Redis client connected[39m
+    [35mcomponent[39m: "cache"
+[07:28:07 UTC] [32mINFO[39m: [36m2025-09-11T07:28:07.604Z [info] cache: Redis client ready for operations[39m
+    [35mcomponent[39m: "cache"
+[07:28:07 UTC] [32mINFO[39m: [36m2025-09-11T07:28:07.605Z [info] : Redis initialized[39m
+[07:28:07 UTC] [32mINFO[39m: [36m2025-09-11T07:28:07.605Z [info] : Starting database migrations...[39m
+[07:28:07 UTC] [32mINFO[39m: [36m2025-09-11T07:28:07.606Z [info] : Migration tracking table initialized[39m
+[07:28:07 UTC] [32mINFO[39m: [36m2025-09-11T07:28:07.607Z [info] : Loaded migration files[39m
+    [35mcount[39m: 10
+[07:28:07 UTC] [32mINFO[39m: [36m2025-09-11T07:28:07.608Z [info] : Migration status[39m
+    [35mtotal[39m: 10
+    [35mexecuted[39m: 10
+    [35mpending[39m: 1
+[07:28:07 UTC] [32mINFO[39m: [36m2025-09-11T07:28:07.608Z [info] : Executing migration[39m
+    [35mmigration[39m: "20250101000002_create_activities_table.sql"
+[07:28:07 UTC] [31mERROR[39m: [36m2025-09-11T07:28:07.609Z [error] : Operation failed[39m
+    [35moperation[39m: "database-transaction"
+    [35mduration[39m: 1
+    error: {
+      "length": 147,
+      "name": "error",
+      "severity": "ERROR",
+      "code": "42710",
+      "file": "trigger.c",
+      "line": "760",
+      "routine": "CreateTriggerFiringOn"
+    }
+[07:28:07 UTC] [31mERROR[39m: [36m2025-09-11T07:28:07.610Z [error] : Database transaction rolled back[39m
+    error: {
+      "length": 147,
+      "name": "error",
+      "severity": "ERROR",
+      "code": "42710",
+      "file": "trigger.c",
+      "line": "760",
+      "routine": "CreateTriggerFiringOn"
+    }
+[07:28:07 UTC] [31mERROR[39m: [36m2025-09-11T07:28:07.610Z [error] : Migration failed[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Transaction failed: trigger \"trigger_activities_updated_at\" for relation \"activities\" already exists",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "context": {
+        "originalError": {
+          "length": 147,
+          "name": "error",
+          "severity": "ERROR",
+          "code": "42710",
+          "file": "trigger.c",
+          "line": "760",
+          "routine": "CreateTriggerFiringOn"
+        }
+      },
+      "stack":
+          DatabaseError: Transaction failed: trigger "trigger_activities_updated_at" for relation "activities" already exists
+              at transaction (/Users/mac/Documents/Elvis/broken-app/backend/src/config/database.ts:192:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async executeMigration (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:106:3)
+              at async runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:168:7)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+[07:28:07 UTC] [31mERROR[39m: [36m2025-09-11T07:28:07.611Z [error] : Failed to start API server[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Migration execution failed",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "stack":
+          DatabaseError: Migration execution failed
+              at runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:179:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+[07:28:07 UTC] [41mFATAL[49m: [36m2025-09-11T07:28:07.611Z [fatal] : Failed to start server[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Migration execution failed",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "stack":
+          DatabaseError: Migration execution failed
+              at runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:179:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+8:28:14 AM [tsx] change in ./src/auth/routes.ts Rerunning...
+cStarting server directly...
+[07:28:14 UTC] [32mINFO[39m: [36m2025-09-11T07:28:14.338Z [info] : 📋 API Server Startup...[39m
+[07:28:14 UTC] [32mINFO[39m: [36m2025-09-11T07:28:14.355Z [info] : Database initialized[39m
+    [35mpoolSize[39m: 1
+    [35mcurrentTime[39m: "2025-09-11T07:28:14.354Z"
+    [35mpostgresVersion[39m: "PostgreSQL 14.19 (Homebrew) on aarch64-apple-darwin24.4.0, compiled by Apple clang version 17.0.0 (clang-1700.0.13.3), 64-bit"
+[07:28:14 UTC] [32mINFO[39m: [36m2025-09-11T07:28:14.355Z [info] : Initializing Redis connections...[39m
+[07:28:14 UTC] [32mINFO[39m: [36m2025-09-11T07:28:14.356Z [info] cache: Redis client connected[39m
+    [35mcomponent[39m: "cache"
+[07:28:14 UTC] [32mINFO[39m: [36m2025-09-11T07:28:14.357Z [info] cache: Redis client ready for operations[39m
+    [35mcomponent[39m: "cache"
+[07:28:14 UTC] [32mINFO[39m: [36m2025-09-11T07:28:14.357Z [info] : Redis initialized[39m
+[07:28:14 UTC] [32mINFO[39m: [36m2025-09-11T07:28:14.358Z [info] : Starting database migrations...[39m
+[07:28:14 UTC] [32mINFO[39m: [36m2025-09-11T07:28:14.358Z [info] : Migration tracking table initialized[39m
+[07:28:14 UTC] [32mINFO[39m: [36m2025-09-11T07:28:14.360Z [info] : Loaded migration files[39m
+    [35mcount[39m: 10
+[07:28:14 UTC] [32mINFO[39m: [36m2025-09-11T07:28:14.362Z [info] : Migration status[39m
+    [35mtotal[39m: 10
+    [35mexecuted[39m: 10
+    [35mpending[39m: 1
+[07:28:14 UTC] [32mINFO[39m: [36m2025-09-11T07:28:14.362Z [info] : Executing migration[39m
+    [35mmigration[39m: "20250101000002_create_activities_table.sql"
+[07:28:14 UTC] [31mERROR[39m: [36m2025-09-11T07:28:14.364Z [error] : Operation failed[39m
+    [35moperation[39m: "database-transaction"
+    [35mduration[39m: 2
+    error: {
+      "length": 333,
+      "name": "error",
+      "severity": "ERROR",
+      "code": "40P01",
+      "detail": "Process 23806 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 23805.\nProcess 23805 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 23806.",
+      "hint": "See server log for query details.",
+      "file": "deadlock.c",
+      "line": "1152",
+      "routine": "DeadLockReport"
+    }
+[07:28:14 UTC] [31mERROR[39m: [36m2025-09-11T07:28:14.364Z [error] : Database transaction rolled back[39m
+    error: {
+      "length": 333,
+      "name": "error",
+      "severity": "ERROR",
+      "code": "40P01",
+      "detail": "Process 23806 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 23805.\nProcess 23805 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 23806.",
+      "hint": "See server log for query details.",
+      "file": "deadlock.c",
+      "line": "1152",
+      "routine": "DeadLockReport"
+    }
+[07:28:14 UTC] [31mERROR[39m: [36m2025-09-11T07:28:14.364Z [error] : Migration failed[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Transaction failed: deadlock detected",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "context": {
+        "originalError": {
+          "length": 333,
+          "name": "error",
+          "severity": "ERROR",
+          "code": "40P01",
+          "detail": "Process 23806 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 23805.\nProcess 23805 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 23806.",
+          "hint": "See server log for query details.",
+          "file": "deadlock.c",
+          "line": "1152",
+          "routine": "DeadLockReport"
+        }
+      },
+      "stack":
+          DatabaseError: Transaction failed: deadlock detected
+              at transaction (/Users/mac/Documents/Elvis/broken-app/backend/src/config/database.ts:192:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async executeMigration (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:106:3)
+              at async runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:168:7)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+[07:28:14 UTC] [31mERROR[39m: [36m2025-09-11T07:28:14.366Z [error] : Failed to start API server[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Migration execution failed",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "stack":
+          DatabaseError: Migration execution failed
+              at runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:179:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+[07:28:14 UTC] [41mFATAL[49m: [36m2025-09-11T07:28:14.366Z [fatal] : Failed to start server[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Migration execution failed",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "stack":
+          DatabaseError: Migration execution failed
+              at runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:179:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+8:34:30 AM [tsx] change in ./src/auth/routes.ts Rerunning...
+cStarting server directly...
+[07:34:30 UTC] [32mINFO[39m: [36m2025-09-11T07:34:30.745Z [info] : 📋 API Server Startup...[39m
+[07:34:30 UTC] [32mINFO[39m: [36m2025-09-11T07:34:30.759Z [info] : Database initialized[39m
+    [35mpoolSize[39m: 1
+    [35mcurrentTime[39m: "2025-09-11T07:34:30.758Z"
+    [35mpostgresVersion[39m: "PostgreSQL 14.19 (Homebrew) on aarch64-apple-darwin24.4.0, compiled by Apple clang version 17.0.0 (clang-1700.0.13.3), 64-bit"
+[07:34:30 UTC] [32mINFO[39m: [36m2025-09-11T07:34:30.759Z [info] : Initializing Redis connections...[39m
+[07:34:30 UTC] [32mINFO[39m: [36m2025-09-11T07:34:30.762Z [info] cache: Redis client connected[39m
+    [35mcomponent[39m: "cache"
+[07:34:30 UTC] [32mINFO[39m: [36m2025-09-11T07:34:30.763Z [info] cache: Redis client ready for operations[39m
+    [35mcomponent[39m: "cache"
+[07:34:30 UTC] [32mINFO[39m: [36m2025-09-11T07:34:30.763Z [info] : Redis initialized[39m
+[07:34:30 UTC] [32mINFO[39m: [36m2025-09-11T07:34:30.763Z [info] : Starting database migrations...[39m
+[07:34:30 UTC] [32mINFO[39m: [36m2025-09-11T07:34:30.765Z [info] : Migration tracking table initialized[39m
+[07:34:30 UTC] [32mINFO[39m: [36m2025-09-11T07:34:30.767Z [info] : Loaded migration files[39m
+    [35mcount[39m: 10
+[07:34:30 UTC] [32mINFO[39m: [36m2025-09-11T07:34:30.769Z [info] : Migration status[39m
+    [35mtotal[39m: 10
+    [35mexecuted[39m: 10
+    [35mpending[39m: 1
+[07:34:30 UTC] [32mINFO[39m: [36m2025-09-11T07:34:30.769Z [info] : Executing migration[39m
+    [35mmigration[39m: "20250101000002_create_activities_table.sql"
+[07:34:30 UTC] [31mERROR[39m: [36m2025-09-11T07:34:30.772Z [error] : Operation failed[39m
+    [35moperation[39m: "database-transaction"
+    [35mduration[39m: 3
+    error: {
+      "length": 333,
+      "name": "error",
+      "severity": "ERROR",
+      "code": "40P01",
+      "detail": "Process 26806 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 26805.\nProcess 26805 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 26806.",
+      "hint": "See server log for query details.",
+      "file": "deadlock.c",
+      "line": "1152",
+      "routine": "DeadLockReport"
+    }
+[07:34:30 UTC] [31mERROR[39m: [36m2025-09-11T07:34:30.772Z [error] : Database transaction rolled back[39m
+    error: {
+      "length": 333,
+      "name": "error",
+      "severity": "ERROR",
+      "code": "40P01",
+      "detail": "Process 26806 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 26805.\nProcess 26805 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 26806.",
+      "hint": "See server log for query details.",
+      "file": "deadlock.c",
+      "line": "1152",
+      "routine": "DeadLockReport"
+    }
+[07:34:30 UTC] [31mERROR[39m: [36m2025-09-11T07:34:30.772Z [error] : Migration failed[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Transaction failed: deadlock detected",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "context": {
+        "originalError": {
+          "length": 333,
+          "name": "error",
+          "severity": "ERROR",
+          "code": "40P01",
+          "detail": "Process 26806 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 26805.\nProcess 26805 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 26806.",
+          "hint": "See server log for query details.",
+          "file": "deadlock.c",
+          "line": "1152",
+          "routine": "DeadLockReport"
+        }
+      },
+      "stack":
+          DatabaseError: Transaction failed: deadlock detected
+              at transaction (/Users/mac/Documents/Elvis/broken-app/backend/src/config/database.ts:192:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async executeMigration (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:106:3)
+              at async runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:168:7)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+[07:34:30 UTC] [31mERROR[39m: [36m2025-09-11T07:34:30.773Z [error] : Failed to start API server[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Migration execution failed",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "stack":
+          DatabaseError: Migration execution failed
+              at runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:179:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+[07:34:30 UTC] [41mFATAL[49m: [36m2025-09-11T07:34:30.773Z [fatal] : Failed to start server[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Migration execution failed",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "stack":
+          DatabaseError: Migration execution failed
+              at runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:179:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+8:34:34 AM [tsx] change in ./src/auth/routes.ts Rerunning...
+cStarting server directly...
+[07:34:35 UTC] [32mINFO[39m: [36m2025-09-11T07:34:35.165Z [info] : 📋 API Server Startup...[39m
+[07:34:35 UTC] [32mINFO[39m: [36m2025-09-11T07:34:35.176Z [info] : Database initialized[39m
+    [35mpoolSize[39m: 1
+    [35mcurrentTime[39m: "2025-09-11T07:34:35.175Z"
+    [35mpostgresVersion[39m: "PostgreSQL 14.19 (Homebrew) on aarch64-apple-darwin24.4.0, compiled by Apple clang version 17.0.0 (clang-1700.0.13.3), 64-bit"
+[07:34:35 UTC] [32mINFO[39m: [36m2025-09-11T07:34:35.176Z [info] : Initializing Redis connections...[39m
+[07:34:35 UTC] [32mINFO[39m: [36m2025-09-11T07:34:35.178Z [info] cache: Redis client connected[39m
+    [35mcomponent[39m: "cache"
+[07:34:35 UTC] [32mINFO[39m: [36m2025-09-11T07:34:35.179Z [info] cache: Redis client ready for operations[39m
+    [35mcomponent[39m: "cache"
+[07:34:35 UTC] [32mINFO[39m: [36m2025-09-11T07:34:35.179Z [info] : Redis initialized[39m
+[07:34:35 UTC] [32mINFO[39m: [36m2025-09-11T07:34:35.179Z [info] : Starting database migrations...[39m
+[07:34:35 UTC] [32mINFO[39m: [36m2025-09-11T07:34:35.180Z [info] : Migration tracking table initialized[39m
+[07:34:35 UTC] [32mINFO[39m: [36m2025-09-11T07:34:35.182Z [info] : Loaded migration files[39m
+    [35mcount[39m: 10
+[07:34:35 UTC] [32mINFO[39m: [36m2025-09-11T07:34:35.183Z [info] : Migration status[39m
+    [35mtotal[39m: 10
+    [35mexecuted[39m: 10
+    [35mpending[39m: 1
+[07:34:35 UTC] [32mINFO[39m: [36m2025-09-11T07:34:35.183Z [info] : Executing migration[39m
+    [35mmigration[39m: "20250101000002_create_activities_table.sql"
+[07:34:35 UTC] [31mERROR[39m: [36m2025-09-11T07:34:35.184Z [error] : Operation failed[39m
+    [35moperation[39m: "database-transaction"
+    [35mduration[39m: 1
+    error: {
+      "length": 147,
+      "name": "error",
+      "severity": "ERROR",
+      "code": "42710",
+      "file": "trigger.c",
+      "line": "760",
+      "routine": "CreateTriggerFiringOn"
+    }
+[07:34:35 UTC] [31mERROR[39m: [36m2025-09-11T07:34:35.184Z [error] : Database transaction rolled back[39m
+    error: {
+      "length": 147,
+      "name": "error",
+      "severity": "ERROR",
+      "code": "42710",
+      "file": "trigger.c",
+      "line": "760",
+      "routine": "CreateTriggerFiringOn"
+    }
+[07:34:35 UTC] [31mERROR[39m: [36m2025-09-11T07:34:35.184Z [error] : Migration failed[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Transaction failed: trigger \"trigger_activities_updated_at\" for relation \"activities\" already exists",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "context": {
+        "originalError": {
+          "length": 147,
+          "name": "error",
+          "severity": "ERROR",
+          "code": "42710",
+          "file": "trigger.c",
+          "line": "760",
+          "routine": "CreateTriggerFiringOn"
+        }
+      },
+      "stack":
+          DatabaseError: Transaction failed: trigger "trigger_activities_updated_at" for relation "activities" already exists
+              at transaction (/Users/mac/Documents/Elvis/broken-app/backend/src/config/database.ts:192:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async executeMigration (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:106:3)
+              at async runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:168:7)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+[07:34:35 UTC] [31mERROR[39m: [36m2025-09-11T07:34:35.186Z [error] : Failed to start API server[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Migration execution failed",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "stack":
+          DatabaseError: Migration execution failed
+              at runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:179:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+[07:34:35 UTC] [41mFATAL[49m: [36m2025-09-11T07:34:35.186Z [fatal] : Failed to start server[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Migration execution failed",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "stack":
+          DatabaseError: Migration execution failed
+              at runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:179:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+8:34:49 AM [tsx] change in ./src/auth/routes.ts Rerunning...
+cStarting server directly...
+[07:34:50 UTC] [32mINFO[39m: [36m2025-09-11T07:34:50.266Z [info] : 📋 API Server Startup...[39m
+[07:34:50 UTC] [32mINFO[39m: [36m2025-09-11T07:34:50.278Z [info] : Database initialized[39m
+    [35mpoolSize[39m: 1
+    [35mcurrentTime[39m: "2025-09-11T07:34:50.278Z"
+    [35mpostgresVersion[39m: "PostgreSQL 14.19 (Homebrew) on aarch64-apple-darwin24.4.0, compiled by Apple clang version 17.0.0 (clang-1700.0.13.3), 64-bit"
+[07:34:50 UTC] [32mINFO[39m: [36m2025-09-11T07:34:50.278Z [info] : Initializing Redis connections...[39m
+[07:34:50 UTC] [32mINFO[39m: [36m2025-09-11T07:34:50.280Z [info] cache: Redis client connected[39m
+    [35mcomponent[39m: "cache"
+[07:34:50 UTC] [32mINFO[39m: [36m2025-09-11T07:34:50.281Z [info] cache: Redis client ready for operations[39m
+    [35mcomponent[39m: "cache"
+[07:34:50 UTC] [32mINFO[39m: [36m2025-09-11T07:34:50.281Z [info] : Redis initialized[39m
+[07:34:50 UTC] [32mINFO[39m: [36m2025-09-11T07:34:50.281Z [info] : Starting database migrations...[39m
+[07:34:50 UTC] [32mINFO[39m: [36m2025-09-11T07:34:50.282Z [info] : Migration tracking table initialized[39m
+[07:34:50 UTC] [32mINFO[39m: [36m2025-09-11T07:34:50.283Z [info] : Loaded migration files[39m
+    [35mcount[39m: 10
+[07:34:50 UTC] [32mINFO[39m: [36m2025-09-11T07:34:50.285Z [info] : Migration status[39m
+    [35mtotal[39m: 10
+    [35mexecuted[39m: 10
+    [35mpending[39m: 1
+[07:34:50 UTC] [32mINFO[39m: [36m2025-09-11T07:34:50.285Z [info] : Executing migration[39m
+    [35mmigration[39m: "20250101000002_create_activities_table.sql"
+[07:34:50 UTC] [31mERROR[39m: [36m2025-09-11T07:34:50.287Z [error] : Operation failed[39m
+    [35moperation[39m: "database-transaction"
+    [35mduration[39m: 2
+    error: {
+      "length": 333,
+      "name": "error",
+      "severity": "ERROR",
+      "code": "40P01",
+      "detail": "Process 27038 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 27037.\nProcess 27037 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 27038.",
+      "hint": "See server log for query details.",
+      "file": "deadlock.c",
+      "line": "1152",
+      "routine": "DeadLockReport"
+    }
+[07:34:50 UTC] [31mERROR[39m: [36m2025-09-11T07:34:50.288Z [error] : Database transaction rolled back[39m
+    error: {
+      "length": 333,
+      "name": "error",
+      "severity": "ERROR",
+      "code": "40P01",
+      "detail": "Process 27038 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 27037.\nProcess 27037 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 27038.",
+      "hint": "See server log for query details.",
+      "file": "deadlock.c",
+      "line": "1152",
+      "routine": "DeadLockReport"
+    }
+[07:34:50 UTC] [31mERROR[39m: [36m2025-09-11T07:34:50.288Z [error] : Migration failed[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Transaction failed: deadlock detected",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "context": {
+        "originalError": {
+          "length": 333,
+          "name": "error",
+          "severity": "ERROR",
+          "code": "40P01",
+          "detail": "Process 27038 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 27037.\nProcess 27037 waits for ShareRowExclusiveLock on relation 67615 of database 64310; blocked by process 27038.",
+          "hint": "See server log for query details.",
+          "file": "deadlock.c",
+          "line": "1152",
+          "routine": "DeadLockReport"
+        }
+      },
+      "stack":
+          DatabaseError: Transaction failed: deadlock detected
+              at transaction (/Users/mac/Documents/Elvis/broken-app/backend/src/config/database.ts:192:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async executeMigration (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:106:3)
+              at async runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:168:7)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+[07:34:50 UTC] [31mERROR[39m: [36m2025-09-11T07:34:50.289Z [error] : Failed to start API server[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Migration execution failed",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "stack":
+          DatabaseError: Migration execution failed
+              at runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:179:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }
+[07:34:50 UTC] [41mFATAL[49m: [36m2025-09-11T07:34:50.289Z [fatal] : Failed to start server[39m
+    error: {
+      "name": "DatabaseError",
+      "message": "Migration execution failed",
+      "statusCode": 500,
+      "code": "DATABASE_ERROR",
+      "stack":
+          DatabaseError: Migration execution failed
+              at runMigrations (/Users/mac/Documents/Elvis/broken-app/backend/src/db/migrator.ts:179:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+              at async APIServer.start (/Users/mac/Documents/Elvis/broken-app/backend/src/server.ts:597:9)
+    }

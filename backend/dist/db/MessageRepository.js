@@ -50,6 +50,11 @@ class MessageRepository extends BaseRepository_1.default {
             params.push(filters.threadRoot);
             paramIndex++;
         }
+        else if (!filters?.includeThreadReplies) {
+            // For main channel messages, exclude thread replies (messages with thread_root)
+            // unless explicitly requested to include them
+            whereConditions.push(`m.thread_root IS NULL`);
+        }
         if (filters?.messageType) {
             whereConditions.push(`m.message_type = $${paramIndex}`);
             params.push(filters.messageType);
@@ -108,6 +113,11 @@ class MessageRepository extends BaseRepository_1.default {
             whereConditions.push(`thread_root = $${paramIndex}`);
             params.push(filters.threadRoot);
             paramIndex++;
+        }
+        else if (!filters?.includeThreadReplies) {
+            // For main channel messages, exclude thread replies (messages with thread_root)
+            // unless explicitly requested to include them
+            whereConditions.push(`thread_root IS NULL`);
         }
         if (filters?.messageType) {
             whereConditions.push(`message_type = $${paramIndex}`);

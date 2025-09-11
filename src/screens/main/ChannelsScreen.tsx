@@ -1,30 +1,24 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Modal, ScrollView, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   FadeInDown,
   FadeInUp,
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSpring,
-  withSequence,
-  runOnJS,
 } from 'react-native-reanimated';
-import LinearGradient from 'react-native-linear-gradient';
 import Feather from 'react-native-vector-icons/Feather';
 import IonIcon from 'react-native-vector-icons/Ionicons';
-import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useToast } from '../../contexts/ToastContext';
 import { channelService, type Channel as ApiChannel, type ChannelCategory } from '../../services/api/channelService';
-import { userService, type User } from '../../services/api/userService';
+import { userService } from '../../services/api/userService';
 import { AuthError } from '../../services/api/authService';
 import { useAuth } from '../../hooks/useAuth';
 import { ChannelCard, ConfirmationModal, ActionSheet } from '../../components/common';
+import { CreateChannelModal } from '../../components/channel/CreateChannelModal';
+import { MemberSelectorModal } from '../../components/channel/MemberSelectorModal';
+import { CategoryFilterModal } from '../../components/channel/CategoryFilterModal';
 
 // Create animated components
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
-const AnimatedView = Animated.createAnimatedComponent(View);
 
 interface Member {
   id: string;
@@ -134,7 +128,7 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [selectedChannelForAction, setSelectedChannelForAction] = useState<Channel | null>(null);
   
-  const { showError, showSuccess, showToast, showInfo, showWarning } = useToast();
+  const { showError, showSuccess, showWarning } = useToast();
 
   // Load available members from API
   const loadAvailableMembers = useCallback(async () => {
@@ -381,7 +375,7 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
         members: [availableMembers[0]] // Current user
       }));
     }
-  }, [showCreateChannel, availableMembers]);
+  }, [showCreateChannel, availableMembers, formData.members.length]);
 
   // Load channels on component mount
   useEffect(() => {
@@ -485,11 +479,11 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
 
       if (isEditMode && editingChannelId) {
         // Edit existing channel
-        const updatedChannel = await channelService.updateChannel(editingChannelId, channelData);
+        await channelService.updateChannel(editingChannelId, channelData);
         showSuccess(`Channel "${formData.name}" updated successfully!`);
       } else {
         // Create new channel
-        const createdChannel = await channelService.createChannel(channelData);
+        await channelService.createChannel(channelData);
         showSuccess(`Channel "${formData.name}" created successfully!`);
       }
       
@@ -955,429 +949,52 @@ export const ChannelsScreen: React.FC<{ navigation: any }> = ({
       )}
 
       {/* Category Filter Modal */}
-      <Modal
+      <CategoryFilterModal
         visible={showCategoryFilter}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowCategoryFilter(false)}
-      >
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}
-          onPress={() => setShowCategoryFilter(false)}
-          activeOpacity={1}
-        >
-          <TouchableOpacity
-            style={{ backgroundColor: 'white', borderRadius: 20, padding: 24, margin: 20, maxWidth: 350, width: '90%' }}
-            activeOpacity={1}
-          >
-            <View className="flex-row items-center justify-between mb-6">
-              <Text className="text-xl font-bold text-gray-900">Filter by Category</Text>
-              <TouchableOpacity onPress={() => setShowCategoryFilter(false)}>
-                <MaterialIcon name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
-              {categories.map((category) => {
-                const isSelected = selectedCategories.includes(category.id);
-                return (
-                  <TouchableOpacity
-                    key={category.id}
-                    onPress={() => {
-                      setSelectedCategories(prev =>
-                        isSelected
-                          ? prev.filter(id => id !== category.id)
-                          : [...prev, category.id]
-                      );
-                    }}
-                    className="flex-row items-center justify-between py-3 border-b border-gray-100"
-                  >
-                    <View className="flex-row items-center flex-1">
-                      <View
-                        className="w-10 h-10 rounded-full items-center justify-center mr-3"
-                        style={{ backgroundColor: category.color + '20' }}
-                      >
-                        <IonIcon name={category.icon ?? 'help'} size={20} color={category.color ?? '#6B7280'} />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-gray-900 font-medium">{category.name}</Text>
-                        <Text className="text-gray-500 text-sm">{category.count} channels</Text>
-                      </View>
-                    </View>
-                    <View
-                      className={`w-6 h-6 rounded border-2 items-center justify-center ${
-                        isSelected ? 'bg-purple-600 border-purple-600' : 'border-gray-300'
-                      }`}
-                    >
-                      {isSelected && <Feather name="check" size={14} color="white" />}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            <View className="flex-row space-x-3 mt-6">
-              <TouchableOpacity
-                onPress={() => setSelectedCategories([])}
-                className="flex-1 bg-gray-100 rounded-xl py-3"
-              >
-                <Text className="text-gray-700 font-medium text-center">Clear All</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setShowCategoryFilter(false)}
-                className="flex-1 bg-purple-600 rounded-xl py-3"
-              >
-                <Text className="text-white font-medium text-center">Apply Filters</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+        onClose={() => setShowCategoryFilter(false)}
+        categories={categories}
+        selectedCategories={selectedCategories}
+        onToggleCategory={(categoryId) => {
+          setSelectedCategories(prev =>
+            prev.includes(categoryId)
+              ? prev.filter(id => id !== categoryId)
+              : [...prev, categoryId]
+          );
+        }}
+        onClearAll={() => setSelectedCategories([])}
+      />
 
       {/* Create Channel Modal */}
-      <Modal
+      <CreateChannelModal
         visible={showCreateChannel}
-        transparent
-        animationType="slide"
-        onRequestClose={() => {
+        onClose={() => {
           resetForm();
           setShowCreateChannel(false);
         }}
-      >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <View className="bg-white rounded-t-3xl p-6" style={{ maxHeight: '90%' }}>
-            <View className="flex-row items-center justify-between mb-6">
-              <Text className="text-2xl font-bold text-gray-900">{isEditMode ? 'Edit Channel' : 'Create Channel'}</Text>
-              <TouchableOpacity onPress={() => {
-                resetForm();
-                setShowCreateChannel(false);
-              }}>
-                <MaterialIcon name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Channel Name */}
-              <View className="mb-6">
-                <Text className="text-gray-700 font-medium mb-2">Channel Name *</Text>
-                <View className={`bg-gray-50 rounded-xl px-4 py-3 border ${formErrors.name ? 'border-red-300' : 'border-gray-200'}`}>
-                  <TextInput
-                    placeholder="Enter channel name"
-                    value={formData.name}
-                    onChangeText={(text) => {
-                      setFormData(prev => ({ ...prev, name: text }));
-                      if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' }));
-                    }}
-                    className="text-gray-900 text-base"
-                    placeholderTextColor="#9CA3AF"
-                  />
-                </View>
-                {formErrors.name ? (
-                  <Text className="text-red-500 text-sm mt-1">{formErrors.name}</Text>
-                ) : null}
-              </View>
-
-              {/* Description */}
-              <View className="mb-6">
-                <Text className="text-gray-700 font-medium mb-2">Description</Text>
-                <View className="bg-gray-50 rounded-xl px-4 py-3 border border-gray-200">
-                  <TextInput
-                    placeholder="What's this channel about?"
-                    value={formData.description}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, description: text }))}
-                    multiline
-                    numberOfLines={3}
-                    className="text-gray-900 text-base"
-                    placeholderTextColor="#9CA3AF"
-                    style={{ minHeight: 80, textAlignVertical: 'top' }}
-                  />
-                </View>
-              </View>
-
-              {/* Channel Type */}
-              <View className="mb-6">
-                <Text className="text-gray-700 font-medium mb-2">Channel Type *</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View className="flex-row space-x-3">
-                    {categories.map((category) => {
-                      const isSelected = formData.type === category.id;
-                      return (
-                        <TouchableOpacity
-                          key={category.id}
-                          onPress={() => {
-                            setFormData(prev => ({ ...prev, type: category.id }));
-                            if (formErrors.type) setFormErrors(prev => ({ ...prev, type: '' }));
-                          }}
-                          className={`rounded-xl px-4 py-3 border flex-row items-center ${
-                            isSelected 
-                              ? 'bg-purple-100 border-purple-300' 
-                              : 'bg-gray-50 border-gray-200'
-                          }`}
-                        >
-                          <IonIcon name={category.icon ?? 'help'} size={18} color={category.color ?? '#6B7280'} />
-                          <Text className={`font-medium ml-2 ${
-                            isSelected ? 'text-purple-700' : 'text-gray-700'
-                          }`}>
-                            {category.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </ScrollView>
-                {formErrors.type ? (
-                  <Text className="text-red-500 text-sm mt-1">{formErrors.type}</Text>
-                ) : null}
-              </View>
-
-              {/* Tags */}
-              <View className="mb-6">
-                <Text className="text-gray-700 font-medium mb-2">Tags</Text>
-                
-                {/* Current Tags */}
-                {formData.tags.length > 0 && (
-                  <View className="flex-row flex-wrap mb-3">
-                    {formData.tags.map((tag, index) => (
-                      <View key={index} className="bg-purple-100 rounded-full px-3 py-1 mr-2 mb-2 flex-row items-center">
-                        <Text className="text-purple-700 text-sm">#{tag}</Text>
-                        <TouchableOpacity onPress={() => removeTag(tag)} className="ml-2">
-                          <Feather name="x" size={14} color="#7C3AED" />
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Tag Input */}
-                <View className="bg-gray-50 rounded-xl px-4 py-3 border border-gray-200 flex-row items-center">
-                  <TextInput
-                    placeholder="Type a tag and press Enter"
-                    value={tagInput}
-                    onChangeText={setTagInput}
-                    onSubmitEditing={addTag}
-                    className="text-gray-900 text-base flex-1"
-                    placeholderTextColor="#9CA3AF"
-                    returnKeyType="done"
-                  />
-                  {tagInput.trim() && (
-                    <TouchableOpacity onPress={addTag} className="ml-2">
-                      <Feather name="plus" size={20} color="#8B5CF6" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-
-              {/* Privacy */}
-              <View className="mb-6">
-                <Text className="text-gray-700 font-medium mb-2">Privacy *</Text>
-                <View className="space-y-3">
-                  <TouchableOpacity 
-                    onPress={() => setFormData(prev => ({ ...prev, privacy: 'public' }))}
-                    className="flex-row items-center p-3 bg-gray-50 rounded-xl"
-                  >
-                    <View className={`w-6 h-6 rounded-full border-2 items-center justify-center mr-3 ${
-                      formData.privacy === 'public' ? 'border-purple-600 bg-purple-600' : 'border-gray-300'
-                    }`}>
-                      {formData.privacy === 'public' && <View className="w-2 h-2 rounded-full bg-white" />}
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-gray-900 font-medium">Public</Text>
-                      <Text className="text-gray-500 text-sm">Anyone in the workspace can join</Text>
-                    </View>
-                    <IonIcon name="globe-outline" size={20} color="#10B981" />
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    onPress={() => setFormData(prev => ({ ...prev, privacy: 'private' }))}
-                    className="flex-row items-center p-3 bg-gray-50 rounded-xl"
-                  >
-                    <View className={`w-6 h-6 rounded-full border-2 items-center justify-center mr-3 ${
-                      formData.privacy === 'private' ? 'border-purple-600 bg-purple-600' : 'border-gray-300'
-                    }`}>
-                      {formData.privacy === 'private' && <View className="w-2 h-2 rounded-full bg-white" />}
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-gray-900 font-medium">Private</Text>
-                      <Text className="text-gray-500 text-sm">Only invited members can join</Text>
-                    </View>
-                    <MaterialIcon name="lock" size={20} color="#F59E0B" />
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    onPress={() => setFormData(prev => ({ ...prev, privacy: 'restricted' }))}
-                    className="flex-row items-center p-3 bg-gray-50 rounded-xl"
-                  >
-                    <View className={`w-6 h-6 rounded-full border-2 items-center justify-center mr-3 ${
-                      formData.privacy === 'restricted' ? 'border-purple-600 bg-purple-600' : 'border-gray-300'
-                    }`}>
-                      {formData.privacy === 'restricted' && <View className="w-2 h-2 rounded-full bg-white" />}
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-gray-900 font-medium">Restricted</Text>
-                      <Text className="text-gray-500 text-sm">Admin approval required to join</Text>
-                    </View>
-                    <MaterialIcon name="admin-panel-settings" size={20} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-                {formErrors.privacy ? (
-                  <Text className="text-red-500 text-sm mt-1">{formErrors.privacy}</Text>
-                ) : null}
-              </View>
-
-              {/* Members */}
-              <View className="mb-8">
-                <Text className="text-gray-700 font-medium mb-2">Members ({formData.members.length})</Text>
-                
-                {/* Current Members */}
-                {formData.members.length > 0 && (
-                  <View className="mb-3">
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      <View className="flex-row space-x-2">
-                        {formData.members.map((member) => {
-                          const isCurrentUser = availableMembers.length > 0 && member.id === availableMembers[0].id;
-                          return (
-                            <View key={member.id} className="bg-purple-50 rounded-xl px-3 py-2 flex-row items-center">
-                              <View className="w-6 h-6 bg-purple-600 rounded-full items-center justify-center mr-2">
-                                <Text className="text-white text-xs font-bold">
-                                  {typeof member.avatar === 'string' && member.avatar.length === 1 
-                                    ? member.avatar 
-                                    : member.name.charAt(0).toUpperCase()
-                                  }
-                                </Text>
-                              </View>
-                              <Text className="text-purple-700 text-sm font-medium">{member.name}</Text>
-                              {!isCurrentUser && (
-                                <TouchableOpacity onPress={() => toggleMember(member)} className="ml-2">
-                                  <Feather name="x" size={14} color="#7C3AED" />
-                                </TouchableOpacity>
-                              )}
-                            </View>
-                          );
-                        })}
-                      </View>
-                    </ScrollView>
-                  </View>
-                )}
-
-                <TouchableOpacity 
-                  onPress={() => setShowMemberSelector(true)}
-                  className="bg-gray-50 rounded-xl px-4 py-3 border border-gray-200 flex-row items-center"
-                >
-                  <Feather name="plus" size={20} color="#8B5CF6" />
-                  <Text className="text-purple-600 font-medium ml-2">Add team members</Text>
-                </TouchableOpacity>
-                
-                {formErrors.members ? (
-                  <Text className="text-red-500 text-sm mt-1">{formErrors.members}</Text>
-                ) : null}
-              </View>
-            </ScrollView>
-
-            {/* Action Buttons */}
-            <View className="flex-row space-x-3 pt-4 border-t border-gray-200">
-              <TouchableOpacity
-                onPress={() => {
-                  resetForm();
-                  setShowCreateChannel(false);
-                }}
-                className="flex-1 bg-gray-100 rounded-xl py-4"
-              >
-                <Text className="text-gray-700 font-medium text-center">Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleSubmitChannel}
-                className="flex-1 bg-purple-600 rounded-xl py-4"
-              >
-                <Text className="text-white font-medium text-center">{isEditMode ? 'Update Channel' : 'Create Channel'}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        isEditMode={isEditMode}
+        formData={formData}
+        formErrors={formErrors}
+        availableMembers={availableMembers}
+        tagInput={tagInput}
+        onFormDataChange={(data) => setFormData(prev => ({ ...prev, ...data }))}
+        onFormErrorsChange={(errors) => setFormErrors(prev => ({ ...prev, ...errors }))}
+        onTagInputChange={setTagInput}
+        onSubmit={handleSubmitChannel}
+        onAddTag={addTag}
+        onRemoveTag={removeTag}
+        onToggleMember={toggleMember}
+        onShowMemberSelector={() => setShowMemberSelector(true)}
+      />
 
       {/* Member Selector Modal */}
-      <Modal
+      <MemberSelectorModal
         visible={showMemberSelector}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowMemberSelector(false)}
-      >
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}
-          onPress={() => setShowMemberSelector(false)}
-          activeOpacity={1}
-        >
-          <TouchableOpacity
-            style={{ backgroundColor: 'white', borderRadius: 20, padding: 24, margin: 20, maxWidth: 400, width: '90%' }}
-            activeOpacity={1}
-          >
-            <View className="flex-row items-center justify-between mb-6">
-              <Text className="text-xl font-bold text-gray-900">Select Members</Text>
-              <TouchableOpacity onPress={() => setShowMemberSelector(false)}>
-                <MaterialIcon name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
-              {loadingMembers ? (
-                <View className="items-center justify-center py-8">
-                  <ActivityIndicator size="large" color="#8B5CF6" />
-                  <Text className="text-gray-500 text-sm mt-2">Loading team members...</Text>
-                </View>
-              ) : (
-                availableMembers.map((member) => {
-                  const isSelected = formData.members.some(m => m.id === member.id);
-                  const isCurrentUser = availableMembers.length > 0 && member.id === availableMembers[0].id;
-                  return (
-                    <TouchableOpacity
-                      key={member.id}
-                      onPress={() => !isCurrentUser && toggleMember(member)}
-                      disabled={isCurrentUser}
-                      className={`flex-row items-center justify-between py-3 border-b border-gray-100 ${
-                        isCurrentUser ? 'opacity-50' : ''
-                      }`}
-                    >
-                      <View className="flex-row items-center flex-1">
-                        <View className="w-10 h-10 bg-purple-600 rounded-full items-center justify-center mr-3">
-                          <Text className="text-white font-bold">
-                            {typeof member.avatar === 'string' && member.avatar.length === 1 
-                              ? member.avatar 
-                              : member.name.charAt(0).toUpperCase()
-                            }
-                          </Text>
-                        </View>
-                        <View className="flex-1">
-                          <Text className="text-gray-900 font-medium">
-                            {member.name}
-                          </Text>
-                          <Text className="text-gray-500 text-sm">{member.role}</Text>
-                          {member.department && (
-                            <Text className="text-gray-400 text-xs">{member.department}</Text>
-                          )}
-                        </View>
-                      </View>
-                      <View
-                        className={`w-6 h-6 rounded border-2 items-center justify-center ${
-                          isSelected ? 'bg-purple-600 border-purple-600' : 'border-gray-300'
-                        }`}
-                      >
-                        {isSelected && <Feather name="check" size={14} color="white" />}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </ScrollView>
-
-            <TouchableOpacity
-              onPress={() => setShowMemberSelector(false)}
-              className="bg-purple-600 rounded-xl py-3 mt-6"
-            >
-              <Text className="text-white font-medium text-center">Done</Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+        onClose={() => setShowMemberSelector(false)}
+        availableMembers={availableMembers}
+        selectedMembers={formData.members}
+        loadingMembers={loadingMembers}
+        onToggleMember={toggleMember}
+      />
 
       {/* Action Sheet for Channel Options */}
       <ActionSheet

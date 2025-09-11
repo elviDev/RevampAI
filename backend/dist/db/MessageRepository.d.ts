@@ -66,6 +66,7 @@ declare class MessageRepository extends BaseRepository<Message> {
         messageType?: string;
         before?: Date;
         after?: Date;
+        includeThreadReplies?: boolean;
     }, limit?: number, offset?: number, client?: DatabaseClient): Promise<MessageWithUser[]>;
     /**
      * Get channel message count
@@ -75,6 +76,7 @@ declare class MessageRepository extends BaseRepository<Message> {
         messageType?: string;
         before?: Date;
         after?: Date;
+        includeThreadReplies?: boolean;
     }, client?: DatabaseClient): Promise<number>;
     /**
      * Search messages in channel

@@ -47,7 +47,9 @@
       "mcp__ide__getDiagnostics",
       "Bash(tree:*)",
       "Bash(PGPASSWORD=ceo_password psql:*)",
-      "Bash(PGPASSWORD=root psql -h localhost -p 5432 -U postgres -d revamp_ai_platform -c \"SELECT id, user_id, activity_type, title FROM activities LIMIT 5;\")"
+      "Bash(PGPASSWORD=root psql -h localhost -p 5432 -U postgres -d revamp_ai_platform -c \"SELECT id, user_id, activity_type, title FROM activities LIMIT 5;\")",
+      "Read(//Users/mac/Documents/Elvis/**)",
+      "Bash(timeout 30s npm run dev)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

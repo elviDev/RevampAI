@@ -40,30 +40,39 @@ export const TaskBasicInfo: React.FC<TaskBasicInfoProps> = ({
 
   const handlePriorityChange = (newPriority: TaskPriority) => {
     try {
-      onPriorityChange(newPriority);
+      if (onPriorityChange && typeof onPriorityChange === 'function') {
+        onPriorityChange(newPriority);
+      }
     } catch (error) {
       console.error('Error changing priority:', error);
+      // Don't rethrow to prevent app crashes
     }
   };
 
   const handleCategoryChange = (newCategory: TaskCategory) => {
     try {
-      onCategoryChange(newCategory);
+      if (onCategoryChange && typeof onCategoryChange === 'function') {
+        onCategoryChange(newCategory);
+      }
     } catch (error) {
       console.error('Error changing category:', error);
+      // Don't rethrow to prevent app crashes
     }
   };
 
-  const priorityOptions: TaskPriority[] = ['low', 'medium', 'high', 'urgent'];
+  const priorityOptions: TaskPriority[] = ['low', 'medium', 'high', 'urgent', 'critical'];
   
   const categoryOptions: TaskCategory[] = [
     'development',
     'design',
+    'marketing',
+    'operations',
     'research',
-    'meeting',
-    'documentation',
-    'testing',
-    'deployment',
+    'general',
+    'project',
+    'maintenance',
+    'emergency',
+    'approval',
   ];
 
   return (
@@ -160,37 +169,52 @@ export const TaskBasicInfo: React.FC<TaskBasicInfoProps> = ({
             </Text>
           </View>
         </View>
-        <View className="flex-row flex-wrap gap-3">
-          {priorityOptions.map(p => (
-            <TouchableOpacity
-              key={p}
-              onPress={() => handlePriorityChange(p)}
-              className={`px-4 py-3 rounded-xl border-2 flex-row items-center min-w-[80px] ${
-                priority === p
-                  ? 'border-transparent shadow-lg'
-                  : 'border-gray-200 bg-gray-50'
-              }`}
-              style={{
-                backgroundColor:
-                  priority === p ? TaskUtils.getPriorityColor(p) : undefined,
-              }}
-            >
-              <View
-                className="w-3 h-3 rounded-full mr-2"
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+          {priorityOptions.map(p => {
+            const isSelected = priority === p;
+            return (
+              <TouchableOpacity
+                key={p}
+                onPress={() => handlePriorityChange(p)}
                 style={{
-                  backgroundColor:
-                    priority === p ? 'white' : TaskUtils.getPriorityColor(p),
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  borderWidth: 2,
+                  borderColor: isSelected ? 'transparent' : '#E5E7EB',
+                  backgroundColor: isSelected ? TaskUtils.getPriorityColor(p) : '#F9FAFB',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  minWidth: 80,
+                  ...(isSelected && {
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 8,
+                    elevation: 4,
+                  }),
                 }}
-              />
-              <Text
-                className={`font-semibold ${
-                  priority === p ? 'text-white' : 'text-gray-700'
-                }`}
               >
-                {p.charAt(0).toUpperCase() + p.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <View
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: 6,
+                    backgroundColor: isSelected ? 'white' : TaskUtils.getPriorityColor(p),
+                    marginRight: 8,
+                  }}
+                />
+                <Text
+                  style={{
+                    fontWeight: '600',
+                    color: isSelected ? 'white' : '#374151',
+                  }}
+                >
+                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
@@ -208,31 +232,49 @@ export const TaskBasicInfo: React.FC<TaskBasicInfoProps> = ({
           </View>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View className="flex-row gap-x-3 px-1 pb-1">
-            {categoryOptions.map(c => (
-              <TouchableOpacity
-                key={c}
-                onPress={() => handleCategoryChange(c)}
-                className={`px-4 py-3 rounded-xl border-2 flex-row items-center min-w-[120px] ${
-                  category === c
-                    ? 'bg-purple-500 border-purple-500 shadow-lg'
-                    : 'border-gray-200 bg-gray-50'
-                }`}
-              >
-                <MaterialIcon
-                  name={TaskUtils.getCategoryIcon(c)}
-                  size={18}
-                  color={category === c ? 'white' : '#6B7280'}
-                />
-                <Text
-                  className={`font-medium ml-2 ${
-                    category === c ? 'text-white' : 'text-gray-700'
-                  }`}
+          <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 4, paddingBottom: 4 }}>
+            {categoryOptions.map(c => {
+              const isSelected = category === c;
+              return (
+                <TouchableOpacity
+                  key={c}
+                  onPress={() => handleCategoryChange(c)}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    borderWidth: 2,
+                    borderColor: isSelected ? '#8B5CF6' : '#E5E7EB',
+                    backgroundColor: isSelected ? '#8B5CF6' : '#F9FAFB',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    minWidth: 120,
+                    ...(isSelected && {
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 8,
+                      elevation: 4,
+                    }),
+                  }}
                 >
-                  {c.charAt(0).toUpperCase() + c.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <MaterialIcon
+                    name={TaskUtils.getCategoryIcon(c)}
+                    size={18}
+                    color={isSelected ? 'white' : '#6B7280'}
+                  />
+                  <Text
+                    style={{
+                      fontWeight: '500',
+                      color: isSelected ? 'white' : '#374151',
+                      marginLeft: 8,
+                    }}
+                  >
+                    {c.charAt(0).toUpperCase() + c.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </ScrollView>
       </View>

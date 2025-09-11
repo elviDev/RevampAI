@@ -58,7 +58,6 @@ type RegisterRequest = Static<typeof RegisterSchema>;
 type RefreshTokenRequest = Static<typeof RefreshTokenSchema>;
 type PasswordResetRequestRequest = Static<typeof PasswordResetRequestSchema>;
 type PasswordResetRequest = Static<typeof PasswordResetSchema>;
-type ChangePasswordRequest = Static<typeof ChangePasswordSchema>;
 
 /**
  * Register authentication routes
@@ -89,6 +88,7 @@ export const registerAuthRoutes = async (fastify: FastifyInstance) => {
                 name: Type.String(),
                 role: Type.String(),
                 avatar_url: Type.Optional(Type.String()),
+                email_verified: Type.Boolean(),
                 permissions: Type.Array(Type.String()),
               }),
             }),
@@ -144,15 +144,13 @@ export const registerAuthRoutes = async (fastify: FastifyInstance) => {
           throw new AuthenticationError('Invalid email or password');
         }
 
-        // Check if email is verified (if required)
+        // Log if user is not verified (but don't prevent login)
         if (!user.email_verified) {
-          securityLogger.logAuthEvent('failed_login', {
+          securityLogger.logAuthEvent('login_attempt', {
             email,
             ip: request.ip,
             reason: 'email_not_verified',
           });
-
-          throw new AuthenticationError('Please verify your email address before logging in');
         }
 
         // Generate tokens
@@ -180,6 +178,7 @@ export const registerAuthRoutes = async (fastify: FastifyInstance) => {
               name: user.name,
               role: user.role,
               avatar_url: user.avatar_url,
+              email_verified: user.email_verified,
               permissions: jwtService.decodeToken(tokens.accessToken)?.permissions || [],
             },
           },
@@ -788,7 +787,7 @@ export const registerAuthRoutes = async (fastify: FastifyInstance) => {
           logger.warn({ userId: user.id, email: user.email }, 'Failed to send verification email');
         }
 
-        securityLogger.logAuthEvent('email_verification_resent', {
+        securityLogger.logAuthEvent('email_verified', {
           userId: user.id,
           email: user.email,
           ip: request.ip,

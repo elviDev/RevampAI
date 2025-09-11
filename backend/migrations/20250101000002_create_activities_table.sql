@@ -62,13 +62,15 @@ CREATE INDEX IF NOT EXISTS idx_activities_type_channel ON activities(activity_ty
 -- Index for read tracking queries
 CREATE INDEX IF NOT EXISTS idx_activities_read_by ON activities USING gin(read_by) WHERE deleted_at IS NULL;
 
--- Update trigger for activities
+-- Update trigger for activities (drop if exists first)
+DROP TRIGGER IF EXISTS trigger_activities_updated_at ON activities;
 CREATE TRIGGER trigger_activities_updated_at
     BEFORE UPDATE ON activities
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Soft delete trigger for activities
+-- Soft delete trigger for activities (drop if exists first)
+DROP TRIGGER IF EXISTS trigger_activities_soft_delete ON activities;
 CREATE TRIGGER trigger_activities_soft_delete
     BEFORE DELETE ON activities
     FOR EACH ROW
