@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(PGPASSWORD=ThisSuperColl psql:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": [],
