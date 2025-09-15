@@ -8,6 +8,11 @@ const pool = new Pool({
   connectionString: config.database.url,
   min: config.database.pool.min,
   max: config.database.pool.max,
+  ssl: config.app.isProduction || config.database.url.includes('rds.amazonaws.com')
+    ? {
+        rejectUnauthorized: false,
+      }
+    : false,
 });
 
 interface SeedUser {
@@ -685,7 +690,7 @@ export class DatabaseSeeder {
         // Task creation activity
         const createActivityId = faker.string.uuid();
         await client.query(`
-          INSERT INTO activities (id, user_id, type, title, description, metadata, related_id, channel_id, created_at)
+          INSERT INTO activities (id, user_id, activity_type, title, description, metadata, referenced_entity_id, channel_id, created_at)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() - INTERVAL '${faker.number.int({min: 1, max: 15})} days')
         `, [
           createActivityId,
@@ -706,7 +711,7 @@ export class DatabaseSeeder {
         if (task.status !== 'pending' && faker.datatype.boolean(0.7)) {
           const updateActivityId = faker.string.uuid();
           await client.query(`
-            INSERT INTO activities (id, user_id, type, title, description, metadata, related_id, channel_id, created_at)
+            INSERT INTO activities (id, user_id, activity_type, title, description, metadata, referenced_entity_id, channel_id, created_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() - INTERVAL '${faker.number.int({min: 1, max: 10})} days')
           `, [
             updateActivityId,
@@ -728,7 +733,7 @@ export class DatabaseSeeder {
         if (task.status === 'completed') {
           const completeActivityId = faker.string.uuid();
           await client.query(`
-            INSERT INTO activities (id, user_id, type, title, description, metadata, related_id, channel_id, created_at)
+            INSERT INTO activities (id, user_id, activity_type, title, description, metadata, referenced_entity_id, channel_id, created_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() - INTERVAL '${faker.number.int({min: 1, max: 7})} days')
           `, [
             completeActivityId,
@@ -751,7 +756,7 @@ export class DatabaseSeeder {
       for (const channel of this.channels) {
         const createActivityId = faker.string.uuid();
         await client.query(`
-          INSERT INTO activities (id, user_id, type, title, description, metadata, related_id, channel_id, created_at)
+          INSERT INTO activities (id, user_id, activity_type, title, description, metadata, referenced_entity_id, channel_id, created_at)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() - INTERVAL '${faker.number.int({min: 5, max: 25})} days')
         `, [
           createActivityId,
@@ -798,12 +803,12 @@ export class DatabaseSeeder {
         const announcer = this.users.find(u => u.role === 'ceo')?.id || faker.helpers.arrayElement(this.users.filter(u => u.role === 'manager')).id;
         
         await client.query(`
-          INSERT INTO activities (id, user_id, type, title, description, metadata, created_at)
+          INSERT INTO activities (id, user_id, activity_type, title, description, metadata, created_at)
           VALUES ($1, $2, $3, $4, $5, $6, NOW() - INTERVAL '${faker.number.int({min: 1, max: 14})} days')
         `, [
           announcementId,
           announcer,
-          'announcement',
+          'ai_response',
           announcement.title,
           announcement.description,
           JSON.stringify(announcement.metadata),

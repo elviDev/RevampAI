@@ -131,7 +131,7 @@ class APIServer {
       },
     });
 
-    // Static file serving
+    // Static file servingeb printenv
     await this.app.register(import('@fastify/static'), {
       root: require('path').join(__dirname, '..', 'public'),
       prefix: '/public/',

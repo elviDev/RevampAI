@@ -9,7 +9,7 @@ import {
   formatErrorResponse,
   createErrorContext,
 } from '@utils/errors';
-import { authenticate, authorize, authorizeRoles, requireChannelAccess, apiRateLimit } from '@auth/middleware';
+import { authenticate, authorize, authorizeRoles, requireChannelAccess, apiRateLimit, requireManagerOrCEO } from '@auth/middleware';
 import { cacheService } from '../../services/CacheService';
 import { Cacheable, CacheEvict, CacheKeyUtils } from '@utils/cache-decorators';
 import { WebSocketUtils } from '@websocket/utils';
@@ -439,7 +439,7 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
   }>(
     '/tasks',
     {
-      preHandler: [authenticate, authorize('tasks:create')],
+      preHandler: [authenticate, requireManagerOrCEO],
       schema: {
         body: CreateTaskSchema,
         response: {
@@ -453,6 +453,35 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
     },
     async (request, reply) => {
       try {
+        // If channel_id is specified, verify user has access to the channel
+        if (request.body.channel_id) {
+          const hasChannelAccess = await channelRepository.canUserAccess(
+            request.body.channel_id,
+            request.user!.userId,
+            request.user!.role
+          );
+
+          if (!hasChannelAccess) {
+            throw new AuthorizationError('You do not have access to create tasks in this channel');
+          }
+        }
+
+        // Check if manager is trying to assign other managers
+        if (request.user!.role === 'manager' && request.body.assigned_to) {
+          const { userRepository } = await import('@db/index');
+          const usersToAssign = await Promise.all(
+            request.body.assigned_to.map(userId => userRepository.findById(userId))
+          );
+          
+          const otherManagersBeingAssigned = usersToAssign.filter(user => 
+            user && user.role === 'manager' && user.id !== request.user!.userId
+          );
+          
+          if (otherManagersBeingAssigned.length > 0) {
+            throw new AuthorizationError('Managers cannot assign other managers to tasks');
+          }
+        }
+
         const taskData = {
           ...request.body,
           created_by: request.user!.userId,
@@ -587,7 +616,7 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
   }>(
     '/tasks/:id',
     {
-      preHandler: [authenticate, authorize('tasks:update')],
+      preHandler: [authenticate],
       schema: {
         params: Type.Object({
           id: UUIDSchema,
@@ -707,7 +736,7 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
   }>(
     '/tasks/:id/status',
     {
-      preHandler: [authenticate, authorize('tasks:update')],
+      preHandler: [authenticate],
       schema: {
         params: Type.Object({
           id: UUIDSchema,
@@ -859,7 +888,7 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
   }>(
     '/tasks/:id/assign',
     {
-      preHandler: [authenticate, authorize('tasks:assign')],
+      preHandler: [authenticate],
       schema: {
         params: Type.Object({
           id: UUIDSchema,
@@ -876,6 +905,23 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
       try {
         const { id } = request.params;
         const { user_ids } = request.body;
+
+        // Check if current user is a manager trying to assign other managers
+        if (request.user!.role === 'manager') {
+          // Get user roles for the users being assigned
+          const { userRepository } = await import('@db/index');
+          const usersToAssign = await Promise.all(
+            user_ids.map(userId => userRepository.findById(userId))
+          );
+          
+          const otherManagersBeingAssigned = usersToAssign.filter(user => 
+            user && user.role === 'manager' && user.id !== request.user!.userId
+          );
+          
+          if (otherManagersBeingAssigned.length > 0) {
+            throw new AuthorizationError('Managers cannot assign other managers to tasks');
+          }
+        }
 
         const success = await taskRepository.assignUsers(id, user_ids, request.user!.userId);
         if (!success) {
@@ -1004,7 +1050,7 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
   }>(
     '/tasks/:id',
     {
-      preHandler: [authenticate, authorize('tasks:delete')],
+      preHandler: [authenticate, requireManagerOrCEO],
       schema: {
         params: Type.Object({
           id: UUIDSchema,
@@ -1265,7 +1311,7 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
   }>(
     '/channels/:channelId/tasks',
     {
-      preHandler: [authenticate, requireChannelAccess, authorize('tasks:create')],
+      preHandler: [authenticate, requireChannelAccess],
       schema: {
         params: Type.Object({
           channelId: UUIDSchema,
@@ -1283,6 +1329,23 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
     async (request, reply) => {
       try {
         const { channelId } = request.params;
+        
+        // Check if manager is trying to assign other managers
+        if (request.user!.role === 'manager' && request.body.assigned_to) {
+          const { userRepository } = await import('@db/index');
+          const usersToAssign = await Promise.all(
+            request.body.assigned_to.map(userId => userRepository.findById(userId))
+          );
+          
+          const otherManagersBeingAssigned = usersToAssign.filter(user => 
+            user && user.role === 'manager' && user.id !== request.user!.userId
+          );
+          
+          if (otherManagersBeingAssigned.length > 0) {
+            throw new AuthorizationError('Managers cannot assign other managers to tasks');
+          }
+        }
+        
         const taskData = {
           ...request.body,
           channel_id: channelId,
@@ -1436,7 +1499,7 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
   }>(
     '/tasks/:id/channel',
     {
-      preHandler: [authenticate, authorize('tasks:update')],
+      preHandler: [authenticate],
       schema: {
         params: Type.Object({
           id: UUIDSchema,

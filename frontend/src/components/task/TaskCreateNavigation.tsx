@@ -67,6 +67,9 @@ export const TaskCreateNavigation: React.FC<TaskCreateNavigationProps> = ({
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 className="rounded-2xl py-3 px-5 flex-row items-center justify-center"
+                style={{
+                  borderRadius: 12,
+                }}
               >
                 {isLoading ? (
                   <ActivityIndicator size="small" color="white" />

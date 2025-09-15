@@ -108,7 +108,7 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
     title: '',
     description: '',
     priority: 'medium',
-    category: 'development',
+    category: 'general',
     startDate: new Date(),
     endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     estimatedHours: '',
@@ -212,53 +212,59 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
         }
       }
       
-      // Fallback to mock data if no channel members or channel not specified
-      if (channelMembers.length === 0) {
-        console.log('🎭 Using fallback user data');
-        channelMembers = [
+      // Fallback: populate with known channel members if API failed
+      if (channelMembers.length === 0 && targetChannelId) {
+        console.log('🎭 Using fallback data with known channel members');
+        
+        // Create realistic fallback data based on known member IDs from database
+        const knownMembers = [
           {
-            id: user?.id || 'current-user',
-            name: user?.name || 'You',
-            avatar: user?.name ? user.name.split(' ').map(n => n[0]).join('') : 'YU',
-            role: 'Current User',
-            email: user?.email || 'you@company.com',
+            id: 'c451ca2a-8c73-49d9-8206-cee979936dd0',
+            name: 'Waka Jeje',
+            avatar: 'WJ',
+            role: 'Manager',
+            email: 'wakajeje@gmail.com',
           },
           {
-            id: 'user-1',
-            name: 'John Smith',
-            avatar: 'JS',
-            role: 'Frontend Developer',
-            email: 'john.smith@company.com',
+            id: '6b11255d-6f4f-4066-8c34-7adbd2f8eb16',
+            name: 'Alexander Mitchell',
+            avatar: 'AM',
+            role: 'CEO',
+            email: 'alex.ceo@company.com',
           },
           {
-            id: 'user-2',
-            name: 'Sarah Wilson',
-            avatar: 'SW',
-            role: 'UI/UX Designer',
-            email: 'sarah.wilson@company.com',
-          },
-          {
-            id: 'user-3',
-            name: 'Mike Johnson',
-            avatar: 'MJ',
-            role: 'Product Manager',
-            email: 'mike.johnson@company.com',
-          },
-          {
-            id: 'user-4',
-            name: 'Alex Chen',
-            avatar: 'AC',
-            role: 'Backend Developer',
-            email: 'alex.chen@company.com',
-          },
-          {
-            id: 'user-5',
-            name: 'Emily Davis',
-            avatar: 'ED',
-            role: 'DevOps Engineer',
-            email: 'emily.davis@company.com',
+            id: '30b9b15a-dc38-4443-b7db-33f9a30ef2ba',
+            name: 'Sarah Chen',
+            avatar: 'SC',
+            role: 'Manager',
+            email: 'sarah.manager@seeddata.com',
           },
         ];
+        
+        // Filter to include current user and other realistic members
+        channelMembers = knownMembers;
+        
+        // Ensure current user is included if not already
+        const currentUserExists = channelMembers.some(member => member.id === user?.id);
+        if (!currentUserExists && user?.id) {
+          channelMembers.unshift({
+            id: user.id,
+            name: user.name || 'You',
+            avatar: user.name ? user.name.split(' ').map(n => n[0]).join('') : 'YU',
+            role: 'Current User',
+            email: user.email || 'you@company.com',
+          });
+        }
+      } else if (channelMembers.length === 0) {
+        // If no channel selected, show empty state or basic fallback
+        console.log('🎭 No channel selected - using basic fallback');
+        channelMembers = user?.id ? [{
+          id: user.id,
+          name: user.name || 'You',
+          avatar: user.name ? user.name.split(' ').map(n => n[0]).join('') : 'YU',
+          role: 'Current User',
+          email: user.email || 'you@company.com',
+        }] : [];
       }
       
       // Ensure current user is in the list if not already
@@ -541,7 +547,7 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
           if (isEditMode && route.params?.taskId) {
             navigation.replace('TaskDetail', { taskId: route.params.taskId });
           } else {
-            navigation.navigate('TasksScreen');
+            navigation.navigate('Tabs', { screen: 'Tasks' });
           }
         }, 1500);
       } else {
@@ -572,7 +578,7 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
       title: '',
       description: '',
       priority: 'medium',
-      category: 'development',
+      category: 'general',
       startDate: new Date(),
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       estimatedHours: '',

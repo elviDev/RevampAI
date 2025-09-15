@@ -52,29 +52,11 @@ export const TaskChannelSelection: React.FC<TaskChannelSelectionProps> = ({
       const { channelService } = await import('../../services/api/channelService');
       
       try {
-        // Try to get user's own channels first
-        const response = await channelService.getUserChannels(currentUserId);
+        // Get user's accessible channels (backend already filters by user role and access)
+        const userChannels = await channelService.getUserChannels();
         
-        if (response.success && response.data && response.data.length > 0) {
-          console.log('✅ User channels loaded:', response.data.length, 'channels');
-          setChannels(response.data);
-        } else {
-          // If no user-specific channels, try general channels but filter by ownership
-          console.log('🔄 Trying to get all channels and filter by ownership...');
-          const allChannelsResponse = await channelService.getChannels();
-          
-          if (allChannelsResponse.success && allChannelsResponse.data) {
-            // Filter channels to only show those created by current user
-            const userChannels = allChannelsResponse.data.filter((channel: any) => 
-              channel.created_by === currentUserId || channel.owned_by === currentUserId
-            );
-            
-            console.log('✅ Filtered user channels:', userChannels.length, 'out of', allChannelsResponse.data.length);
-            setChannels(userChannels);
-          } else {
-            throw new Error('Failed to load channels');
-          }
-        }
+        console.log('✅ User channels loaded:', userChannels.length, 'channels');
+        setChannels(userChannels);
       } catch (apiError) {
         console.warn('🎭 API failed, using mock data for user channels:', apiError);
         

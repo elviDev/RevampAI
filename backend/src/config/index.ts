@@ -8,7 +8,7 @@ loadEnv();
 const envSchema = z.object({
   // Application
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.union([z.string().transform(Number), z.number()]).default(3000),
+  PORT: z.union([z.string().transform(Number), z.number()]).default(8080),
   HOST: z.string().default('0.0.0.0'),
 
   // Database

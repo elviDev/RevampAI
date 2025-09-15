@@ -63,15 +63,11 @@ export const TaskBasicInfo: React.FC<TaskBasicInfoProps> = ({
   const priorityOptions: TaskPriority[] = ['low', 'medium', 'high', 'urgent', 'critical'];
   
   const categoryOptions: TaskCategory[] = [
-    'development',
-    'design',
-    'marketing',
-    'operations',
-    'research',
     'general',
     'project',
     'maintenance',
     'emergency',
+    'research',
     'approval',
   ];
 

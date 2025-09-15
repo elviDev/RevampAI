@@ -114,6 +114,15 @@ export const TasksScreen: React.FC = () => {
     loadTasks();
   }, [activeFilters]);
 
+  // Reload tasks when screen is focused (e.g., after creating a new task)
+  useEffect(() => {
+    if (isFocused) {
+      console.log('TasksScreen: Screen focused, reloading tasks...');
+      loadTasks();
+      loadTaskStats();
+    }
+  }, [isFocused]);
+
   // Handle search with debounce
   useEffect(() => {
     const timeoutId = setTimeout(() => {

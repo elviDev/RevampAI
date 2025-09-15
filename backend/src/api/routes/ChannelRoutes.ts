@@ -16,6 +16,7 @@ import {
   authorizeRoles,
   requireChannelAccess,
   apiRateLimit,
+  requireManagerOrCEO,
 } from '@auth/middleware';
 import { cacheService } from '../../services/CacheService';
 import { Cacheable, CacheEvict, CacheKeyUtils } from '@utils/cache-decorators';
@@ -193,8 +194,8 @@ export const registerChannelRoutes = async (fastify: FastifyInstance) => {
         if (parent_id) filters.parent_id = parent_id;
         if (search) filters.search = search;
 
-        // Get channels user has access to
-        const result = await channelRepository.findUserChannels(request.user!.userId);
+        // Get channels user has access to based on their role
+        const result = await channelRepository.findUserChannels(request.user!.userId, request.user!.role);
 
         loggers.api.info(
           {
@@ -427,7 +428,7 @@ export const registerChannelRoutes = async (fastify: FastifyInstance) => {
   }>(
     '/channels',
     {
-      preHandler: [authenticate, authorize('channels:create')],
+      preHandler: [authenticate, requireManagerOrCEO],
       schema: {
         body: CreateChannelSchema,
         response: {

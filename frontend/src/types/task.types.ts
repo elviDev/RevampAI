@@ -1,7 +1,7 @@
 export type TaskStatus = 'pending' | 'in_progress' | 'review' | 'completed' | 'cancelled' | 'on_hold';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent' | 'critical';
 export type TaskType = 'general' | 'project' | 'maintenance' | 'emergency' | 'research' | 'approval';
-export type TaskCategory = 'development' | 'design' | 'marketing' | 'operations' | 'research' | 'general' | 'project' | 'maintenance' | 'emergency' | 'approval';
+export type TaskCategory = 'general' | 'project' | 'maintenance' | 'emergency' | 'research' | 'approval';
 
 export interface TaskAssignee {
   id: string;

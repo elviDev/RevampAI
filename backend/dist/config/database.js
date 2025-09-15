@@ -18,8 +18,8 @@ const poolConfig = {
     idleTimeoutMillis: 30000, // 30 seconds idle timeout
     connectionTimeoutMillis: 10000, // 10 seconds connection timeout
     maxUses: 7500, // Maximum uses per connection before recycling
-    // SSL configuration for production
-    ssl: index_1.config.app.isProduction
+    // SSL configuration for production and AWS RDS
+    ssl: index_1.config.app.isProduction || index_1.config.database.url.includes('rds.amazonaws.com')
         ? {
             rejectUnauthorized: false, // Configure properly in production
         }
