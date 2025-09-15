@@ -130,9 +130,9 @@ declare class ChannelRepository extends BaseRepository<Channel> {
         }>;
     }>;
     /**
-     * Find channels for a specific user
+     * Find channels for a specific user based on their role and permissions
      */
-    findUserChannels(userId: string, client?: DatabaseClient): Promise<Channel[]>;
+    findUserChannels(userId: string, userRole?: string, client?: DatabaseClient): Promise<Channel[]>;
     /**
      * Get channel members
      */

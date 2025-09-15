@@ -342,7 +342,7 @@ class NotificationService {
       case 'task_assigned':
         if (data.taskId) {
           // Navigate to task detail screen
-          // navigationRef.navigate('TaskDetail', { taskId: data.taskId });
+          // navigationRef.navigate('TaskDetailScreen', { taskId: data.taskId });
         }
         break;
         

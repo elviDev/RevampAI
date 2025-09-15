@@ -411,18 +411,52 @@ class ChannelRepository extends BaseRepository_1.default {
         };
     }
     /**
-     * Find channels for a specific user
+     * Find channels for a specific user based on their role and permissions
      */
-    async findUserChannels(userId, client) {
-        const sql = `
-      SELECT ${this.selectFields.join(', ')}
-      FROM ${this.tableName}
-      WHERE $1 = ANY(members) 
-      AND deleted_at IS NULL 
-      AND status = 'active'
-      ORDER BY last_activity_at DESC
-    `;
-        const result = await this.executeRawQuery(sql, [userId], client);
+    async findUserChannels(userId, userRole, client) {
+        let sql;
+        let params;
+        if (userRole === 'ceo') {
+            // CEO can see all active channels
+            sql = `
+        SELECT ${this.selectFields.join(', ')}
+        FROM ${this.tableName}
+        WHERE deleted_at IS NULL 
+        AND status = 'active'
+        ORDER BY last_activity_at DESC
+      `;
+            params = [];
+        }
+        else if (userRole === 'manager') {
+            // Managers can see channels they created OR channels where they are moderators OR channels they are members of
+            sql = `
+        SELECT ${this.selectFields.join(', ')}
+        FROM ${this.tableName}
+        WHERE (
+          created_by = $1 OR 
+          owned_by = $1 OR 
+          $1 = ANY(moderators) OR 
+          $1 = ANY(members)
+        )
+        AND deleted_at IS NULL 
+        AND status = 'active'
+        ORDER BY last_activity_at DESC
+      `;
+            params = [userId];
+        }
+        else {
+            // Staff can only see channels where they are members
+            sql = `
+        SELECT ${this.selectFields.join(', ')}
+        FROM ${this.tableName}
+        WHERE $1 = ANY(members) 
+        AND deleted_at IS NULL 
+        AND status = 'active'
+        ORDER BY last_activity_at DESC
+      `;
+            params = [userId];
+        }
+        const result = await this.executeRawQuery(sql, params, client);
         return result.rows;
     }
     /**

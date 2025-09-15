@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { taskRepository, channelRepository, activityRepository } from '@db/index';
+import { taskRepository, channelRepository, activityRepository, commentRepository } from '@db/index';
 import { logger, loggers } from '@utils/logger';
 import {
   ValidationError,
@@ -150,6 +150,48 @@ class TaskService {
 }
 
 const taskService = new TaskService();
+
+// Comment Schemas
+const CreateCommentSchema = Type.Object({
+  content: Type.String({ minLength: 1, maxLength: 2000 }),
+  parent_comment_id: Type.Optional(UUIDSchema),
+});
+
+const UpdateCommentSchema = Type.Object({
+  content: Type.String({ minLength: 1, maxLength: 2000 }),
+});
+
+const CommentResponseSchema = Type.Object({
+  id: UUIDSchema,
+  task_id: UUIDSchema,
+  author_id: UUIDSchema,
+  author_name: Type.Optional(Type.String()),
+  author_email: Type.Optional(Type.String()),
+  content: Type.String(),
+  is_edited: Type.Boolean(),
+  edited_at: Type.Optional(Type.String({ format: 'date-time' })),
+  edited_by: Type.Optional(UUIDSchema),
+  edited_by_name: Type.Optional(Type.String()),
+  parent_comment_id: Type.Optional(UUIDSchema),
+  created_at: Type.String({ format: 'date-time' }),
+  updated_at: Type.String({ format: 'date-time' }),
+});
+
+const CommentsListResponseSchema = Type.Object({
+  success: Type.Boolean(),
+  data: Type.Array(CommentResponseSchema),
+  total: Type.Integer(),
+  limit: Type.Integer(),
+  offset: Type.Integer(),
+  hasMore: Type.Boolean(),
+  timestamp: Type.String({ format: 'date-time' }),
+});
+
+const CommentSuccessResponseSchema = Type.Object({
+  success: Type.Boolean(),
+  data: CommentResponseSchema,
+  timestamp: Type.String({ format: 'date-time' }),
+});
 
 /**
  * Register task routes
@@ -1715,6 +1757,333 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
             code: 'SERVER_ERROR',
           },
         });
+      }
+    }
+  );
+
+  /**
+   * GET /tasks/:taskId/comments - Get task comments
+   */
+  fastify.get<{
+    Params: { taskId: string };
+    Querystring: {
+      limit?: number;
+      offset?: number;
+      includeReplies?: boolean;
+    };
+  }>(
+    '/tasks/:taskId/comments',
+    {
+      preHandler: [authenticate, apiRateLimit],
+      schema: {
+        params: Type.Object({
+          taskId: UUIDSchema,
+        }),
+        querystring: Type.Object({
+          limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 50 })),
+          offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
+          includeReplies: Type.Optional(Type.Boolean({ default: true })),
+        }),
+        response: {
+          200: CommentsListResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { taskId } = request.params;
+        const { limit = 50, offset = 0, includeReplies = true } = request.query;
+
+        const result = await commentRepository.getTaskComments(taskId, {
+          limit,
+          offset,
+          includeReplies,
+        });
+
+        loggers.api.info(
+          {
+            userId: request.user?.userId,
+            taskId,
+            commentsCount: result.data.length,
+            total: result.total,
+          },
+          'Task comments retrieved'
+        );
+
+        reply.send({
+          success: true,
+          ...result,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        const context = createErrorContext({
+          ...(request.user && {
+            user: {
+              id: request.user.userId,
+              email: request.user.email ?? '',
+              role: request.user.role,
+            },
+          }),
+          ip: request.ip,
+          method: request.method,
+          url: request.url,
+          headers: request.headers as Record<string, string | string[] | undefined>,
+        });
+        loggers.api.error({ error, context }, 'Failed to retrieve task comments');
+
+        if (error instanceof NotFoundError) {
+          reply.code(404).send(formatErrorResponse(error, context));
+        } else if (error instanceof ValidationError) {
+          reply.code(400).send(formatErrorResponse(error, context));
+        } else {
+          reply.code(500).send({
+            error: {
+              message: 'Failed to retrieve task comments',
+              code: 'SERVER_ERROR',
+            },
+          });
+        }
+      }
+    }
+  );
+
+  /**
+   * POST /tasks/:taskId/comments - Add comment to task
+   */
+  fastify.post<{
+    Params: { taskId: string };
+    Body: { content: string; parent_comment_id?: string };
+  }>(
+    '/tasks/:taskId/comments',
+    {
+      preHandler: [authenticate, apiRateLimit],
+      schema: {
+        params: Type.Object({
+          taskId: UUIDSchema,
+        }),
+        body: CreateCommentSchema,
+        response: {
+          201: CommentSuccessResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { taskId } = request.params;
+        const { content, parent_comment_id } = request.body;
+
+        const comment = await commentRepository.createComment({
+          task_id: taskId,
+          author_id: request.user!.userId,
+          content,
+          parent_comment_id,
+        });
+
+        // Get the comment with author information
+        const commentWithDetails = await commentRepository.getCommentById(comment.id);
+
+        loggers.api.info(
+          {
+            userId: request.user?.userId,
+            taskId,
+            commentId: comment.id,
+          },
+          'Comment created successfully'
+        );
+
+        reply.code(201).send({
+          success: true,
+          data: commentWithDetails,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        const context = createErrorContext({
+          ...(request.user && {
+            user: {
+              id: request.user.userId,
+              email: request.user.email ?? '',
+              role: request.user.role,
+            },
+          }),
+          ip: request.ip,
+          method: request.method,
+          url: request.url,
+          headers: request.headers as Record<string, string | string[] | undefined>,
+        });
+        loggers.api.error({ error, context }, 'Failed to create comment');
+
+        if (error instanceof NotFoundError) {
+          reply.code(404).send(formatErrorResponse(error, context));
+        } else if (error instanceof ValidationError) {
+          reply.code(400).send(formatErrorResponse(error, context));
+        } else {
+          reply.code(500).send({
+            error: {
+              message: 'Failed to create comment',
+              code: 'SERVER_ERROR',
+            },
+          });
+        }
+      }
+    }
+  );
+
+  /**
+   * PUT /tasks/:taskId/comments/:commentId - Update comment
+   */
+  fastify.put<{
+    Params: { taskId: string; commentId: string };
+    Body: { content: string };
+  }>(
+    '/tasks/:taskId/comments/:commentId',
+    {
+      preHandler: [authenticate, apiRateLimit],
+      schema: {
+        params: Type.Object({
+          taskId: UUIDSchema,
+          commentId: UUIDSchema,
+        }),
+        body: UpdateCommentSchema,
+        response: {
+          200: CommentSuccessResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { taskId, commentId } = request.params;
+        const { content } = request.body;
+
+        const updatedComment = await commentRepository.updateComment(
+          commentId,
+          { content },
+          request.user!.userId,
+          request.user!.role
+        );
+
+        loggers.api.info(
+          {
+            userId: request.user?.userId,
+            taskId,
+            commentId,
+          },
+          'Comment updated successfully'
+        );
+
+        reply.send({
+          success: true,
+          data: updatedComment,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        const context = createErrorContext({
+          ...(request.user && {
+            user: {
+              id: request.user.userId,
+              email: request.user.email ?? '',
+              role: request.user.role,
+            },
+          }),
+          ip: request.ip,
+          method: request.method,
+          url: request.url,
+          headers: request.headers as Record<string, string | string[] | undefined>,
+        });
+        loggers.api.error({ error, context }, 'Failed to update comment');
+
+        if (error instanceof NotFoundError) {
+          reply.code(404).send(formatErrorResponse(error, context));
+        } else if (error instanceof ValidationError) {
+          reply.code(400).send(formatErrorResponse(error, context));
+        } else if (error instanceof AuthorizationError) {
+          reply.code(403).send(formatErrorResponse(error, context));
+        } else {
+          reply.code(500).send({
+            error: {
+              message: 'Failed to update comment',
+              code: 'SERVER_ERROR',
+            },
+          });
+        }
+      }
+    }
+  );
+
+  /**
+   * DELETE /tasks/:taskId/comments/:commentId - Delete comment
+   */
+  fastify.delete<{
+    Params: { taskId: string; commentId: string };
+  }>(
+    '/tasks/:taskId/comments/:commentId',
+    {
+      preHandler: [authenticate, apiRateLimit],
+      schema: {
+        params: Type.Object({
+          taskId: UUIDSchema,
+          commentId: UUIDSchema,
+        }),
+        response: {
+          200: SuccessResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { taskId, commentId } = request.params;
+
+        const deleted = await commentRepository.deleteComment(
+          commentId,
+          request.user!.userId,
+          request.user!.role
+        );
+
+        if (!deleted) {
+          throw new NotFoundError('Comment not found or already deleted');
+        }
+
+        loggers.api.info(
+          {
+            userId: request.user?.userId,
+            taskId,
+            commentId,
+          },
+          'Comment deleted successfully'
+        );
+
+        reply.send({
+          success: true,
+          message: 'Comment deleted successfully',
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        const context = createErrorContext({
+          ...(request.user && {
+            user: {
+              id: request.user.userId,
+              email: request.user.email ?? '',
+              role: request.user.role,
+            },
+          }),
+          ip: request.ip,
+          method: request.method,
+          url: request.url,
+          headers: request.headers as Record<string, string | string[] | undefined>,
+        });
+        loggers.api.error({ error, context }, 'Failed to delete comment');
+
+        if (error instanceof NotFoundError) {
+          reply.code(404).send(formatErrorResponse(error, context));
+        } else if (error instanceof AuthorizationError) {
+          reply.code(403).send(formatErrorResponse(error, context));
+        } else {
+          reply.code(500).send({
+            error: {
+              message: 'Failed to delete comment',
+              code: 'SERVER_ERROR',
+            },
+          });
+        }
       }
     }
   );

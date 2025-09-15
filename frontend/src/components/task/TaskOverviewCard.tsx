@@ -30,7 +30,7 @@ export const TaskOverviewCard: React.FC<TaskOverviewCardProps> = ({
       }}
     >
       {/* Category Badge */}
-      <View className="flex-row items-center mb-4">
+      <View className="flex-row items-center justify-between mb-4">
         <View className="bg-blue-50 px-3 py-1.5 rounded-full flex-row items-center">
           <MaterialIcon 
             name={TaskUtils.getCategoryIcon(task.category!)} 
@@ -39,6 +39,14 @@ export const TaskOverviewCard: React.FC<TaskOverviewCardProps> = ({
           />
           <Text className="text-blue-700 text-xs font-semibold ml-1.5 uppercase tracking-wide">
             {task.category}
+          </Text>
+        </View>
+        
+        {/* Creation Info */}
+        <View className="flex-row items-center">
+          <MaterialIcon name="schedule" size={12} color="#9CA3AF" />
+          <Text className="text-gray-400 text-xs ml-1">
+            {TaskUtils.formatTimeAgo(task.createdAt)}
           </Text>
         </View>
       </View>

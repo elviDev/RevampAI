@@ -183,8 +183,8 @@ const registerChannelRoutes = async (fastify) => {
                 filters.parent_id = parent_id;
             if (search)
                 filters.search = search;
-            // Get channels user has access to
-            const result = await index_1.channelRepository.findUserChannels(request.user.userId);
+            // Get channels user has access to based on their role
+            const result = await index_1.channelRepository.findUserChannels(request.user.userId, request.user.role);
             logger_1.loggers.api.info({
                 userId: request.user?.userId,
                 filters,
@@ -384,7 +384,7 @@ const registerChannelRoutes = async (fastify) => {
      * POST /channels - Create new channel
      */
     fastify.post('/channels', {
-        preHandler: [middleware_1.authenticate, (0, middleware_1.authorize)('channels:create')],
+        preHandler: [middleware_1.authenticate, middleware_1.requireManagerOrCEO],
         schema: {
             body: CreateChannelSchema,
             response: {

@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'rea
 import Animated, { FadeInDown, BounceIn } from 'react-native-reanimated';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import IonIcon from 'react-native-vector-icons/Ionicons';
+import { channelService } from '../../services/api/channelService';
 
 interface Channel {
   id: string;
@@ -48,8 +49,6 @@ export const TaskChannelSelection: React.FC<TaskChannelSelectionProps> = ({
       
       console.log('🔄 Loading channels for user:', currentUserId);
       
-      // Import channelService dynamically to avoid circular dependencies
-      const { channelService } = await import('../../services/api/channelService');
       
       try {
         // Get user's accessible channels (backend already filters by user role and access)

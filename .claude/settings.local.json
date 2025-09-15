@@ -2,7 +2,16 @@
   "permissions": {
     "allow": [
       "Bash(PGPASSWORD=ThisSuperColl psql:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(npx react-native start:*)",
+      "Bash(pkill:*)",
+      "Bash(npx react-native:*)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)",
+      "Bash(grep:*)",
+      "Bash(npm run:*)",
+      "Bash(PORT=3001 npm run dev)"
     ],
     "deny": [],
     "ask": [],

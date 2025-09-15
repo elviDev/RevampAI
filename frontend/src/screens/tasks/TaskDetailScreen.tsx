@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   StatusBar,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, withSpring } from 'react-native-reanimated';
@@ -29,6 +30,7 @@ import { TaskTagsCard } from '../../components/task/TaskTagsCard';
 import { TaskStatusModal } from '../../components/task/TaskStatusModal';
 import { TaskPriorityModal } from '../../components/task/TaskPriorityModal';
 import { TaskDetailFloatingActions } from '../../components/task/TaskDetailFloatingActions';
+import { TaskDetailsCard } from '../../components/task/TaskDetailsCard';
 import { TaskUtils } from '../../components/task/TaskUtils';
 
 interface TaskDetailScreenProps {
@@ -50,6 +52,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   // State
   const [task, setTask] = useState<Task | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -70,9 +73,25 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     loadTaskDetails();
   }, [taskId]);
 
-  const loadTaskDetails = async () => {
+  // Add focus listener to refresh data when screen comes back into focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (task) {
+        // Refresh task data when screen comes back into focus
+        loadTaskDetails();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, task]);
+
+  const loadTaskDetails = async (isRefresh = false) => {
     try {
-      setIsLoading(true);
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
       setError(null);
       
       const response = await taskService.getTask(taskId);
@@ -110,14 +129,39 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           actualHours: taskData.actual_hours || 0,
           progress: taskData.progress_percentage || 0,
           category: taskData.task_type || 'general',
-          subtasks: [], // TODO: Implement subtasks from backend
-          comments: [], // TODO: Implement comments from backend
-          attachments: [], // TODO: Implement attachments from backend
-          dependencies: [], // TODO: Implement dependencies from backend
+          // Initialize empty arrays - these should be populated from separate API calls in a real app
+          subtasks: [],
+          comments: [], // Will be loaded separately
+          attachments: [],
+          dependencies: [],
+          // Preserve all backend fields
+          task_type: taskData.task_type,
+          business_value: taskData.business_value,
+          complexity: taskData.complexity,
+          voice_created: taskData.voice_created || false,
+          voice_instructions: taskData.voice_instructions,
+          labels: taskData.labels || {},
+          custom_fields: taskData.custom_fields || {},
+          start_date: taskData.start_date ? new Date(taskData.start_date) : undefined,
+          owned_by: taskData.owned_by,
           watchers: taskData.watchers || [],
         };
         
         setTask(transformedTask);
+        
+        // Load comments separately
+        try {
+          const commentsResponse = await taskService.getTaskComments(taskId);
+          if (commentsResponse.success) {
+            setTask(prevTask => prevTask ? {
+              ...prevTask,
+              comments: commentsResponse.data
+            } : prevTask);
+          }
+        } catch (commentsError) {
+          console.warn('Failed to load comments:', commentsError);
+          // Don't show error to user, just log it - comments are not critical
+        }
       } else {
         setError('Failed to load task details');
       }
@@ -126,7 +170,12 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
       setError(err instanceof Error ? err.message : 'Failed to load task');
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
+  };
+
+  const handleRefresh = () => {
+    loadTaskDetails(true);
   };
 
   // Action handlers
@@ -201,32 +250,157 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
     }
   };
 
-  const addComment = () => {
-    if (newComment.trim() && task) {
-      const comment: TaskComment = {
-        id: Date.now().toString(),
+  // Check if current user can comment on this task
+  const canComment = () => {
+    if (!user || !task) return false;
+    
+    // CEO can comment on any task
+    if (user.role?.toLowerCase() === 'ceo') return true;
+    
+    // Check if user is assigned to the task
+    const isAssigned = task.assignees?.some(assignee => assignee.id === user.id) || false;
+    const isReporter = task.reporter?.id === user.id;
+    const isOwner = task.owned_by === user.id;
+    
+    return isAssigned || isReporter || isOwner;
+  };
+
+  const addComment = async () => {
+    if (newComment.trim() && task && user && canComment()) {
+      const tempComment: TaskComment = {
+        id: `temp-${Date.now()}`,
         content: newComment.trim(),
         author: {
-          id: 'current_user',
-          name: 'You',
-          avatar: 'Y',
-          role: 'Developer',
-          email: 'you@company.com',
+          id: user.id,
+          name: user.name || 'You',
+          avatar: user.name?.charAt(0).toUpperCase() || 'U',
+          role: user.role || 'Team Member',
+          email: user.email || 'user@company.com',
         },
         timestamp: new Date(),
       };
 
-      setTask({
+      // Optimistically update UI
+      const updatedTask = {
         ...task,
-        comments: [...task.comments, comment],
+        comments: [...task.comments, tempComment],
         updatedAt: new Date(),
-      });
+      };
+      setTask(updatedTask);
       setNewComment('');
 
       // Animation feedback
       commentInputScale.value = withSpring(0.95, {}, () => {
         commentInputScale.value = withSpring(1);
       });
+
+      try {
+        // Make API call to persist comment
+        const response = await taskService.addComment(task.id, tempComment.content);
+        if (response.success) {
+          // Replace temporary comment with real one
+          setTask({
+            ...updatedTask,
+            comments: updatedTask.comments.map(c => 
+              c.id === tempComment.id ? response.data : c
+            ),
+          });
+        } else {
+          throw new Error('Failed to add comment');
+        }
+      } catch (error) {
+        console.error('Error adding comment:', error);
+        // Revert optimistic update on error
+        setTask({
+          ...task,
+          comments: task.comments.filter(c => c.id !== tempComment.id),
+        });
+        showErrorAlert('Error', 'Failed to add comment');
+      }
+    }
+  };
+
+  const editComment = async (commentId: string, newContent: string) => {
+    if (task && user) {
+      // Store original comment for potential rollback
+      const originalComment = task.comments.find(c => c.id === commentId);
+      if (!originalComment) return;
+
+      // Optimistically update UI
+      const updatedComments = task.comments.map(comment =>
+        comment.id === commentId
+          ? { ...comment, content: newContent, timestamp: new Date() }
+          : comment
+      );
+
+      const updatedTask = {
+        ...task,
+        comments: updatedComments,
+        updatedAt: new Date(),
+      };
+      setTask(updatedTask);
+
+      try {
+        // Make API call to persist edit
+        const response = await taskService.updateComment(task.id, commentId, newContent);
+        if (response.success) {
+          // Update with server response
+          setTask({
+            ...updatedTask,
+            comments: updatedTask.comments.map(c => 
+              c.id === commentId ? response.data : c
+            ),
+          });
+        } else {
+          throw new Error('Failed to edit comment');
+        }
+      } catch (error) {
+        console.error('Error editing comment:', error);
+        // Revert on error
+        setTask({
+          ...task,
+          comments: task.comments.map(c => 
+            c.id === commentId ? originalComment : c
+          ),
+        });
+        showErrorAlert('Error', 'Failed to edit comment');
+      }
+    }
+  };
+
+  const deleteComment = async (commentId: string) => {
+    if (task) {
+      // Store original comment for potential rollback
+      const originalComment = task.comments.find(c => c.id === commentId);
+      if (!originalComment) return;
+
+      // Optimistically update UI
+      const updatedComments = task.comments.filter(comment => comment.id !== commentId);
+      const updatedTask = {
+        ...task,
+        comments: updatedComments,
+        updatedAt: new Date(),
+      };
+      setTask(updatedTask);
+
+      try {
+        // Make API call to persist deletion
+        const response = await taskService.deleteComment(task.id, commentId);
+        if (!response.success) {
+          throw new Error('Failed to delete comment');
+        }
+        // Keep the optimistic update since deletion was successful
+      } catch (error) {
+        console.error('Error deleting comment:', error);
+        // Revert on error - restore the deleted comment
+        setTask({
+          ...task,
+          comments: [...task.comments, originalComment].sort((a, b) => 
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          ),
+        });
+        showErrorAlert('Error', 'Failed to delete comment');
+      }
     }
   };
 
@@ -310,6 +484,14 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
         showsVerticalScrollIndicator={false} 
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#3B82F6"
+            colors={['#3B82F6']}
+          />
+        }
       >
         {/* Task Overview Card */}
         <TaskOverviewCard
@@ -318,13 +500,18 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           onPriorityPress={() => setShowPriorityModal(true)}
         />
 
-        {/* Progress Card */}
-        <TaskProgressCard
-          task={task}
-          formatDueDate={TaskUtils.formatDueDate}
-        />
+        {/* Progress & Additional Details Row */}
+        <View className="mx-6 mt-4">
+          <TaskProgressCard
+            task={task}
+            formatDueDate={TaskUtils.formatDueDate}
+          />
+        </View>
 
-        {/* Assignees Card */}
+        {/* Additional Task Details */}
+        <TaskDetailsCard task={task} />
+
+        {/* People Section */}
         <TaskAssigneesCard
           assignees={task.assignees!}
           onAddAssignee={handleAddAssignee}
@@ -333,31 +520,41 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
           }}
         />
 
-        {/* Subtasks Card */}
-        <TaskSubtasksCard
-          subtasks={task.subtasks}
-          onToggleSubtask={toggleSubtask}
-          onAddSubtask={() => {
-            // Future: implement add subtask functionality
-            console.log('Add subtask');
-          }}
-        />
+        {/* Task Management Section */}
+        {task.subtasks && task.subtasks.length > 0 && (
+          <TaskSubtasksCard
+            subtasks={task.subtasks}
+            onToggleSubtask={toggleSubtask}
+            onAddSubtask={() => {
+              // Future: implement add subtask functionality
+              console.log('Add subtask');
+            }}
+          />
+        )}
 
-        {/* Comments Card */}
+        {/* Tags */}
+        <TaskTagsCard tags={task.tags} />
+
+        {/* Comments Section */}
         <TaskCommentsCard
           comments={task.comments}
           newComment={newComment}
           onNewCommentChange={setNewComment}
           onAddComment={addComment}
+          onEditComment={editComment}
+          onDeleteComment={deleteComment}
           formatTimeAgo={TaskUtils.formatTimeAgo}
           commentInputScale={commentInputScale}
           onAuthorPress={(authorId) => {
             navigation.navigate('UserProfile', { userId: authorId });
           }}
+          currentUserId={user?.id || ''}
+          currentUserRole={user?.role}
+          canComment={canComment()}
         />
 
-        {/* Tags Card */}
-        <TaskTagsCard tags={task.tags} />
+        {/* Bottom Spacing */}
+        <View className="h-4" />
       </ScrollView>
 
       {/* Floating Action Buttons */}

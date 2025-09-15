@@ -1,5 +1,5 @@
 import { ApiResponse } from '../../types/api';
-import { Task, CreateTaskData, TaskFilter, TaskStats, TaskSort, TaskStatus, TaskPriority, TaskAssignee } from '../../types/task.types';
+import { Task, CreateTaskData, TaskFilter, TaskStats, TaskSort, TaskStatus, TaskPriority, TaskAssignee, TaskComment } from '../../types/task.types';
 import { authService } from './authService';
 import { tokenManager } from '../tokenManager';
 
@@ -51,6 +51,27 @@ export interface BulkTaskUpdateRequest {
 export interface TaskExportRequest {
   format: 'json' | 'csv' | 'excel';
   filters?: TaskFilter;
+}
+
+export interface CommentCreateRequest {
+  content: string;
+  taskId: string;
+}
+
+export interface CommentUpdateRequest {
+  content: string;
+}
+
+export interface CommentResponse {
+  success: boolean;
+  data: TaskComment;
+  timestamp: string;
+}
+
+export interface CommentsListResponse {
+  success: boolean;
+  data: TaskComment[];
+  timestamp: string;
 }
 
 export interface TaskServiceError extends Error {
@@ -729,6 +750,74 @@ class TaskService {
     }
   }
   
+  /**
+   * Get task comments
+   */
+  async getTaskComments(taskId: string): Promise<CommentsListResponse> {
+    if (!taskId?.trim()) {
+      throw new Error('Task ID is required');
+    }
+    
+    return this.makeRequest<CommentsListResponse>(`/tasks/${taskId}/comments`);
+  }
+
+  /**
+   * Add comment to task
+   */
+  async addComment(taskId: string, content: string): Promise<CommentResponse> {
+    if (!taskId?.trim()) {
+      throw new Error('Task ID is required');
+    }
+    
+    if (!content?.trim()) {
+      throw new Error('Comment content is required');
+    }
+    
+    return this.makeRequest<CommentResponse>(`/tasks/${taskId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content: content.trim() }),
+    });
+  }
+
+  /**
+   * Update comment
+   */
+  async updateComment(taskId: string, commentId: string, content: string): Promise<CommentResponse> {
+    if (!taskId?.trim()) {
+      throw new Error('Task ID is required');
+    }
+    
+    if (!commentId?.trim()) {
+      throw new Error('Comment ID is required');
+    }
+    
+    if (!content?.trim()) {
+      throw new Error('Comment content is required');
+    }
+    
+    return this.makeRequest<CommentResponse>(`/tasks/${taskId}/comments/${commentId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ content: content.trim() }),
+    });
+  }
+
+  /**
+   * Delete comment
+   */
+  async deleteComment(taskId: string, commentId: string): Promise<ApiResponse<string>> {
+    if (!taskId?.trim()) {
+      throw new Error('Task ID is required');
+    }
+    
+    if (!commentId?.trim()) {
+      throw new Error('Comment ID is required');
+    }
+    
+    return this.makeRequest<ApiResponse<string>>(`/tasks/${taskId}/comments/${commentId}`, {
+      method: 'DELETE',
+    });
+  }
+
   /**
    * Escape CSV field content
    */

@@ -1,10 +1,43 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
@@ -152,6 +185,43 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TaskService.prototype, "createTask", null);
 const taskService = new TaskService();
+// Comment Schemas
+const CreateCommentSchema = typebox_1.Type.Object({
+    content: typebox_1.Type.String({ minLength: 1, maxLength: 2000 }),
+    parent_comment_id: typebox_1.Type.Optional(validation_1.UUIDSchema),
+});
+const UpdateCommentSchema = typebox_1.Type.Object({
+    content: typebox_1.Type.String({ minLength: 1, maxLength: 2000 }),
+});
+const CommentResponseSchema = typebox_1.Type.Object({
+    id: validation_1.UUIDSchema,
+    task_id: validation_1.UUIDSchema,
+    author_id: validation_1.UUIDSchema,
+    author_name: typebox_1.Type.Optional(typebox_1.Type.String()),
+    author_email: typebox_1.Type.Optional(typebox_1.Type.String()),
+    content: typebox_1.Type.String(),
+    is_edited: typebox_1.Type.Boolean(),
+    edited_at: typebox_1.Type.Optional(typebox_1.Type.String({ format: 'date-time' })),
+    edited_by: typebox_1.Type.Optional(validation_1.UUIDSchema),
+    edited_by_name: typebox_1.Type.Optional(typebox_1.Type.String()),
+    parent_comment_id: typebox_1.Type.Optional(validation_1.UUIDSchema),
+    created_at: typebox_1.Type.String({ format: 'date-time' }),
+    updated_at: typebox_1.Type.String({ format: 'date-time' }),
+});
+const CommentsListResponseSchema = typebox_1.Type.Object({
+    success: typebox_1.Type.Boolean(),
+    data: typebox_1.Type.Array(CommentResponseSchema),
+    total: typebox_1.Type.Integer(),
+    limit: typebox_1.Type.Integer(),
+    offset: typebox_1.Type.Integer(),
+    hasMore: typebox_1.Type.Boolean(),
+    timestamp: typebox_1.Type.String({ format: 'date-time' }),
+});
+const CommentSuccessResponseSchema = typebox_1.Type.Object({
+    success: typebox_1.Type.Boolean(),
+    data: CommentResponseSchema,
+    timestamp: typebox_1.Type.String({ format: 'date-time' }),
+});
 /**
  * Register task routes
  */
@@ -379,7 +449,7 @@ const registerTaskRoutes = async (fastify) => {
      * POST /tasks - Create new task
      */
     fastify.post('/tasks', {
-        preHandler: [middleware_1.authenticate, (0, middleware_1.authorize)('tasks:create')],
+        preHandler: [middleware_1.authenticate, middleware_1.requireManagerOrCEO],
         schema: {
             body: CreateTaskSchema,
             response: {
@@ -392,6 +462,22 @@ const registerTaskRoutes = async (fastify) => {
         },
     }, async (request, reply) => {
         try {
+            // If channel_id is specified, verify user has access to the channel
+            if (request.body.channel_id) {
+                const hasChannelAccess = await index_1.channelRepository.canUserAccess(request.body.channel_id, request.user.userId, request.user.role);
+                if (!hasChannelAccess) {
+                    throw new errors_1.AuthorizationError('You do not have access to create tasks in this channel');
+                }
+            }
+            // Check if manager is trying to assign other managers
+            if (request.user.role === 'manager' && request.body.assigned_to) {
+                const { userRepository } = await Promise.resolve().then(() => __importStar(require('@db/index')));
+                const usersToAssign = await Promise.all(request.body.assigned_to.map(userId => userRepository.findById(userId)));
+                const otherManagersBeingAssigned = usersToAssign.filter(user => user && user.role === 'manager' && user.id !== request.user.userId);
+                if (otherManagersBeingAssigned.length > 0) {
+                    throw new errors_1.AuthorizationError('Managers cannot assign other managers to tasks');
+                }
+            }
             const taskData = {
                 ...request.body,
                 created_by: request.user.userId,
@@ -511,7 +597,7 @@ const registerTaskRoutes = async (fastify) => {
      * PUT /tasks/:id - Update task
      */
     fastify.put('/tasks/:id', {
-        preHandler: [middleware_1.authenticate, (0, middleware_1.authorize)('tasks:update')],
+        preHandler: [middleware_1.authenticate],
         schema: {
             params: typebox_1.Type.Object({
                 id: validation_1.UUIDSchema,
@@ -614,7 +700,7 @@ const registerTaskRoutes = async (fastify) => {
      * PATCH /tasks/:id/status - Update task status
      */
     fastify.patch('/tasks/:id/status', {
-        preHandler: [middleware_1.authenticate, (0, middleware_1.authorize)('tasks:update')],
+        preHandler: [middleware_1.authenticate],
         schema: {
             params: typebox_1.Type.Object({
                 id: validation_1.UUIDSchema,
@@ -750,7 +836,7 @@ const registerTaskRoutes = async (fastify) => {
      * POST /tasks/:id/assign - Assign users to task
      */
     fastify.post('/tasks/:id/assign', {
-        preHandler: [middleware_1.authenticate, (0, middleware_1.authorize)('tasks:assign')],
+        preHandler: [middleware_1.authenticate],
         schema: {
             params: typebox_1.Type.Object({
                 id: validation_1.UUIDSchema,
@@ -766,6 +852,16 @@ const registerTaskRoutes = async (fastify) => {
         try {
             const { id } = request.params;
             const { user_ids } = request.body;
+            // Check if current user is a manager trying to assign other managers
+            if (request.user.role === 'manager') {
+                // Get user roles for the users being assigned
+                const { userRepository } = await Promise.resolve().then(() => __importStar(require('@db/index')));
+                const usersToAssign = await Promise.all(user_ids.map(userId => userRepository.findById(userId)));
+                const otherManagersBeingAssigned = usersToAssign.filter(user => user && user.role === 'manager' && user.id !== request.user.userId);
+                if (otherManagersBeingAssigned.length > 0) {
+                    throw new errors_1.AuthorizationError('Managers cannot assign other managers to tasks');
+                }
+            }
             const success = await index_1.taskRepository.assignUsers(id, user_ids, request.user.userId);
             if (!success) {
                 throw new errors_1.ValidationError('Failed to assign users to task', []);
@@ -879,7 +975,7 @@ const registerTaskRoutes = async (fastify) => {
      * DELETE /tasks/:id - Delete task
      */
     fastify.delete('/tasks/:id', {
-        preHandler: [middleware_1.authenticate, (0, middleware_1.authorize)('tasks:delete')],
+        preHandler: [middleware_1.authenticate, middleware_1.requireManagerOrCEO],
         schema: {
             params: typebox_1.Type.Object({
                 id: validation_1.UUIDSchema,
@@ -1091,7 +1187,7 @@ const registerTaskRoutes = async (fastify) => {
      * POST /channels/:channelId/tasks - Create task in channel
      */
     fastify.post('/channels/:channelId/tasks', {
-        preHandler: [middleware_1.authenticate, middleware_1.requireChannelAccess, (0, middleware_1.authorize)('tasks:create')],
+        preHandler: [middleware_1.authenticate, middleware_1.requireChannelAccess],
         schema: {
             params: typebox_1.Type.Object({
                 channelId: validation_1.UUIDSchema,
@@ -1108,6 +1204,15 @@ const registerTaskRoutes = async (fastify) => {
     }, async (request, reply) => {
         try {
             const { channelId } = request.params;
+            // Check if manager is trying to assign other managers
+            if (request.user.role === 'manager' && request.body.assigned_to) {
+                const { userRepository } = await Promise.resolve().then(() => __importStar(require('@db/index')));
+                const usersToAssign = await Promise.all(request.body.assigned_to.map(userId => userRepository.findById(userId)));
+                const otherManagersBeingAssigned = usersToAssign.filter(user => user && user.role === 'manager' && user.id !== request.user.userId);
+                if (otherManagersBeingAssigned.length > 0) {
+                    throw new errors_1.AuthorizationError('Managers cannot assign other managers to tasks');
+                }
+            }
             const taskData = {
                 ...request.body,
                 channel_id: channelId,
@@ -1246,7 +1351,7 @@ const registerTaskRoutes = async (fastify) => {
      * PUT /tasks/:id/channel - Link task to channel
      */
     fastify.put('/tasks/:id/channel', {
-        preHandler: [middleware_1.authenticate, (0, middleware_1.authorize)('tasks:update')],
+        preHandler: [middleware_1.authenticate],
         schema: {
             params: typebox_1.Type.Object({
                 id: validation_1.UUIDSchema,
@@ -1431,6 +1536,272 @@ const registerTaskRoutes = async (fastify) => {
                     code: 'SERVER_ERROR',
                 },
             });
+        }
+    });
+    /**
+     * GET /tasks/:taskId/comments - Get task comments
+     */
+    fastify.get('/tasks/:taskId/comments', {
+        preHandler: [middleware_1.authenticate, (0, middleware_1.apiRateLimit)()],
+        schema: {
+            params: typebox_1.Type.Object({
+                taskId: validation_1.UUIDSchema,
+            }),
+            querystring: typebox_1.Type.Object({
+                limit: typebox_1.Type.Optional(typebox_1.Type.Integer({ minimum: 1, maximum: 100, default: 50 })),
+                offset: typebox_1.Type.Optional(typebox_1.Type.Integer({ minimum: 0, default: 0 })),
+                includeReplies: typebox_1.Type.Optional(typebox_1.Type.Boolean({ default: true })),
+            }),
+            response: {
+                200: CommentsListResponseSchema,
+            },
+        },
+    }, async (request, reply) => {
+        try {
+            const { taskId } = request.params;
+            const { limit = 50, offset = 0, includeReplies = true } = request.query;
+            const result = await index_1.commentRepository.getTaskComments(taskId, {
+                limit,
+                offset,
+                includeReplies,
+            });
+            logger_1.loggers.api.info({
+                userId: request.user?.userId,
+                taskId,
+                commentsCount: result.data.length,
+                total: result.total,
+            }, 'Task comments retrieved');
+            reply.send({
+                success: true,
+                ...result,
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            const context = (0, errors_1.createErrorContext)({
+                ...(request.user && {
+                    user: {
+                        id: request.user.userId,
+                        email: request.user.email ?? '',
+                        role: request.user.role,
+                    },
+                }),
+                ip: request.ip,
+                method: request.method,
+                url: request.url,
+                headers: request.headers,
+            });
+            logger_1.loggers.api.error({ error, context }, 'Failed to retrieve task comments');
+            if (error instanceof errors_1.NotFoundError) {
+                reply.code(404).send((0, errors_1.formatErrorResponse)(error, context));
+            }
+            else if (error instanceof errors_1.ValidationError) {
+                reply.code(400).send((0, errors_1.formatErrorResponse)(error, context));
+            }
+            else {
+                reply.code(500).send({
+                    error: {
+                        message: 'Failed to retrieve task comments',
+                        code: 'SERVER_ERROR',
+                    },
+                });
+            }
+        }
+    });
+    /**
+     * POST /tasks/:taskId/comments - Add comment to task
+     */
+    fastify.post('/tasks/:taskId/comments', {
+        preHandler: [middleware_1.authenticate, (0, middleware_1.apiRateLimit)()],
+        schema: {
+            params: typebox_1.Type.Object({
+                taskId: validation_1.UUIDSchema,
+            }),
+            body: CreateCommentSchema,
+            response: {
+                201: CommentSuccessResponseSchema,
+            },
+        },
+    }, async (request, reply) => {
+        try {
+            const { taskId } = request.params;
+            const { content, parent_comment_id } = request.body;
+            const comment = await index_1.commentRepository.createComment({
+                task_id: taskId,
+                author_id: request.user.userId,
+                content,
+                parent_comment_id,
+            });
+            // Get the comment with author information
+            const commentWithDetails = await index_1.commentRepository.getCommentById(comment.id);
+            logger_1.loggers.api.info({
+                userId: request.user?.userId,
+                taskId,
+                commentId: comment.id,
+            }, 'Comment created successfully');
+            reply.code(201).send({
+                success: true,
+                data: commentWithDetails,
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            const context = (0, errors_1.createErrorContext)({
+                ...(request.user && {
+                    user: {
+                        id: request.user.userId,
+                        email: request.user.email ?? '',
+                        role: request.user.role,
+                    },
+                }),
+                ip: request.ip,
+                method: request.method,
+                url: request.url,
+                headers: request.headers,
+            });
+            logger_1.loggers.api.error({ error, context }, 'Failed to create comment');
+            if (error instanceof errors_1.NotFoundError) {
+                reply.code(404).send((0, errors_1.formatErrorResponse)(error, context));
+            }
+            else if (error instanceof errors_1.ValidationError) {
+                reply.code(400).send((0, errors_1.formatErrorResponse)(error, context));
+            }
+            else {
+                reply.code(500).send({
+                    error: {
+                        message: 'Failed to create comment',
+                        code: 'SERVER_ERROR',
+                    },
+                });
+            }
+        }
+    });
+    /**
+     * PUT /tasks/:taskId/comments/:commentId - Update comment
+     */
+    fastify.put('/tasks/:taskId/comments/:commentId', {
+        preHandler: [middleware_1.authenticate, (0, middleware_1.apiRateLimit)()],
+        schema: {
+            params: typebox_1.Type.Object({
+                taskId: validation_1.UUIDSchema,
+                commentId: validation_1.UUIDSchema,
+            }),
+            body: UpdateCommentSchema,
+            response: {
+                200: CommentSuccessResponseSchema,
+            },
+        },
+    }, async (request, reply) => {
+        try {
+            const { taskId, commentId } = request.params;
+            const { content } = request.body;
+            const updatedComment = await index_1.commentRepository.updateComment(commentId, { content }, request.user.userId, request.user.role);
+            logger_1.loggers.api.info({
+                userId: request.user?.userId,
+                taskId,
+                commentId,
+            }, 'Comment updated successfully');
+            reply.send({
+                success: true,
+                data: updatedComment,
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            const context = (0, errors_1.createErrorContext)({
+                ...(request.user && {
+                    user: {
+                        id: request.user.userId,
+                        email: request.user.email ?? '',
+                        role: request.user.role,
+                    },
+                }),
+                ip: request.ip,
+                method: request.method,
+                url: request.url,
+                headers: request.headers,
+            });
+            logger_1.loggers.api.error({ error, context }, 'Failed to update comment');
+            if (error instanceof errors_1.NotFoundError) {
+                reply.code(404).send((0, errors_1.formatErrorResponse)(error, context));
+            }
+            else if (error instanceof errors_1.ValidationError) {
+                reply.code(400).send((0, errors_1.formatErrorResponse)(error, context));
+            }
+            else if (error instanceof errors_1.AuthorizationError) {
+                reply.code(403).send((0, errors_1.formatErrorResponse)(error, context));
+            }
+            else {
+                reply.code(500).send({
+                    error: {
+                        message: 'Failed to update comment',
+                        code: 'SERVER_ERROR',
+                    },
+                });
+            }
+        }
+    });
+    /**
+     * DELETE /tasks/:taskId/comments/:commentId - Delete comment
+     */
+    fastify.delete('/tasks/:taskId/comments/:commentId', {
+        preHandler: [middleware_1.authenticate, (0, middleware_1.apiRateLimit)()],
+        schema: {
+            params: typebox_1.Type.Object({
+                taskId: validation_1.UUIDSchema,
+                commentId: validation_1.UUIDSchema,
+            }),
+            response: {
+                200: validation_1.SuccessResponseSchema,
+            },
+        },
+    }, async (request, reply) => {
+        try {
+            const { taskId, commentId } = request.params;
+            const deleted = await index_1.commentRepository.deleteComment(commentId, request.user.userId, request.user.role);
+            if (!deleted) {
+                throw new errors_1.NotFoundError('Comment not found or already deleted');
+            }
+            logger_1.loggers.api.info({
+                userId: request.user?.userId,
+                taskId,
+                commentId,
+            }, 'Comment deleted successfully');
+            reply.send({
+                success: true,
+                message: 'Comment deleted successfully',
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            const context = (0, errors_1.createErrorContext)({
+                ...(request.user && {
+                    user: {
+                        id: request.user.userId,
+                        email: request.user.email ?? '',
+                        role: request.user.role,
+                    },
+                }),
+                ip: request.ip,
+                method: request.method,
+                url: request.url,
+                headers: request.headers,
+            });
+            logger_1.loggers.api.error({ error, context }, 'Failed to delete comment');
+            if (error instanceof errors_1.NotFoundError) {
+                reply.code(404).send((0, errors_1.formatErrorResponse)(error, context));
+            }
+            else if (error instanceof errors_1.AuthorizationError) {
+                reply.code(403).send((0, errors_1.formatErrorResponse)(error, context));
+            }
+            else {
+                reply.code(500).send({
+                    error: {
+                        message: 'Failed to delete comment',
+                        code: 'SERVER_ERROR',
+                    },
+                });
+            }
         }
     });
 };

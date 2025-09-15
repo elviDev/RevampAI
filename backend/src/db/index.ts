@@ -29,6 +29,9 @@ export type { FileEntity, CreateFileData, FileWithUploader } from './FileReposit
 export { default as AnnouncementRepository } from './AnnouncementRepository';
 export type { Announcement, CreateAnnouncementData, UpdateAnnouncementData, AnnouncementFilter } from './AnnouncementRepository';
 
+export { CommentRepository } from './CommentRepository';
+export type { TaskComment, CreateCommentData, UpdateCommentData, CommentFilterOptions } from './CommentRepository';
+
 // Repository instances for dependency injection
 import UserRepository from './UserRepository';
 import ChannelRepository from './ChannelRepository';
@@ -37,6 +40,7 @@ import MessageRepository from './MessageRepository';
 import ActivityRepository from './ActivityRepository';
 import FileRepository from './FileRepository';
 import AnnouncementRepository from './AnnouncementRepository';
+import { CommentRepository } from './CommentRepository';
 
 // Create singleton instances
 export const userRepository = new UserRepository();
@@ -46,6 +50,7 @@ export const messageRepository = new MessageRepository();
 export const activityRepository = new ActivityRepository();
 export const fileRepository = new FileRepository();
 export const announcementRepository = new AnnouncementRepository();
+export const commentRepository = new CommentRepository();
 
 // Repository collection for easy access
 export const repositories = {
@@ -56,6 +61,7 @@ export const repositories = {
   activities: activityRepository,
   files: fileRepository,
   announcements: announcementRepository,
+  comments: commentRepository,
 } as const;
 
 export type Repositories = typeof repositories;

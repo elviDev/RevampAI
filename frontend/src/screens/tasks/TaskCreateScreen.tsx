@@ -28,6 +28,7 @@ import { TaskRequirements } from '../../components/task/TaskRequirements';
 import { TaskTeamAssignment } from '../../components/task/TaskTeamAssignment';
 import { TaskChannelSelection } from '../../components/task/TaskChannelSelection';
 import { taskService } from '../../services/api/taskService';
+import { channelService } from '../../services/api/channelService';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../contexts/ToastContext';
 import { CreateTaskData } from '../../types/task.types';
@@ -191,8 +192,6 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
         try {
           console.log('🔄 Loading channel members for channel:', targetChannelId);
           
-          // Import channelService here to avoid circular dependencies
-          const { channelService } = await import('../../services/api/channelService');
           const membersResponse = await channelService.getChannelMembers(targetChannelId, { limit: 100 });
           
           if (membersResponse?.data) {
@@ -545,7 +544,7 @@ export const TaskCreateScreen: React.FC<TaskCreateScreenProps> = ({
         // Navigate after a brief delay to let user see the toast
         setTimeout(() => {
           if (isEditMode && route.params?.taskId) {
-            navigation.replace('TaskDetail', { taskId: route.params.taskId });
+            navigation.replace('TaskDetailScreen', { taskId: route.params.taskId });
           } else {
             navigation.navigate('Tabs', { screen: 'Tasks' });
           }
