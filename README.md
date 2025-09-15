@@ -1,143 +1,92 @@
-This is a full-stack [**React Native**](https://reactnative.dev) application with a separate backend API.
+# Backend API Server
 
-## Project Structure
+Node.js/Express backend API for the React Native application.
 
-```
-.
-├── frontend/          # React Native application
-├── backend/           # Node.js/Express API server
-├── docker-compose.*.yml
-└── package.json       # Root package.json for workspace management
-```
+## Getting Started
 
-# Getting Started
+### Prerequisites
+- Node.js 18+ 
+- PostgreSQL database
+- Redis (optional, for caching)
 
-Test User Credentials:
+### Installation
 
-  1. CEO:
-    - Email: ceo@test.com
-    - Password: test123
-    - Role: CEO with full admin permissions
-  2. Manager:
-    - Email: manager@test.com
-    - Password: test123
-    - Role: Manager with read/write permissions
-  3. Staff:
-    - Email: staff@test.com
-    - Password: test123
-    - Role: Staff with read-only permissions
-
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
-
-## Step 1: Install Dependencies
-
-Install dependencies for both frontend and backend:
-
-```sh
-# Install all dependencies
-npm run install:all
-
-# OR install individually
-npm run install:frontend
-npm run install:backend
+1. Install dependencies:
+```bash
+npm install
 ```
 
-## Step 2: Start the Development Servers
-
-Start both the backend API and React Native Metro bundler:
-
-```sh
-# Start backend (from root)
-npm run dev:backend
-
-# Start frontend (from root)
-npm run dev:frontend
+2. Set up environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your database credentials
 ```
 
-Or you can run them individually:
-
-```sh
-# Frontend only
-cd frontend && npm start
-
-# Backend only  
-cd backend && npm run dev
+3. Run database migrations:
+```bash
+npm run db:migrate
 ```
 
-## Step 3: Build and run your app
-
-With the servers running, open a new terminal window/pane and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# From frontend directory
-cd frontend && npm run android
-
-# OR using Yarn
-cd frontend && yarn android
+4. Seed the database (optional):
+```bash
+npm run db:seed
 ```
 
-### iOS
+### Development
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
+Start the development server:
+```bash
+npm run dev
 ```
 
-Then, and every time you update your native dependencies, run:
+The API will be available at `http://localhost:3001`
 
-```sh
-bundle exec pod install
-```
+### Test User Credentials
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+1. CEO:
+   - Email: ceo@test.com
+   - Password: test123
+   - Role: CEO with full admin permissions
 
-```sh
-# Using npm
-npm run ios
+2. Manager:
+   - Email: manager@test.com
+   - Password: test123
+   - Role: Manager with read/write permissions
 
-# OR using Yarn
-yarn ios
-```
+3. Staff:
+   - Email: staff@test.com
+   - Password: test123
+   - Role: Staff with read-only permissions
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+### API Documentation
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+The API provides endpoints for:
+- Authentication (`/api/auth`)
+- User management (`/api/users`)
+- Task management (`/api/tasks`)
+- Channel/chat management (`/api/channels`)
+- Notifications (`/api/notifications`)
 
-## Step 3: Modify your app
+### Scripts
 
-Now that you have successfully run the app, let's make changes!
+- `npm run dev` - Start development server with hot reload
+- `npm run build` - Build the application
+- `npm run start` - Start production server
+- `npm test` - Run tests
+- `npm run db:migrate` - Run database migrations
+- `npm run db:seed` - Seed database with test data
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+### Deployment
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+This backend is ready for deployment to platforms like Render, Heroku, or any Node.js hosting service.
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+For Render deployment:
+1. Connect this repository
+2. Set environment variables
+3. Deploy with build command: `npm run build`
+4. Start command: `npm start`
 
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+For Elastic Beanstalk deployment:
+1. Use `eb init` to initialize
+2. Configure environment variables
+3. Deploy with `eb deploy`
