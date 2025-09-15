@@ -1,143 +1,114 @@
-This is a full-stack [**React Native**](https://reactnative.dev) application with a separate backend API.
+# React Native Frontend App
 
-## Project Structure
+React Native mobile application for task management and team collaboration.
 
-```
-.
-├── frontend/          # React Native application
-├── backend/           # Node.js/Express API server
-├── docker-compose.*.yml
-└── package.json       # Root package.json for workspace management
-```
+## Getting Started
 
-# Getting Started
+> **Note**: Make sure you have completed the [React Native - Environment Setup](https://reactnative.dev/docs/environment-setup) instructions till "Creating a new application" step, before proceeding.
 
-Test User Credentials:
+### Prerequisites
+- Node.js 18+
+- React Native development environment
+- Android Studio (for Android development)
+- Xcode (for iOS development)
 
-  1. CEO:
-    - Email: ceo@test.com
-    - Password: test123
-    - Role: CEO with full admin permissions
-  2. Manager:
-    - Email: manager@test.com
-    - Password: test123
-    - Role: Manager with read/write permissions
-  3. Staff:
-    - Email: staff@test.com
-    - Password: test123
-    - Role: Staff with read-only permissions
+### Installation
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
-
-## Step 1: Install Dependencies
-
-Install dependencies for both frontend and backend:
-
-```sh
-# Install all dependencies
-npm run install:all
-
-# OR install individually
-npm run install:frontend
-npm run install:backend
+1. Install dependencies:
+```bash
+npm install
 ```
 
-## Step 2: Start the Development Servers
-
-Start both the backend API and React Native Metro bundler:
-
-```sh
-# Start backend (from root)
-npm run dev:backend
-
-# Start frontend (from root)
-npm run dev:frontend
+2. For iOS, install CocoaPods dependencies:
+```bash
+cd ios && pod install && cd ..
 ```
 
-Or you can run them individually:
+### Development
 
-```sh
-# Frontend only
-cd frontend && npm start
-
-# Backend only  
-cd backend && npm run dev
+Start the Metro bundler:
+```bash
+npm start
 ```
 
-## Step 3: Build and run your app
-
-With the servers running, open a new terminal window/pane and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# From frontend directory
-cd frontend && npm run android
-
-# OR using Yarn
-cd frontend && yarn android
+Run on Android:
+```bash
+npm run android
 ```
 
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
+Run on iOS:
+```bash
 npm run ios
-
-# OR using Yarn
-yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+### Test User Credentials
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+1. CEO:
+   - Email: ceo@test.com
+   - Password: test123
+   - Role: CEO with full admin permissions
 
-## Step 3: Modify your app
+2. Manager:
+   - Email: manager@test.com
+   - Password: test123
+   - Role: Manager with read/write permissions
 
-Now that you have successfully run the app, let's make changes!
+3. Staff:
+   - Email: staff@test.com
+   - Password: test123
+   - Role: Staff with read-only permissions
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+### Features
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+- **Authentication**: Login/register with role-based access
+- **Task Management**: Create, assign, and track tasks
+- **Team Collaboration**: Channel-based communication
+- **Real-time Updates**: WebSocket integration for live updates
+- **Voice Integration**: Voice-to-text functionality
+- **Offline Support**: Works offline with sync when connected
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+### Project Structure
 
-## Congratulations! :tada:
+```
+src/
+├── components/        # Reusable UI components
+├── screens/          # Screen components
+├── navigation/       # Navigation setup
+├── services/         # API and service integrations
+├── store/           # Redux store and slices
+├── types/           # TypeScript type definitions
+├── utils/           # Utility functions
+└── assets/          # Images and static assets
+```
 
-You've successfully run and modified your React Native App. :partying_face:
+### Scripts
 
-### Now what?
+- `npm start` - Start Metro bundler
+- `npm run android` - Run on Android emulator/device
+- `npm run ios` - Run on iOS simulator/device
+- `npm test` - Run tests
+- `npm run lint` - Run ESLint
+- `npm run build` - Build for production
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+### Building APK
 
-# Troubleshooting
+To build an APK for distribution:
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+1. Generate a signed APK:
+```bash
+cd android
+./gradlew assembleRelease
+```
 
-# Learn More
+2. The APK will be located at:
+```
+android/app/build/outputs/apk/release/app-release.apk
+```
 
-To learn more about React Native, take a look at the following resources:
+### Configuration
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+The app connects to the backend API. Update the API URL in `src/config/apiKeys.ts` to point to your deployed backend.
+
+### Deployment
+
+This frontend can be built into an APK for Android or submitted to the App Store for iOS. Make sure to configure the backend API URL for production before building.
