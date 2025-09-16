@@ -1,0 +1,68 @@
+services:
+  - type: web
+    name: revamp-ai-backend
+    runtime: node
+    plan: starter
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /api/v1/health/api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: HOST
+        value: 0.0.0.0
+      - key: API_PREFIX
+        value: /api
+      - key: API_VERSION
+        value: v1
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: RATE_LIMIT_MAX
+        value: 100
+      - key: BCRYPT_ROUNDS
+        value: 12
+      - key: MAX_LOGIN_ATTEMPTS
+        value: 5
+      - key: LOCKOUT_DURATION
+        value: 15m
+      - key: CACHE_TTL_SHORT
+        value: 5m
+      - key: CACHE_TTL_MEDIUM
+        value: 1h
+      - key: CACHE_TTL_LONG
+        value: 24h
+      - key: QUERY_TIMEOUT
+        value: 30s
+      - key: REQUEST_TIMEOUT
+        value: 30s
+      - key: LOG_LEVEL
+        value: info
+      - key: LOG_FORMAT
+        value: json
+      - key: SEED_DATABASE
+        value: false
+      - key: DEBUG_SQL
+        value: false
+      - key: DEBUG_WEBSOCKET
+        value: false
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      # These should be set in Render dashboard as secrets
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+
+databases:
+  - name: revamp-ai-postgres
+    databaseName: ceo_platform
+    user: ceo_user
+    plan: starter
