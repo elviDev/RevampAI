@@ -190,13 +190,13 @@ export declare const createErrorContext: (req?: {
 }) => Record<string, unknown>;
 export declare const formatErrorResponse: (error: BaseError) => {
     error: {
-        service?: string;
-        retryAfter?: number;
+        service?: string | undefined;
+        retryAfter?: number | undefined;
         validationErrors?: {
             field: string;
             message: string;
             value?: unknown;
-        }[];
+        }[] | undefined;
         name: string;
         message: string;
         code: string;

@@ -71,7 +71,7 @@ export async function registerActivityRoutes(fastify: FastifyInstance) {
         if (to_date) filters.to_date = to_date;
 
         // Get activities with user information
-        const activities = await activityRepo.findMany({
+        const activities = await activityRepo.findManyActivities({
           ...filters,
           limit,
           offset,
@@ -193,8 +193,8 @@ export async function registerActivityRoutes(fastify: FastifyInstance) {
           title,
           description,
           metadata,
-          related_id,
-          channel_id,
+          ...(related_id && { related_id }),
+          ...(channel_id && { channel_id }),
         };
 
         const activity = await activityRepo.create(activityData);
@@ -228,11 +228,15 @@ export async function registerActivityRoutes(fastify: FastifyInstance) {
         const { period = 'week', channel_id } = request.query;
         const userId = request.user!.userId;
 
-        const stats = await activityRepo.getActivityStats({
+        const statsQuery: any = {
           userId,
           period,
-          channelId: channel_id,
-        });
+        };
+        if (channel_id) {
+          statsQuery.channelId = channel_id;
+        }
+
+        const stats = await activityRepo.getActivityStats(statsQuery);
 
         reply.send({
           success: true,

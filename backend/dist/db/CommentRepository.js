@@ -19,13 +19,13 @@ class CommentRepository extends BaseRepository_1.BaseRepository {
     async createComment(commentData, client) {
         const { task_id, author_id, content, parent_comment_id } = commentData;
         if (!task_id?.trim()) {
-            throw new errors_1.ValidationError('Task ID is required');
+            throw new errors_1.ValidationError('Task ID is required', [{ field: 'task_id', message: 'Task ID is required' }]);
         }
         if (!author_id?.trim()) {
-            throw new errors_1.ValidationError('Author ID is required');
+            throw new errors_1.ValidationError('Author ID is required', [{ field: 'author_id', message: 'Author ID is required' }]);
         }
         if (!content?.trim()) {
-            throw new errors_1.ValidationError('Comment content is required');
+            throw new errors_1.ValidationError('Comment content is required', [{ field: 'content', message: 'Comment content is required' }]);
         }
         // Verify task exists and is not deleted
         const taskExists = await this.verifyTaskExists(task_id, client);
@@ -33,21 +33,19 @@ class CommentRepository extends BaseRepository_1.BaseRepository {
             throw new errors_1.NotFoundError('Task not found');
         }
         try {
-            const result = await (client || database_1.query) `
-        INSERT INTO task_comments (task_id, author_id, content, parent_comment_id)
-        VALUES (${task_id}, ${author_id}, ${content.trim()}, ${parent_comment_id || null})
-        RETURNING id, task_id, author_id, content, is_edited, edited_at, edited_by, 
-                  parent_comment_id, created_at, updated_at, version, deleted_at, deleted_by
-      `;
-            if (result.length === 0) {
+            const result = await (0, database_1.query)(`INSERT INTO task_comments (task_id, author_id, content, parent_comment_id)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, task_id, author_id, content, is_edited, edited_at, edited_by, 
+                   parent_comment_id, created_at, updated_at, version, deleted_at, deleted_by`, [task_id, author_id, content.trim(), parent_comment_id || null], client);
+            if (result.rows.length === 0) {
                 throw new errors_1.DatabaseError('Failed to create comment');
             }
             logger_1.logger.info('Comment created successfully', {
-                commentId: result[0].id,
+                commentId: result.rows[0].id,
                 taskId: task_id,
                 authorId: author_id
             });
-            return result[0];
+            return result.rows[0];
         }
         catch (error) {
             logger_1.logger.error('Error creating comment', error);
@@ -170,7 +168,7 @@ class CommentRepository extends BaseRepository_1.BaseRepository {
             throw new errors_1.ValidationError('Current user ID is required');
         }
         if (!updateData.content?.trim()) {
-            throw new errors_1.ValidationError('Comment content is required');
+            throw new errors_1.ValidationError('Comment content is required', [{ field: 'content', message: 'Comment content is required' }]);
         }
         // Get the current comment to check authorization
         const existingComment = await this.getCommentById(commentId, client);
@@ -270,7 +268,7 @@ class CommentRepository extends BaseRepository_1.BaseRepository {
      */
     async getCommentsByAuthor(authorId, options = {}, client) {
         if (!authorId?.trim()) {
-            throw new errors_1.ValidationError('Author ID is required');
+            throw new errors_1.ValidationError('Author ID is required', [{ field: 'author_id', message: 'Author ID is required' }]);
         }
         const { limit = 50, offset = 0, orderBy = 'created_at', orderDirection = 'DESC' } = options;
         try {

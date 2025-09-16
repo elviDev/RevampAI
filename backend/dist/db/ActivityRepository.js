@@ -13,7 +13,7 @@ class ActivityRepository extends BaseRepository_1.default {
      * Create new activity with validation
      */
     // Add methods needed for the API routes
-    async findMany(filters) {
+    async findManyActivities(filters) {
         let whereConditions = ['a.deleted_at IS NULL'];
         let params = [];
         let paramIndex = 1;
@@ -107,7 +107,7 @@ class ActivityRepository extends BaseRepository_1.default {
         return parseInt(result.rows[0]?.count || '0', 10);
     }
     async getUserFeed(userId, limit, offset) {
-        return this.findMany({
+        return this.findManyActivities({
             limit,
             offset,
             includeUser: true,

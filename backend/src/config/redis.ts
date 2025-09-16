@@ -42,34 +42,66 @@ class RedisManager {
     try {
       logger.info('Initializing Redis connections...');
 
-      const redisOptions: any = {
-        host: config.redis?.host || 'localhost',
-        port: config.redis?.port || 6379,
-        db: config.redis?.db || 0,
-        retryDelayOnFailover: 100,
-        maxRetriesPerRequest: 3,
-        connectTimeout: 5000,
-        lazyConnect: true,
-        keepAlive: 30000,
-      };
-      if (typeof config.redis?.password === 'string') {
-        redisOptions.password = config.redis.password;
+      // Use Redis URL if available, otherwise use individual parameters
+      let redisOptions: any;
+      
+      if (process.env.REDIS_URL && process.env.REDIS_URL !== 'redis://localhost:6379') {
+        // Use URL-based configuration (supports Redis Enterprise Cloud with TLS)
+        const redisUrl = process.env.REDIS_URL;
+        redisOptions = {
+          retryDelayOnFailover: 100,
+          maxRetriesPerRequest: 3,
+          connectTimeout: 10000, // Increased timeout for cloud services
+          lazyConnect: true,
+          keepAlive: 30000,
+          // Enable TLS if using rediss:// protocol
+          ...(redisUrl.startsWith('rediss://') && {
+            tls: {
+              rejectUnauthorized: false, // Required for Redis Enterprise Cloud
+            }
+          })
+        };
+        
+        // Create client with URL
+        this.client = new Redis(redisUrl, redisOptions);
+        logger.info(`Using Redis URL: ${redisUrl.replace(/:([^:@]*@)/, ':****@')}`);
+      } else {
+        // Use individual parameters (for local development)
+        redisOptions = {
+          host: config.redis?.host || 'localhost',
+          port: config.redis?.port || 6379,
+          db: config.redis?.db || 0,
+          retryDelayOnFailover: 100,
+          maxRetriesPerRequest: 3,
+          connectTimeout: 5000,
+          lazyConnect: true,
+          keepAlive: 30000,
+        };
+        if (typeof config.redis?.password === 'string') {
+          redisOptions.password = config.redis.password;
+        }
+        
+        // Main client for general operations
+        this.client = new Redis(redisOptions);
+        logger.info(`Using Redis host: ${redisOptions.host}:${redisOptions.port}`);
       }
 
-      // Main client for general operations
-      this.client = new Redis(redisOptions);
-
       // Subscriber for pub/sub operations
-      this.subscriber = new Redis({
-        ...redisOptions,
-        db: config.redis?.pubSubDb || 1,
-      });
-
-      // Publisher for pub/sub operations
-      this.publisher = new Redis({
-        ...redisOptions,
-        db: config.redis?.pubSubDb || 1,
-      });
+      if (process.env.REDIS_URL && process.env.REDIS_URL !== 'redis://localhost:6379') {
+        // For URL-based config, create new instances with the same URL
+        this.subscriber = new Redis(process.env.REDIS_URL, redisOptions);
+        this.publisher = new Redis(process.env.REDIS_URL, redisOptions);
+      } else {
+        // For individual parameters, use db parameter
+        this.subscriber = new Redis({
+          ...redisOptions,
+          db: config.redis?.pubSubDb || 1,
+        });
+        this.publisher = new Redis({
+          ...redisOptions,
+          db: config.redis?.pubSubDb || 1,
+        });
+      }
 
       // Setup event handlers
       this.setupEventHandlers();
