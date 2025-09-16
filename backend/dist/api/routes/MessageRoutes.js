@@ -280,7 +280,7 @@ const registerMessageRoutes = async (fastify) => {
                     user_id: message.user_id,
                     user_name: request.user.name,
                     user_email: request.user.email,
-                    user_avatar: request.user.avatar_url,
+                    user_avatar: undefined, // Avatar not available in token payload
                     user_role: request.user.role,
                     content: message.content,
                     message_type: message.message_type,
@@ -322,7 +322,7 @@ const registerMessageRoutes = async (fastify) => {
                         user_id: message.user_id,
                         user_name: request.user.name,
                         user_email: request.user.email,
-                        user_avatar: request.user.avatar_url,
+                        user_avatar: undefined, // Avatar not available in token payload
                         user_role: request.user.role,
                         content: message.content,
                         message_type: message.message_type,

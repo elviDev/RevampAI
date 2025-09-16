@@ -16,3 +16,8 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .env.local
 .env.development.local
 
+
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml

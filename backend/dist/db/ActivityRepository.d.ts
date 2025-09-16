@@ -40,7 +40,7 @@ declare class ActivityRepository extends BaseRepository<Activity> {
     /**
      * Create new activity with validation
      */
-    findMany(filters: {
+    findManyActivities(filters: {
         type?: string[];
         channel_id?: string;
         user_id?: string;

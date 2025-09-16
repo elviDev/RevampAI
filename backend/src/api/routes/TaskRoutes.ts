@@ -539,8 +539,7 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
 
         // Create activity for task creation
         try {
-          await activityRepository.createActivity({
-            channelId: task.channel_id,
+          const activityData: any = {
             taskId: task.id,
             userId: request.user!.userId,
             activityType: 'task_created',
@@ -558,7 +557,13 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
               createdBy: request.user!.userId,
               createdByName: request.user!.name
             }
-          });
+          };
+          
+          if (task.channel_id) {
+            activityData.channelId = task.channel_id;
+          }
+
+          await activityRepository.createActivity(activityData);
         } catch (error) {
           loggers.api.warn?.({ error, taskId: task.id }, 'Failed to create task creation activity');
         }
@@ -812,8 +817,7 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
             ? `Task "${task.title}" was marked as completed`
             : `Task "${task.title}" status was updated to ${status}`;
             
-          await activityRepository.createActivity({
-            channelId: task.channel_id,
+          const activityData: any = {
             taskId: task.id,
             userId: request.user!.userId,
             activityType,
@@ -832,7 +836,13 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
               updatedBy: request.user!.userId,
               updatedByName: request.user!.name
             }
-          });
+          };
+          
+          if (task.channel_id) {
+            activityData.channelId = task.channel_id;
+          }
+
+          await activityRepository.createActivity(activityData);
         } catch (error) {
           loggers.api.warn?.({ error, taskId: id }, 'Failed to create task status update activity');
         }
@@ -978,8 +988,7 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
         if (task) {
           // Create activity for task assignment
           try {
-            await activityRepository.createActivity({
-              channelId: task.channel_id,
+            const activityData: any = {
               taskId: task.id,
               userId: request.user!.userId,
               activityType: 'task_assigned',
@@ -997,7 +1006,13 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
                 assignedByName: request.user!.name,
                 totalAssignedUsers: task.assigned_to.length
               }
-            });
+            };
+            
+            if (task.channel_id) {
+              activityData.channelId = task.channel_id;
+            }
+
+            await activityRepository.createActivity(activityData);
           } catch (error) {
             loggers.api.warn?.({ error, taskId: id }, 'Failed to create task assignment activity');
           }
@@ -1832,9 +1847,9 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
         loggers.api.error({ error, context }, 'Failed to retrieve task comments');
 
         if (error instanceof NotFoundError) {
-          reply.code(404).send(formatErrorResponse(error, context));
+          reply.code(404).send(formatErrorResponse(error));
         } else if (error instanceof ValidationError) {
-          reply.code(400).send(formatErrorResponse(error, context));
+          reply.code(400).send(formatErrorResponse(error));
         } else {
           reply.code(500).send({
             error: {
@@ -1872,12 +1887,17 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
         const { taskId } = request.params;
         const { content, parent_comment_id } = request.body;
 
-        const comment = await commentRepository.createComment({
+        const commentData: any = {
           task_id: taskId,
           author_id: request.user!.userId,
           content,
-          parent_comment_id,
-        });
+        };
+        
+        if (parent_comment_id) {
+          commentData.parent_comment_id = parent_comment_id;
+        }
+
+        const comment = await commentRepository.createComment(commentData);
 
         // Get the comment with author information
         const commentWithDetails = await commentRepository.getCommentById(comment.id);
@@ -1913,9 +1933,9 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
         loggers.api.error({ error, context }, 'Failed to create comment');
 
         if (error instanceof NotFoundError) {
-          reply.code(404).send(formatErrorResponse(error, context));
+          reply.code(404).send(formatErrorResponse(error));
         } else if (error instanceof ValidationError) {
-          reply.code(400).send(formatErrorResponse(error, context));
+          reply.code(400).send(formatErrorResponse(error));
         } else {
           reply.code(500).send({
             error: {
@@ -1992,11 +2012,11 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
         loggers.api.error({ error, context }, 'Failed to update comment');
 
         if (error instanceof NotFoundError) {
-          reply.code(404).send(formatErrorResponse(error, context));
+          reply.code(404).send(formatErrorResponse(error));
         } else if (error instanceof ValidationError) {
-          reply.code(400).send(formatErrorResponse(error, context));
+          reply.code(400).send(formatErrorResponse(error));
         } else if (error instanceof AuthorizationError) {
-          reply.code(403).send(formatErrorResponse(error, context));
+          reply.code(403).send(formatErrorResponse(error));
         } else {
           reply.code(500).send({
             error: {
@@ -2073,9 +2093,9 @@ export const registerTaskRoutes = async (fastify: FastifyInstance) => {
         loggers.api.error({ error, context }, 'Failed to delete comment');
 
         if (error instanceof NotFoundError) {
-          reply.code(404).send(formatErrorResponse(error, context));
+          reply.code(404).send(formatErrorResponse(error));
         } else if (error instanceof AuthorizationError) {
-          reply.code(403).send(formatErrorResponse(error, context));
+          reply.code(403).send(formatErrorResponse(error));
         } else {
           reply.code(500).send({
             error: {

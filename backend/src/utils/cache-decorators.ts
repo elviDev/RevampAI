@@ -364,6 +364,18 @@ export const CacheKeyUtils = {
     const filterKey = filters ? `:${JSON.stringify(filters)}` : '';
     return `search:${encodeURIComponent(query)}${filterKey}`;
   },
+
+  /**
+   * Generate key from message ID
+   */
+  messageKey: (messageId: string, suffix?: string) =>
+    `message:${messageId}${suffix ? `:${suffix}` : ''}`,
+
+  /**
+   * Generate key for channel messages
+   */
+  channelMessagesKey: (channelId: string, suffix?: string) =>
+    `channel:${channelId}:messages${suffix ? `:${suffix}` : ''}`,
 };
 
 /**

@@ -491,8 +491,7 @@ const registerTaskRoutes = async (fastify) => {
             const task = await taskService.createTask(taskData);
             // Create activity for task creation
             try {
-                await index_1.activityRepository.createActivity({
-                    channelId: task.channel_id,
+                const activityData = {
                     taskId: task.id,
                     userId: request.user.userId,
                     activityType: 'task_created',
@@ -510,7 +509,11 @@ const registerTaskRoutes = async (fastify) => {
                         createdBy: request.user.userId,
                         createdByName: request.user.name
                     }
-                });
+                };
+                if (task.channel_id) {
+                    activityData.channelId = task.channel_id;
+                }
+                await index_1.activityRepository.createActivity(activityData);
             }
             catch (error) {
                 logger_1.loggers.api.warn?.({ error, taskId: task.id }, 'Failed to create task creation activity');
@@ -730,8 +733,7 @@ const registerTaskRoutes = async (fastify) => {
                 const activityDescription = status === 'completed'
                     ? `Task "${task.title}" was marked as completed`
                     : `Task "${task.title}" status was updated to ${status}`;
-                await index_1.activityRepository.createActivity({
-                    channelId: task.channel_id,
+                const activityData = {
                     taskId: task.id,
                     userId: request.user.userId,
                     activityType,
@@ -750,7 +752,11 @@ const registerTaskRoutes = async (fastify) => {
                         updatedBy: request.user.userId,
                         updatedByName: request.user.name
                     }
-                });
+                };
+                if (task.channel_id) {
+                    activityData.channelId = task.channel_id;
+                }
+                await index_1.activityRepository.createActivity(activityData);
             }
             catch (error) {
                 logger_1.loggers.api.warn?.({ error, taskId: id }, 'Failed to create task status update activity');
@@ -873,8 +879,7 @@ const registerTaskRoutes = async (fastify) => {
             if (task) {
                 // Create activity for task assignment
                 try {
-                    await index_1.activityRepository.createActivity({
-                        channelId: task.channel_id,
+                    const activityData = {
                         taskId: task.id,
                         userId: request.user.userId,
                         activityType: 'task_assigned',
@@ -892,7 +897,11 @@ const registerTaskRoutes = async (fastify) => {
                             assignedByName: request.user.name,
                             totalAssignedUsers: task.assigned_to.length
                         }
-                    });
+                    };
+                    if (task.channel_id) {
+                        activityData.channelId = task.channel_id;
+                    }
+                    await index_1.activityRepository.createActivity(activityData);
                 }
                 catch (error) {
                     logger_1.loggers.api.warn?.({ error, taskId: id }, 'Failed to create task assignment activity');
@@ -1542,7 +1551,7 @@ const registerTaskRoutes = async (fastify) => {
      * GET /tasks/:taskId/comments - Get task comments
      */
     fastify.get('/tasks/:taskId/comments', {
-        preHandler: [middleware_1.authenticate, (0, middleware_1.apiRateLimit)()],
+        preHandler: [middleware_1.authenticate, middleware_1.apiRateLimit],
         schema: {
             params: typebox_1.Type.Object({
                 taskId: validation_1.UUIDSchema,
@@ -1593,10 +1602,10 @@ const registerTaskRoutes = async (fastify) => {
             });
             logger_1.loggers.api.error({ error, context }, 'Failed to retrieve task comments');
             if (error instanceof errors_1.NotFoundError) {
-                reply.code(404).send((0, errors_1.formatErrorResponse)(error, context));
+                reply.code(404).send((0, errors_1.formatErrorResponse)(error));
             }
             else if (error instanceof errors_1.ValidationError) {
-                reply.code(400).send((0, errors_1.formatErrorResponse)(error, context));
+                reply.code(400).send((0, errors_1.formatErrorResponse)(error));
             }
             else {
                 reply.code(500).send({
@@ -1612,7 +1621,7 @@ const registerTaskRoutes = async (fastify) => {
      * POST /tasks/:taskId/comments - Add comment to task
      */
     fastify.post('/tasks/:taskId/comments', {
-        preHandler: [middleware_1.authenticate, (0, middleware_1.apiRateLimit)()],
+        preHandler: [middleware_1.authenticate, middleware_1.apiRateLimit],
         schema: {
             params: typebox_1.Type.Object({
                 taskId: validation_1.UUIDSchema,
@@ -1626,12 +1635,15 @@ const registerTaskRoutes = async (fastify) => {
         try {
             const { taskId } = request.params;
             const { content, parent_comment_id } = request.body;
-            const comment = await index_1.commentRepository.createComment({
+            const commentData = {
                 task_id: taskId,
                 author_id: request.user.userId,
                 content,
-                parent_comment_id,
-            });
+            };
+            if (parent_comment_id) {
+                commentData.parent_comment_id = parent_comment_id;
+            }
+            const comment = await index_1.commentRepository.createComment(commentData);
             // Get the comment with author information
             const commentWithDetails = await index_1.commentRepository.getCommentById(comment.id);
             logger_1.loggers.api.info({
@@ -1661,10 +1673,10 @@ const registerTaskRoutes = async (fastify) => {
             });
             logger_1.loggers.api.error({ error, context }, 'Failed to create comment');
             if (error instanceof errors_1.NotFoundError) {
-                reply.code(404).send((0, errors_1.formatErrorResponse)(error, context));
+                reply.code(404).send((0, errors_1.formatErrorResponse)(error));
             }
             else if (error instanceof errors_1.ValidationError) {
-                reply.code(400).send((0, errors_1.formatErrorResponse)(error, context));
+                reply.code(400).send((0, errors_1.formatErrorResponse)(error));
             }
             else {
                 reply.code(500).send({
@@ -1680,7 +1692,7 @@ const registerTaskRoutes = async (fastify) => {
      * PUT /tasks/:taskId/comments/:commentId - Update comment
      */
     fastify.put('/tasks/:taskId/comments/:commentId', {
-        preHandler: [middleware_1.authenticate, (0, middleware_1.apiRateLimit)()],
+        preHandler: [middleware_1.authenticate, middleware_1.apiRateLimit],
         schema: {
             params: typebox_1.Type.Object({
                 taskId: validation_1.UUIDSchema,
@@ -1723,13 +1735,13 @@ const registerTaskRoutes = async (fastify) => {
             });
             logger_1.loggers.api.error({ error, context }, 'Failed to update comment');
             if (error instanceof errors_1.NotFoundError) {
-                reply.code(404).send((0, errors_1.formatErrorResponse)(error, context));
+                reply.code(404).send((0, errors_1.formatErrorResponse)(error));
             }
             else if (error instanceof errors_1.ValidationError) {
-                reply.code(400).send((0, errors_1.formatErrorResponse)(error, context));
+                reply.code(400).send((0, errors_1.formatErrorResponse)(error));
             }
             else if (error instanceof errors_1.AuthorizationError) {
-                reply.code(403).send((0, errors_1.formatErrorResponse)(error, context));
+                reply.code(403).send((0, errors_1.formatErrorResponse)(error));
             }
             else {
                 reply.code(500).send({
@@ -1745,7 +1757,7 @@ const registerTaskRoutes = async (fastify) => {
      * DELETE /tasks/:taskId/comments/:commentId - Delete comment
      */
     fastify.delete('/tasks/:taskId/comments/:commentId', {
-        preHandler: [middleware_1.authenticate, (0, middleware_1.apiRateLimit)()],
+        preHandler: [middleware_1.authenticate, middleware_1.apiRateLimit],
         schema: {
             params: typebox_1.Type.Object({
                 taskId: validation_1.UUIDSchema,
@@ -1789,10 +1801,10 @@ const registerTaskRoutes = async (fastify) => {
             });
             logger_1.loggers.api.error({ error, context }, 'Failed to delete comment');
             if (error instanceof errors_1.NotFoundError) {
-                reply.code(404).send((0, errors_1.formatErrorResponse)(error, context));
+                reply.code(404).send((0, errors_1.formatErrorResponse)(error));
             }
             else if (error instanceof errors_1.AuthorizationError) {
-                reply.code(403).send((0, errors_1.formatErrorResponse)(error, context));
+                reply.code(403).send((0, errors_1.formatErrorResponse)(error));
             }
             else {
                 reply.code(500).send({

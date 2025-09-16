@@ -75,13 +75,13 @@ export default class AnnouncementRepository extends BaseRepository<Announcement>
     
     // Validation
     if (!data.title?.trim()) {
-      throw new ValidationError('Title is required');
+      throw new ValidationError('Title is required', [{ field: 'title', message: 'Title is required' }]);
     }
     if (!data.content?.trim()) {
-      throw new ValidationError('Content is required');
+      throw new ValidationError('Content is required', [{ field: 'content', message: 'Content is required' }]);
     }
     if (!data.created_by) {
-      throw new ValidationError('Created by user ID is required');
+      throw new ValidationError('Created by user ID is required', [{ field: 'created_by', message: 'Created by user ID is required' }]);
     }
 
     const announcementData = {

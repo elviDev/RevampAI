@@ -586,6 +586,15 @@ class CacheService {
     delete: (key: string) => this.delete(key, { namespace: this.namespaces.sessions }),
     clear: (pattern?: string) => this.clear(pattern, { namespace: this.namespaces.sessions }),
   };
+
+  messages = {
+    get: <T>(key: string, options?: CacheOptions) =>
+      this.get<T>(key, { ...options, namespace: 'messages' }),
+    set: (key: string, value: any, options?: CacheSetOptions) =>
+      this.set(key, value, { ...options, namespace: 'messages' }),
+    delete: (key: string) => this.delete(key, { namespace: 'messages' }),
+    clear: (pattern?: string) => this.clear(pattern, { namespace: 'messages' }),
+  };
 }
 
 // Export singleton instance
