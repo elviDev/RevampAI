@@ -72,6 +72,14 @@ export declare const CacheKeyUtils: {
      * Generate search key
      */
     searchKey: (query: string, filters?: Record<string, any>) => string;
+    /**
+     * Generate key from message ID
+     */
+    messageKey: (messageId: string, suffix?: string) => string;
+    /**
+     * Generate key for channel messages
+     */
+    channelMessagesKey: (channelId: string, suffix?: string) => string;
 };
 /**
  * Cache warming utilities
@@ -120,6 +128,14 @@ declare const _default: {
          * Generate search key
          */
         searchKey: (query: string, filters?: Record<string, any>) => string;
+        /**
+         * Generate key from message ID
+         */
+        messageKey: (messageId: string, suffix?: string) => string;
+        /**
+         * Generate key for channel messages
+         */
+        channelMessagesKey: (channelId: string, suffix?: string) => string;
     };
     CacheWarmer: typeof CacheWarmer;
 };

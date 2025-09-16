@@ -11,7 +11,11 @@
       "Bash(lsof:*)",
       "Bash(grep:*)",
       "Bash(npm run:*)",
-      "Bash(PORT=3001 npm run dev)"
+      "Bash(PORT=3001 npm run dev)",
+      "Bash(npm start)",
+      "Bash(redis-cli:*)",
+      "Bash(nslookup:*)",
+      "Bash(dig:*)"
     ],
     "deny": [],
     "ask": [],

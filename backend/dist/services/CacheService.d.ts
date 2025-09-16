@@ -131,6 +131,12 @@ declare class CacheService {
         delete: (key: string) => Promise<boolean>;
         clear: (pattern?: string) => Promise<number>;
     };
+    messages: {
+        get: <T>(key: string, options?: CacheOptions) => Promise<T | null>;
+        set: (key: string, value: any, options?: CacheSetOptions) => Promise<boolean>;
+        delete: (key: string) => Promise<boolean>;
+        clear: (pattern?: string) => Promise<number>;
+    };
 }
 export declare const cacheService: CacheService;
 export default cacheService;

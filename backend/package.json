@@ -5,8 +5,9 @@
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
+    "build:prod": "npm run clean && tsc --skipLibCheck",
     "dev": "tsx watch src/server.ts",
-    "start": "node dist/server.js",
+    "start": "tsx src/server.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -77,6 +78,7 @@
     "redis": "^4.6.10",
     "socket.io": "^4.7.4",
     "stream-buffers": "^3.0.2",
+    "tsconfig-paths": "^4.2.0",
     "uuid": "^9.0.1",
     "wav": "^1.0.2",
     "winston": "^3.11.0",
@@ -106,6 +108,7 @@
     "rimraf": "^5.0.5",
     "supertest": "^6.3.3",
     "ts-jest": "^29.1.1",
+    "tsc-alias": "^1.8.16",
     "tsx": "^4.6.0",
     "typescript": "^5.2.2"
   },

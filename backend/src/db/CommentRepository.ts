@@ -58,15 +58,15 @@ export class CommentRepository extends BaseRepository<TaskComment> {
     const { task_id, author_id, content, parent_comment_id } = commentData;
 
     if (!task_id?.trim()) {
-      throw new ValidationError('Task ID is required');
+      throw new ValidationError('Task ID is required', [{ field: 'task_id', message: 'Task ID is required' }]);
     }
     
     if (!author_id?.trim()) {
-      throw new ValidationError('Author ID is required');
+      throw new ValidationError('Author ID is required', [{ field: 'author_id', message: 'Author ID is required' }]);
     }
     
     if (!content?.trim()) {
-      throw new ValidationError('Comment content is required');
+      throw new ValidationError('Comment content is required', [{ field: 'content', message: 'Comment content is required' }]);
     }
 
     // Verify task exists and is not deleted
@@ -76,24 +76,26 @@ export class CommentRepository extends BaseRepository<TaskComment> {
     }
 
     try {
-      const result = await (client || query)`
-        INSERT INTO task_comments (task_id, author_id, content, parent_comment_id)
-        VALUES (${task_id}, ${author_id}, ${content.trim()}, ${parent_comment_id || null})
-        RETURNING id, task_id, author_id, content, is_edited, edited_at, edited_by, 
-                  parent_comment_id, created_at, updated_at, version, deleted_at, deleted_by
-      `;
+      const result = await query(
+        `INSERT INTO task_comments (task_id, author_id, content, parent_comment_id)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, task_id, author_id, content, is_edited, edited_at, edited_by, 
+                   parent_comment_id, created_at, updated_at, version, deleted_at, deleted_by`,
+        [task_id, author_id, content.trim(), parent_comment_id || null],
+        client
+      );
 
-      if (result.length === 0) {
+      if (result.rows.length === 0) {
         throw new DatabaseError('Failed to create comment');
       }
 
       logger.info('Comment created successfully', { 
-        commentId: result[0].id, 
+        commentId: result.rows[0].id, 
         taskId: task_id, 
         authorId: author_id 
       });
 
-      return result[0] as TaskComment;
+      return result.rows[0] as TaskComment;
     } catch (error) {
       logger.error('Error creating comment', error);
       throw new DatabaseError('Failed to create comment');
@@ -249,7 +251,7 @@ export class CommentRepository extends BaseRepository<TaskComment> {
     }
 
     if (!updateData.content?.trim()) {
-      throw new ValidationError('Comment content is required');
+      throw new ValidationError('Comment content is required', [{ field: 'content', message: 'Comment content is required' }]);
     }
 
     // Get the current comment to check authorization
@@ -376,7 +378,7 @@ export class CommentRepository extends BaseRepository<TaskComment> {
     client?: DatabaseClient
   ): Promise<PaginatedResult<TaskComment>> {
     if (!authorId?.trim()) {
-      throw new ValidationError('Author ID is required');
+      throw new ValidationError('Author ID is required', [{ field: 'author_id', message: 'Author ID is required' }]);
     }
 
     const {

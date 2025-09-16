@@ -17,13 +17,13 @@ class AnnouncementRepository extends BaseRepository_1.BaseRepository {
         const now = new Date();
         // Validation
         if (!data.title?.trim()) {
-            throw new errors_1.ValidationError('Title is required');
+            throw new errors_1.ValidationError('Title is required', [{ field: 'title', message: 'Title is required' }]);
         }
         if (!data.content?.trim()) {
-            throw new errors_1.ValidationError('Content is required');
+            throw new errors_1.ValidationError('Content is required', [{ field: 'content', message: 'Content is required' }]);
         }
         if (!data.created_by) {
-            throw new errors_1.ValidationError('Created by user ID is required');
+            throw new errors_1.ValidationError('Created by user ID is required', [{ field: 'created_by', message: 'Created by user ID is required' }]);
         }
         const announcementData = {
             ...data,

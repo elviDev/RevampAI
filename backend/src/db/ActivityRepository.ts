@@ -64,7 +64,7 @@ class ActivityRepository extends BaseRepository<Activity> {
    * Create new activity with validation
    */
   // Add methods needed for the API routes
-  async findMany(filters: {
+  async findManyActivities(filters: {
     type?: string[];
     channel_id?: string;
     user_id?: string;
@@ -184,7 +184,7 @@ class ActivityRepository extends BaseRepository<Activity> {
   }
 
   async getUserFeed(userId: string, limit: number, offset: number): Promise<any[]> {
-    return this.findMany({
+    return this.findManyActivities({
       limit,
       offset,
       includeUser: true,

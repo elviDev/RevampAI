@@ -275,6 +275,14 @@ exports.CacheKeyUtils = {
         const filterKey = filters ? `:${JSON.stringify(filters)}` : '';
         return `search:${encodeURIComponent(query)}${filterKey}`;
     },
+    /**
+     * Generate key from message ID
+     */
+    messageKey: (messageId, suffix) => `message:${messageId}${suffix ? `:${suffix}` : ''}`,
+    /**
+     * Generate key for channel messages
+     */
+    channelMessagesKey: (channelId, suffix) => `channel:${channelId}:messages${suffix ? `:${suffix}` : ''}`,
 };
 /**
  * Cache warming utilities
